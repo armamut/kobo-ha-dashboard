@@ -4,8 +4,39 @@
 //! take a 0-100 brightness in `mxc_msp430.0/brightness` (see KOReader's
 //! device definitions); the warmth mixer lives elsewhere and is left alone.
 //! Other models fall back to a single-channel backlight if one exists.
+//!
+//! The starting level comes from Nickel's own settings when possible (as
+//! KOReader does), because reading the sysfs value back is not reliable on
+//! every model; sysfs is only the fallback.
 
 use std::path::{Path, PathBuf};
+
+const NICKEL_CONF: &str = "/mnt/onboard/.kobo/Kobo/Kobo eReader.conf";
+
+/// `FrontLightLevel` (0-100) and `FrontLightState` from Nickel's settings.
+fn nickel_light(conf: &Path) -> Option<(u32, Option<bool>)> {
+    let text = std::fs::read_to_string(conf).ok()?;
+    let mut in_power = false;
+    let (mut level, mut state) = (None, None);
+    for line in text.lines() {
+        let line = line.trim();
+        if line.starts_with('[') {
+            in_power = line == "[PowerOptions]";
+            continue;
+        }
+        if !in_power {
+            continue;
+        }
+        if let Some((key, value)) = line.split_once('=') {
+            match key.trim() {
+                "FrontLightLevel" => level = value.trim().parse::<u32>().ok(),
+                "FrontLightState" => state = Some(value.trim().eq_ignore_ascii_case("true")),
+                _ => {}
+            }
+        }
+    }
+    level.map(|l| (l.min(100), state))
+}
 
 pub struct Frontlight {
     brightness: PathBuf,
@@ -23,10 +54,10 @@ fn read_u32(path: &Path) -> Option<u32> {
 
 impl Frontlight {
     pub fn detect() -> Option<Self> {
-        Self::detect_in(Path::new("/sys/class/backlight"))
+        Self::detect_in(Path::new("/sys/class/backlight"), Path::new(NICKEL_CONF))
     }
 
-    fn detect_in(base: &Path) -> Option<Self> {
+    fn detect_in(base: &Path, nickel_conf: &Path) -> Option<Self> {
         let mut candidates = vec![base.join("mxc_msp430.0")];
         if let Ok(rd) = std::fs::read_dir(base) {
             let mut others: Vec<PathBuf> = rd
@@ -44,15 +75,40 @@ impl Frontlight {
 
         for dir in candidates {
             let brightness = dir.join("brightness");
-            let Some(current) = read_u32(&brightness) else { continue };
+            // The file only has to exist (and be writable); reading it back may not work.
+            if !brightness.exists() {
+                continue;
+            }
             let max = read_u32(&dir.join("max_brightness")).filter(|m| *m > 0).unwrap_or(100);
-            tracing::info!("Frontlight at {:?}: {}/{}", brightness, current, max);
+            let sysfs = read_u32(&brightness);
+            let nickel = nickel_light(nickel_conf);
+
+            // (current level, level to use when switching on)
+            let (current, remembered) = match nickel {
+                Some((level, state)) => {
+                    let scaled = level * max / 100;
+                    let on = state.unwrap_or(level > 0) && scaled > 0;
+                    (if on { scaled } else { 0 }, scaled)
+                }
+                None => {
+                    let v = sysfs.unwrap_or(0);
+                    (v, v)
+                }
+            };
+            tracing::info!(
+                "Frontlight at {:?}: max {}, sysfs reads {:?}, Nickel settings {:?} -> currently {}",
+                brightness,
+                max,
+                sysfs,
+                nickel,
+                current
+            );
             return Some(Self {
                 brightness,
                 max,
                 original: current,
-                // If the light was off when we started, switching it on uses 30%.
-                level: if current > 0 { current } else { (max * 3 / 10).max(1) },
+                // With no known level, switching the light on uses 30%.
+                level: if remembered > 0 { remembered } else { (max * 3 / 10).max(1) },
                 on: current > 0,
             });
         }
@@ -108,7 +164,7 @@ mod tests {
         std::fs::write(dir.join("max_brightness"), "100").unwrap();
         let level = || std::fs::read_to_string(dir.join("brightness")).unwrap().trim().to_string();
 
-        let mut light = Frontlight::detect_in(&base).expect("light found");
+        let mut light = Frontlight::detect_in(&base, &base.join("no-such.conf")).expect("light found");
         assert!(light.is_on());
         light.set_on(false);
         assert_eq!(level(), "0");
@@ -133,10 +189,51 @@ mod tests {
         let dir = base.join("mxc_msp430.0");
         std::fs::create_dir_all(&dir).unwrap();
         std::fs::write(dir.join("brightness"), "0").unwrap();
-        let mut light = Frontlight::detect_in(&base).unwrap();
+        let mut light = Frontlight::detect_in(&base, &base.join("no-such.conf")).unwrap();
         assert!(!light.is_on());
         light.set_on(true);
         assert_eq!(std::fs::read_to_string(dir.join("brightness")).unwrap().trim(), "30");
+        let _ = std::fs::remove_dir_all(&base);
+    }
+
+    #[test]
+    fn nickel_settings_win_over_sysfs() {
+        let base = std::env::temp_dir().join(format!("kobo-ha-light-nickel-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&base);
+        let dir = base.join("mxc_msp430.0");
+        std::fs::create_dir_all(&dir).unwrap();
+        // Some models read back 0 even with the light on
+        std::fs::write(dir.join("brightness"), "0").unwrap();
+        let conf = base.join("Kobo eReader.conf");
+        std::fs::write(&conf, "[Reading]\nFrontLightLevel=5\n\n[PowerOptions]\nFrontLightLevel=42\nFrontLightState=true\n").unwrap();
+
+        let mut light = Frontlight::detect_in(&base, &conf).unwrap();
+        assert!(light.is_on(), "light is on according to Nickel");
+        light.set_on(false);
+        assert_eq!(std::fs::read_to_string(dir.join("brightness")).unwrap().trim(), "0");
+        light.set_on(true);
+        assert_eq!(std::fs::read_to_string(dir.join("brightness")).unwrap().trim(), "42");
+
+        // Light toggled off in Nickel: starts off, switching on uses the saved level
+        std::fs::write(&conf, "[PowerOptions]\nFrontLightLevel=42\nFrontLightState=false\n").unwrap();
+        let mut light = Frontlight::detect_in(&base, &conf).unwrap();
+        assert!(!light.is_on());
+        light.set_on(true);
+        assert_eq!(std::fs::read_to_string(dir.join("brightness")).unwrap().trim(), "42");
+        let _ = std::fs::remove_dir_all(&base);
+    }
+
+    #[test]
+    fn unreadable_brightness_file_still_counts() {
+        let base = std::env::temp_dir().join(format!("kobo-ha-light-wo-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&base);
+        let dir = base.join("mxc_msp430.0");
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join("brightness"), "not a number").unwrap();
+        let conf = base.join("Kobo eReader.conf");
+        std::fs::write(&conf, "[PowerOptions]\nFrontLightLevel=20\n").unwrap();
+        let light = Frontlight::detect_in(&base, &conf).expect("found despite unreadable value");
+        assert!(light.is_on());
         let _ = std::fs::remove_dir_all(&base);
     }
 }

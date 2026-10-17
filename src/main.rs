@@ -246,6 +246,11 @@ async fn run_device(
     let mut light_dimmed = false;
     let mut last_activity = Instant::now();
     renderer.frontlight = light.as_ref().map(|l| l.is_on());
+    match (&light, light_timeout.is_zero()) {
+        (None, _) => tracing::info!("Frontlight: not available"),
+        (Some(_), true) => tracing::info!("Frontlight: auto-off disabled (frontlight_timeout_secs = 0)"),
+        (Some(_), false) => tracing::info!("Frontlight: auto-off after {:?} without taps", light_timeout),
+    }
 
     {
         redraw(&mut renderer, &mut canvas, &config, active_page, &ha_client).await;
