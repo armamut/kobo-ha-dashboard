@@ -1,0 +1,68 @@
+meta:
+  name: "Türkçe"
+  font: ""
+  percent: "%{value}"
+  decimal: ","
+
+date:
+  weekdays: [Pazartesi, Salı, Çarşamba, Perşembe, Cuma, Cumartesi, Pazar]
+  weekdays_short: [Pzt, Sal, Çar, Per, Cum, Cmt, Paz]
+  months: [Ocak, Şubat, Mart, Nisan, Mayıs, Haziran, Temmuz, Ağustos, Eylül, Ekim, Kasım, Aralık]
+  long: "{day} {month}"
+  today: "Bugün"
+
+header:
+  live: "Canlı · {time}"
+  offline: "Bağlantı yok"
+  demo: "Demo modu"
+
+state:
+  on: "Açık"
+  off: "Kapalı"
+  unavailable: "Ulaşılamıyor"
+  unknown: "—"
+  running: "Çalışıyor"
+  idle: "Beklemede"
+  standby: "Beklemede"
+  heating: "Isıtıyor"
+  cooling: "Soğutuyor"
+  drying: "Nem alıyor"
+  fan: "Fan"
+  printing: "Yazdırıyor"
+  paused: "Duraklatıldı"
+  stopped: "Durdu"
+  finished: "Bitti"
+  error: "Hata"
+  not_playing: "Çalmıyor"
+
+climate:
+  default_title: "Termostat"
+  room: "Oda {temp}°"
+
+media:
+  default_title: "Müzik"
+
+weather:
+  no_forecast: "Tahmin verisi yok"
+  wind_kmh: "km/sa"
+  condition:
+    sunny: "Güneşli"
+    clear-night: "Açık"
+    partlycloudy: "Parçalı bulutlu"
+    cloudy: "Bulutlu"
+    rainy: "Yağmurlu"
+    pouring: "Sağanak"
+    snowy: "Karlı"
+    snowy-rainy: "Karla karışık"
+    hail: "Dolu"
+    lightning: "Gök gürültülü"
+    lightning-rainy: "Gök gürültülü"
+    fog: "Sisli"
+    windy: "Rüzgarlı"
+    windy-variant: "Rüzgarlı"
+    exceptional: "Olağanüstü"
+
+generated:
+  overview: "Ev"
+  other: "Diğer"
+  scenes: "Senaryolar"

@@ -1,0 +1,68 @@
+meta:
+  name: "Español"
+  font: ""
+  percent: "{value} %"
+  decimal: ","
+
+date:
+  weekdays: ["lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo"]
+  weekdays_short: ["lun", "mar", "mié", "jue", "vie", "sáb", "dom"]
+  months: ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"]
+  long: "{day} de {month}"
+  today: "Hoy"
+
+header:
+  live: "En vivo · {time}"
+  offline: "Sin conexión"
+  demo: "Modo demo"
+
+state:
+  on: "Encendido"
+  off: "Apagado"
+  unavailable: "No disponible"
+  unknown: "—"
+  running: "Funcionando"
+  idle: "Inactivo"
+  standby: "En espera"
+  heating: "Calentando"
+  cooling: "Enfriando"
+  drying: "Deshumidificando"
+  fan: "Ventilador"
+  printing: "Imprimiendo"
+  paused: "En pausa"
+  stopped: "Detenido"
+  finished: "Terminado"
+  error: "Error"
+  not_playing: "Sin reproducción"
+
+climate:
+  default_title: "Termostato"
+  room: "Sala {temp}°"
+
+media:
+  default_title: "Multimedia"
+
+weather:
+  no_forecast: "Sin previsión"
+  wind_kmh: "km/h"
+  condition:
+    sunny: "Soleado"
+    clear-night: "Despejado"
+    partlycloudy: "Parcialmente nublado"
+    cloudy: "Nublado"
+    rainy: "Lluvia"
+    pouring: "Aguacero"
+    snowy: "Nieve"
+    snowy-rainy: "Aguanieve"
+    hail: "Granizo"
+    lightning: "Tormenta"
+    lightning-rainy: "Tormenta"
+    fog: "Niebla"
+    windy: "Ventoso"
+    windy-variant: "Ventoso"
+    exceptional: "Excepcional"
+
+generated:
+  overview: "Inicio"
+  other: "Otros"
+  scenes: "Escenas"

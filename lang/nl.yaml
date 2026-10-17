@@ -1,0 +1,68 @@
+meta:
+  name: "Nederlands"
+  font: ""
+  percent: "{value}%"
+  decimal: ","
+
+date:
+  weekdays: ["maandag", "dinsdag", "woensdag", "donderdag", "vrijdag", "zaterdag", "zondag"]
+  weekdays_short: ["ma", "di", "wo", "do", "vr", "za", "zo"]
+  months: ["januari", "februari", "maart", "april", "mei", "juni", "juli", "augustus", "september", "oktober", "november", "december"]
+  long: "{day} {month}"
+  today: "Vandaag"
+
+header:
+  live: "Live · {time}"
+  offline: "Offline"
+  demo: "Demomodus"
+
+state:
+  on: "Aan"
+  off: "Uit"
+  unavailable: "Niet beschikbaar"
+  unknown: "—"
+  running: "Actief"
+  idle: "Inactief"
+  standby: "Stand-by"
+  heating: "Verwarmt"
+  cooling: "Koelt"
+  drying: "Ontvochtigt"
+  fan: "Ventilator"
+  printing: "Print"
+  paused: "Gepauzeerd"
+  stopped: "Gestopt"
+  finished: "Klaar"
+  error: "Fout"
+  not_playing: "Speelt niet"
+
+climate:
+  default_title: "Thermostaat"
+  room: "Kamer {temp}°"
+
+media:
+  default_title: "Media"
+
+weather:
+  no_forecast: "Geen verwachting"
+  wind_kmh: "km/u"
+  condition:
+    sunny: "Zonnig"
+    clear-night: "Helder"
+    partlycloudy: "Half bewolkt"
+    cloudy: "Bewolkt"
+    rainy: "Regen"
+    pouring: "Stortregen"
+    snowy: "Sneeuw"
+    snowy-rainy: "Natte sneeuw"
+    hail: "Hagel"
+    lightning: "Onweer"
+    lightning-rainy: "Onweer"
+    fog: "Mist"
+    windy: "Winderig"
+    windy-variant: "Winderig"
+    exceptional: "Uitzonderlijk"
+
+generated:
+  overview: "Overzicht"
+  other: "Overig"
+  scenes: "Scènes"

@@ -1,0 +1,68 @@
+meta:
+  name: "Português"
+  font: ""
+  percent: "{value}%"
+  decimal: ","
+
+date:
+  weekdays: ["segunda-feira", "terça-feira", "quarta-feira", "quinta-feira", "sexta-feira", "sábado", "domingo"]
+  weekdays_short: ["seg", "ter", "qua", "qui", "sex", "sáb", "dom"]
+  months: ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"]
+  long: "{day} de {month}"
+  today: "Hoje"
+
+header:
+  live: "Ao vivo · {time}"
+  offline: "Offline"
+  demo: "Modo demo"
+
+state:
+  on: "Ligado"
+  off: "Desligado"
+  unavailable: "Indisponível"
+  unknown: "—"
+  running: "Em funcionamento"
+  idle: "Ocioso"
+  standby: "Em espera"
+  heating: "Aquecendo"
+  cooling: "Resfriando"
+  drying: "Desumidificando"
+  fan: "Ventilação"
+  printing: "Imprimindo"
+  paused: "Pausado"
+  stopped: "Parado"
+  finished: "Concluído"
+  error: "Erro"
+  not_playing: "Nada tocando"
+
+climate:
+  default_title: "Termostato"
+  room: "Ambiente {temp}°"
+
+media:
+  default_title: "Mídia"
+
+weather:
+  no_forecast: "Sem previsão"
+  wind_kmh: "km/h"
+  condition:
+    sunny: "Ensolarado"
+    clear-night: "Céu limpo"
+    partlycloudy: "Parcialmente nublado"
+    cloudy: "Nublado"
+    rainy: "Chuva"
+    pouring: "Chuva forte"
+    snowy: "Neve"
+    snowy-rainy: "Granizo fino"
+    hail: "Granizo"
+    lightning: "Trovoada"
+    lightning-rainy: "Trovoada"
+    fog: "Neblina"
+    windy: "Ventoso"
+    windy-variant: "Ventoso"
+    exceptional: "Excepcional"
+
+generated:
+  overview: "Início"
+  other: "Outros"
+  scenes: "Cenas"

@@ -1,0 +1,153 @@
+# ==============================================================================
+# Kobo HA Dashboard - example configuration
+#
+# The easiest way to create this file is the setup tool: run the
+# kobo-ha-dashboard program on your computer and follow the three steps.
+# This file documents every option for people who prefer editing YAML.
+# ==============================================================================
+
+version: 1
+
+device:
+  # Kobo model, used for the setup tool's preview size: clara_colour, clara_bw,
+  # libra_colour, elipsa_2e, clara_2e, libra_2, sage, elipsa, clara_hd,
+  # libra_h2o, forma, tolino_shine_color, tolino_vision_color, tolino_shine_5
+  # or "auto". On the Kobo the real screen resolution is always used.
+  model: "auto"
+
+  # "portrait" or "landscape"
+  orientation: "portrait"
+
+  # Do a full (flashing) e-ink refresh every N screen updates to clear ghosting.
+  # 0 disables it.
+  full_refresh_cycles: 10
+
+  fb_device: "/dev/fb0"
+  # "auto" finds the touch screen; set a path like /dev/input/event1 to force one
+  touch_device: "auto"
+
+  # Raw touch coordinates on Kobo devices have X/Y swapped and X mirrored.
+  # The defaults are right for the Clara Colour and most other models.
+  swap_touch_xy: true
+  invert_touch_x: true
+  invert_touch_y: false
+
+  # If the picture comes out rotated or upside down, try 0, 90, 180 or 270.
+  fb_rotation: "auto"
+
+  # Which way the device is turned in landscape mode: 90 or 270
+  landscape_rotation: 90
+
+  # Use colour e-ink waveforms (Kaleido panels such as the Clara Colour)
+  color_panel: true
+
+home_assistant:
+  # An address the Kobo can reach on your Wi-Fi. ".local" (mDNS) names do NOT
+  # work on the Kobo - use the IP address of Home Assistant.
+  url: "http://192.168.1.10:8123"
+
+  # Profile -> Security -> Long-lived access tokens -> Create token.
+  # Leave empty to run with built-in demo data.
+  token: ""
+
+  refresh_interval_secs: 20
+  timeout_secs: 8
+
+  # Show demo data when no token is set
+  demo_mode_fallback: true
+
+theme:
+  # "kaleido" (colour), "high_contrast_bw", "paper_warm" or "dark"
+  mode: "kaleido"
+  # Colour of scene buttons and other accents
+  accent_color: "#D97706"
+  card_corner_radius: 22.0
+  # "24h" or "12h"
+  time_format: "24h"
+  # en, tr, de, fr, es, it, nl, pt, pl, ja, zh
+  # (ja/zh need an extra font, which the setup tool copies to the Kobo)
+  language: "en"
+  # The Kobo keeps its system clock in UTC, so set your offset here.
+  utc_offset: "+00:00"
+
+# ------------------------------------------------------------------------------
+# Pages are shown as tabs. Small cards (light, switch, climate, sensor, scene)
+# are placed two per row; weather, scenes_row, sensor_grid and media_player
+# always take a full row. A small card without a partner becomes full width.
+# ------------------------------------------------------------------------------
+pages:
+  - id: "home"
+    title: "Home"
+    icon: "home"
+    cards:
+      - type: "weather"
+        entity_id: "weather.home"
+        forecast_days: 5
+
+      # Buttons that run scenes/scripts, press buttons or toggle anything else
+      - type: "scenes_row"
+        title: "Scenes"
+        scenes:
+          - entity_id: "scene.good_night"
+            title: "Good night"
+            icon: "moon"
+          - entity_id: "script.movie_time"
+            title: "Movie"
+            icon: "tv"
+
+      - type: "light"
+        entity_id: "light.living_room"
+        title: "Ceiling Light"
+        subtitle: "Living room"
+        # Shows a brightness bar for dimmable lights
+        show_brightness: true
+
+      - type: "switch"
+        entity_id: "switch.kettle"
+        title: "Kettle"
+        icon: "coffee"
+
+      - type: "climate"
+        entity_id: "climate.living_room"
+        title: "Living room"
+        # Step of the +/- buttons in degrees
+        step: 0.5
+
+      # Up to 4 sensors per row
+      - type: "sensor_grid"
+        title: "Climate"
+        sensors:
+          - entity_id: "sensor.living_room_temperature"
+            title: "Temperature"
+            icon: "thermometer"
+            unit: "°C"
+          - entity_id: "sensor.living_room_humidity"
+            title: "Humidity"
+            icon: "droplet"
+            unit: "%"
+
+      - type: "media_player"
+        entity_id: "media_player.living_room"
+        title: "Speaker"
+
+  - id: "energy"
+    title: "Energy"
+    icon: "zap"
+    cards:
+      - type: "sensor"
+        entity_id: "sensor.energy_today"
+        title: "Energy today"
+        unit: "kWh"
+        icon: "zap"
+        # Last 24 hours from Home Assistant's history
+        show_graph: true
+
+      - type: "scene"
+        entity_id: "script.all_off"
+        title: "All off"
+        icon: "power"
+
+# Available icons: lightbulb, lightbulb_on, power, plug, fan, thermometer, flame,
+# snowflake, droplet, wind, zap, sun, moon, cloud, home, sofa, bed, door, lock,
+# tv, music, coffee, washer, printer, battery, clock, layers, progress, play,
+# refresh, check

@@ -1,0 +1,68 @@
+meta:
+  name: "Polski"
+  font: ""
+  percent: "{value}%"
+  decimal: ","
+
+date:
+  weekdays: ["poniedziałek", "wtorek", "środa", "czwartek", "piątek", "sobota", "niedziela"]
+  weekdays_short: ["pon.", "wt.", "śr.", "czw.", "pt.", "sob.", "niedz."]
+  months: ["stycznia", "lutego", "marca", "kwietnia", "maja", "czerwca", "lipca", "sierpnia", "września", "października", "listopada", "grudnia"]
+  long: "{day} {month}"
+  today: "Dziś"
+
+header:
+  live: "Na żywo · {time}"
+  offline: "Offline"
+  demo: "Tryb demo"
+
+state:
+  on: "Wł."
+  off: "Wył."
+  unavailable: "Niedostępne"
+  unknown: "—"
+  running: "Działa"
+  idle: "Bezczynny"
+  standby: "Czuwanie"
+  heating: "Grzeje"
+  cooling: "Chłodzi"
+  drying: "Osusza"
+  fan: "Wentylator"
+  printing: "Drukuje"
+  paused: "Wstrzymane"
+  stopped: "Zatrzymane"
+  finished: "Zakończone"
+  error: "Błąd"
+  not_playing: "Nic nie gra"
+
+climate:
+  default_title: "Termostat"
+  room: "Pokój {temp}°"
+
+media:
+  default_title: "Multimedia"
+
+weather:
+  no_forecast: "Brak prognozy"
+  wind_kmh: "km/h"
+  condition:
+    sunny: "Słonecznie"
+    clear-night: "Bezchmurnie"
+    partlycloudy: "Częściowe zachmurzenie"
+    cloudy: "Pochmurno"
+    rainy: "Deszcz"
+    pouring: "Ulewa"
+    snowy: "Śnieg"
+    snowy-rainy: "Deszcz ze śniegiem"
+    hail: "Grad"
+    lightning: "Burza"
+    lightning-rainy: "Burza"
+    fog: "Mgła"
+    windy: "Wietrznie"
+    windy-variant: "Wietrznie"
+    exceptional: "Wyjątkowe"
+
+generated:
+  overview: "Start"
+  other: "Inne"
+  scenes: "Sceny"

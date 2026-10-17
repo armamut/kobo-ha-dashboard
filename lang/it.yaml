@@ -1,0 +1,68 @@
+meta:
+  name: "Italiano"
+  font: ""
+  percent: "{value}%"
+  decimal: ","
+
+date:
+  weekdays: ["lunedì", "martedì", "mercoledì", "giovedì", "venerdì", "sabato", "domenica"]
+  weekdays_short: ["lun", "mar", "mer", "gio", "ven", "sab", "dom"]
+  months: ["gennaio", "febbraio", "marzo", "aprile", "maggio", "giugno", "luglio", "agosto", "settembre", "ottobre", "novembre", "dicembre"]
+  long: "{day} {month}"
+  today: "Oggi"
+
+header:
+  live: "In diretta · {time}"
+  offline: "Offline"
+  demo: "Modalità demo"
+
+state:
+  on: "Acceso"
+  off: "Spento"
+  unavailable: "Non disponibile"
+  unknown: "—"
+  running: "In funzione"
+  idle: "Inattivo"
+  standby: "Standby"
+  heating: "Riscalda"
+  cooling: "Raffredda"
+  drying: "Deumidifica"
+  fan: "Ventola"
+  printing: "In stampa"
+  paused: "In pausa"
+  stopped: "Fermo"
+  finished: "Completato"
+  error: "Errore"
+  not_playing: "Nessuna riproduzione"
+
+climate:
+  default_title: "Termostato"
+  room: "Stanza {temp}°"
+
+media:
+  default_title: "Media"
+
+weather:
+  no_forecast: "Nessuna previsione"
+  wind_kmh: "km/h"
+  condition:
+    sunny: "Soleggiato"
+    clear-night: "Sereno"
+    partlycloudy: "Parzialmente nuvoloso"
+    cloudy: "Nuvoloso"
+    rainy: "Pioggia"
+    pouring: "Rovesci"
+    snowy: "Neve"
+    snowy-rainy: "Nevischio"
+    hail: "Grandine"
+    lightning: "Temporale"
+    lightning-rainy: "Temporale"
+    fog: "Nebbia"
+    windy: "Ventoso"
+    windy-variant: "Ventoso"
+    exceptional: "Eccezionale"
+
+generated:
+  overview: "Home"
+  other: "Altro"
+  scenes: "Scene"

@@ -1,0 +1,1306 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kobo HA Dashboard Setup</title>
+<style>
+:root {
+  --chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%235b6472' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  --bg: #f3f4f6; --surface: #ffffff; --surface-2: #f8f9fb; --border: #d9dde3; --border-strong: #b8bec8;
+  --text: #111827; --muted: #5b6472; --faint: #8a93a0; --accent: #d97706; --accent-ink: #ffffff;
+  --ok: #15803d; --ok-bg: #e7f6ec; --warn: #b45309; --warn-bg: #fdf3e2; --err: #b91c1c; --err-bg: #fdecec;
+  --radius: 12px; --shadow: 0 1px 2px rgba(16,24,40,.06), 0 1px 3px rgba(16,24,40,.08);
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23a6aebb' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+    --bg: #0f1115; --surface: #181b21; --surface-2: #1f232b; --border: #2e333d; --border-strong: #454c58;
+    --text: #f1f3f6; --muted: #a6aebb; --faint: #737b88; --accent: #f59e0b; --accent-ink: #111;
+    --ok: #4ade80; --ok-bg: #12291b; --warn: #fbbf24; --warn-bg: #2b2210; --err: #f87171; --err-bg: #2d1414;
+    --shadow: none;
+  }
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans", sans-serif; }
+button, input, select { font: inherit; color: inherit; }
+a { color: var(--accent); }
+
+header.top { position: sticky; top: 0; z-index: 10; display: flex; align-items: center; gap: 24px; padding: 12px 24px; background: var(--surface); border-bottom: 1px solid var(--border); }
+.brand { font-weight: 700; font-size: 17px; white-space: nowrap; }
+.brand span { color: var(--muted); font-weight: 500; }
+nav.steps { display: flex; gap: 4px; flex: 1; }
+nav.steps button { display: inline-flex; align-items: center; white-space: nowrap; border: 0; background: transparent; padding: 8px 14px; border-radius: 999px; cursor: pointer; color: var(--muted); font-weight: 600; }
+nav.steps button .n { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; margin-right: 6px; background: var(--surface-2); border: 1px solid var(--border); font-size: 12px; }
+nav.steps button.active { background: var(--text); color: var(--surface); }
+nav.steps button.active .n { background: var(--surface); color: var(--text); border-color: transparent; }
+.save { font-size: 13px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 320px; }
+.save.error { color: var(--err); }
+
+main { display: grid; grid-template-columns: minmax(0, 1fr) 420px; gap: 24px; padding: 24px; max-width: 1400px; margin: 0 auto; }
+@media (max-width: 1000px) { main { grid-template-columns: 1fr; } aside.preview { position: static !important; } }
+
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; box-shadow: var(--shadow); margin-bottom: 18px; }
+.card h2 { margin: 0 0 4px; font-size: 18px; }
+.card p.hint, .hint { color: var(--muted); margin: 0 0 14px; font-size: 14px; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 18px; }
+@media (max-width: 640px) { .grid2 { grid-template-columns: 1fr; } }
+label.field { display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 600; color: var(--muted); }
+label.field.full { grid-column: 1 / -1; }
+input[type=text], input[type=password], input[type=number], input[type=url], select {
+  width: 100%; padding: 9px 11px; border: 1px solid var(--border-strong); border-radius: 8px; background: var(--surface); font-weight: 400; color: var(--text);
+}
+/* Own arrow with room to breathe instead of the browser's edge-hugging one */
+select {
+  appearance: none; -webkit-appearance: none;
+  padding-right: 38px !important;
+  background-image: var(--chevron); background-repeat: no-repeat;
+  background-position: right 12px center; background-size: 15px;
+  cursor: pointer;
+}
+select.compact { padding: 4px 30px 4px 9px !important; background-position: right 9px center; background-size: 13px; font-size: 13px; width: auto; }
+input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: 1px; border-color: transparent; }
+input[type=color] { width: 48px; height: 38px; padding: 2px; border: 1px solid var(--border-strong); border-radius: 8px; background: var(--surface); }
+.check { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 500; color: var(--text); }
+.row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.spacer { flex: 1; }
+
+.btn { white-space: nowrap; border: 1px solid var(--border-strong); background: var(--surface); padding: 8px 14px; border-radius: 8px; cursor: pointer; font-weight: 600; }
+.btn:hover { background: var(--surface-2); }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.btn.primary:hover { filter: brightness(.95); }
+.btn.danger { color: var(--err); }
+.btn.small { padding: 4px 9px; font-size: 13px; }
+.btn.icon { padding: 5px 8px; line-height: 1; }
+.btn:disabled { opacity: .5; cursor: default; }
+
+.notice { border-radius: 8px; padding: 10px 12px; font-size: 14px; margin-top: 12px; }
+.notice.ok { background: var(--ok-bg); color: var(--ok); }
+.notice.warn { background: var(--warn-bg); color: var(--warn); }
+.notice.err { background: var(--err-bg); color: var(--err); }
+.notice ul { margin: 6px 0 0; padding-left: 18px; }
+.hidden { display: none !important; }
+
+/* Pages */
+.pages { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
+.chip { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--border-strong); background: var(--surface); border-radius: 999px; padding: 6px 12px; cursor: pointer; font-weight: 600; }
+.chip img { width: 18px; height: 18px; }
+.chip.active { background: var(--text); color: var(--surface); border-color: var(--text); }
+.chip.active img { filter: invert(1); }
+@media (prefers-color-scheme: dark) { .chip img, .cardrow img.ticon, .iconpick img { filter: invert(1); } .chip.active img { filter: none; } }
+.chip .badge { background: var(--err); color: #fff; border-radius: 999px; font-size: 11px; padding: 0 6px; }
+
+/* Card list */
+.cardrow { display: grid; grid-template-columns: 18px 34px 1fr auto; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); margin-bottom: 8px; }
+.cardrow.dragging { opacity: .4; }
+.cardrow.over { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent) inset; }
+.cardrow.offscreen { border-style: dashed; opacity: .75; }
+.handle { cursor: grab; color: var(--faint); user-select: none; text-align: center; }
+.ticon { width: 30px; height: 30px; }
+.cardrow .title { font-weight: 600; }
+.cardrow .sub { color: var(--muted); font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tag { display: inline-block; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); border: 1px solid var(--border); border-radius: 6px; padding: 0 6px; margin-right: 6px; }
+.tag.err { color: var(--err); border-color: var(--err); }
+.tag.warn { color: var(--warn); border-color: var(--warn); }
+.cardform { grid-column: 1 / -1; border-top: 1px solid var(--border); margin-top: 6px; padding-top: 12px; }
+.sublist { grid-column: 1 / -1; display: flex; flex-direction: column; gap: 8px; }
+.subitem { display: grid; grid-template-columns: 2fr 1.4fr 1fr .7fr auto; gap: 8px; align-items: end; padding: 10px; border: 1px dashed var(--border-strong); border-radius: 8px; }
+@media (max-width: 760px) { .subitem { grid-template-columns: 1fr 1fr; } }
+.entity-meta { font-size: 12px; color: var(--faint); font-weight: 400; min-height: 16px; }
+.iconpick { display: flex; gap: 6px; align-items: center; }
+.iconpick img { width: 26px; height: 26px; flex: none; }
+
+/* Preview */
+aside.preview { position: sticky; top: 76px; align-self: start; }
+.device { background: #2b2f36; border-radius: 26px; padding: 18px 16px 28px; box-shadow: 0 10px 30px rgba(0,0,0,.18); }
+.device img { display: block; width: 100%; border-radius: 4px; background: #eee; image-rendering: auto; }
+.device.landscape { padding: 16px 28px 16px 18px; }
+.preview-pages { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; margin: 12px 0 6px; }
+.preview-tools { display: flex; justify-content: space-between; align-items: center; color: var(--muted); font-size: 13px; }
+
+/* Install */
+.device-list { display: flex; flex-direction: column; gap: 10px; }
+.kobo { border: 1px solid var(--border); border-radius: 10px; padding: 14px; display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
+.kobo .path { font-weight: 700; }
+.kobo .meta { color: var(--muted); font-size: 13px; }
+.status { font-size: 12px; font-weight: 700; padding: 2px 8px; border-radius: 999px; background: var(--surface-2); border: 1px solid var(--border); }
+.status.ok { color: var(--ok); border-color: var(--ok); }
+.status.no { color: var(--err); border-color: var(--err); }
+pre.log { background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; padding: 12px; font-size: 13px; white-space: pre-wrap; margin: 12px 0 0; }
+ol.steps-help { margin: 8px 0 0; padding-left: 20px; color: var(--muted); }
+ol.steps-help li { margin: 4px 0; }
+code { background: var(--surface-2); border: 1px solid var(--border); border-radius: 4px; padding: 0 4px; font-size: 13px; }
+
+/* Help button + dialogs */
+.labelrow { display: inline-flex; align-items: center; gap: 8px; }
+.help { width: 22px; height: 22px; border-radius: 50%; border: 1.5px solid var(--accent); background: transparent; color: var(--accent); font-weight: 800; font-size: 13px; line-height: 1; cursor: pointer; display: inline-grid; place-items: center; padding: 0; }
+.help:hover { background: var(--accent); color: var(--accent-ink); }
+dialog { border: 1px solid var(--border); border-radius: 16px; padding: 24px; max-width: 560px; width: calc(100% - 32px); background: var(--surface); color: var(--text); box-shadow: 0 20px 60px rgba(0,0,0,.3); }
+dialog::backdrop { background: rgba(10, 12, 16, .55); }
+dialog h2 { margin: 0 0 14px; font-size: 19px; }
+dialog ol { margin: 0 0 14px; padding-left: 22px; }
+dialog ol li { margin: 7px 0; }
+dialog .actions { display: flex; gap: 10px; justify-content: flex-end; flex-wrap: wrap; margin-top: 18px; }
+.done-screen { min-height: 100vh; display: grid; place-items: center; text-align: center; padding: 24px; }
+.done-screen h1 { margin: 0 0 10px; }
+.done-screen p { color: var(--muted); max-width: 480px; margin: 0 auto; }
+.btn.quit { padding: 5px 12px; font-size: 13px; }
+.savebar { display: flex; align-items: center; gap: 6px; }
+.savebar .btn.icon { display: inline-grid; place-items: center; padding: 4px 7px; }
+.savebar .save { max-width: 220px; }
+.save.dirty { color: var(--warn); font-weight: 600; }
+dialog h3 { margin: 18px 0 8px; font-size: 15px; }
+.version-row { display: flex; align-items: center; gap: 12px; padding: 8px 0; border-top: 1px solid var(--border); }
+.version-row:first-child { border-top: 0; }
+.version-row .when { font-weight: 600; }
+.version-row .what { color: var(--muted); font-size: 13px; }
+#historyList { max-height: 320px; overflow: auto; }
+a.btn { display: inline-flex; align-items: center; text-decoration: none; color: inherit; }
+a.btn.primary { color: var(--accent-ink); }
+
+/* Splash / language picker */
+#splash { position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; padding: 24px; background: var(--bg); }
+#splash .box { width: min(720px, 100%); text-align: center; }
+#splash .logo { width: 84px; height: 84px; margin: 0 auto 18px; border-radius: 22px; background: var(--text); display: grid; place-items: center; }
+#splash .logo img { width: 52px; height: 52px; filter: invert(1); }
+@media (prefers-color-scheme: dark) { #splash .logo img { filter: none; } }
+#splash h1 { margin: 0; font-size: 30px; }
+#splash .sub { color: var(--muted); margin: 6px 0 28px; font-size: 16px; }
+#splash .choose { font-weight: 700; margin-bottom: 14px; min-height: 22px; }
+.langs { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; margin-bottom: 26px; }
+.langs button { border: 1px solid var(--border-strong); background: var(--surface); border-radius: 12px; padding: 14px 10px; cursor: pointer; font-size: 16px; font-weight: 600; }
+.langs button small { display: block; color: var(--faint); font-weight: 500; font-size: 12px; margin-top: 2px; }
+.langs button.active { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent) inset; }
+#splash .btn.primary { padding: 12px 34px; font-size: 16px; }
+.uilang { width: auto; padding: 5px 30px 5px 10px !important; font-size: 13px; background-position: right 9px center !important; background-size: 13px !important; }
+.model-note { margin-top: 6px; font-size: 13px; color: var(--ok); font-weight: 500; }
+</style>
+</head>
+<body>
+<div id="splash" class="hidden">
+  <div class="box">
+    <div class="logo"><img src="/api/icon.png?name=home" alt=""></div>
+    <h1 data-i18n="splash.title"></h1>
+    <p class="sub" data-i18n="splash.subtitle"></p>
+    <div class="choose" data-i18n="splash.choose"></div>
+    <div class="langs" id="splashLangs"></div>
+    <button class="btn primary" id="splashGo" data-i18n="splash.continue"></button>
+  </div>
+</div>
+
+<header class="top">
+  <div class="brand">Kobo HA Dashboard <span data-i18n="app.setup"></span></div>
+  <nav class="steps">
+    <button data-step="connect" class="active"><span class="n">1</span><span data-i18n="steps.connect"></span></button>
+    <button data-step="design"><span class="n">2</span><span data-i18n="steps.design"></span></button>
+    <button data-step="install"><span class="n">3</span><span data-i18n="steps.install"></span></button>
+  </nav>
+  <div class="savebar">
+    <button class="btn small icon" id="undoBtn" type="button" data-i18n-title="app.undo" data-i18n-aria="app.undo"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg></button>
+    <button class="btn small icon" id="redoBtn" type="button" data-i18n-title="app.redo" data-i18n-aria="app.redo"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 14 5-5-5-5"/><path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13"/></svg></button>
+    <span id="saveStatus" class="save"></span>
+    <button class="btn small" id="historyBtn" type="button" data-i18n="app.history"></button>
+    <button class="btn small primary" id="saveBtn" type="button" data-i18n="app.save"></button>
+  </div>
+  <select id="uiLang" class="uilang" data-i18n-title="app.language"></select>
+  <button class="btn quit" id="quitBtn" type="button" data-i18n="app.quit"></button>
+</header>
+
+<dialog id="quitDialog">
+  <h2 data-i18n="app.quit_title"></h2>
+  <p class="hint" id="quitText"></p>
+  <div class="actions">
+    <button class="btn" type="button" id="quitCancel" data-i18n="app.cancel"></button>
+    <button class="btn danger" type="button" id="quitDiscard" data-i18n="app.discard_quit"></button>
+    <button class="btn primary" type="button" id="quitConfirm"></button>
+  </div>
+</dialog>
+
+<dialog id="historyDialog">
+  <h2 data-i18n="history.title"></h2>
+  <h3 data-i18n="history.unsaved"></h3>
+  <div id="historyUnsaved"></div>
+  <h3 data-i18n="history.versions"></h3>
+  <div id="historyList"></div>
+  <div class="actions"><button class="btn" type="button" id="historyClose" data-i18n="app.close"></button></div>
+</dialog>
+
+<dialog id="tokenHelp">
+  <h2 data-i18n="connect.token_help_title"></h2>
+  <ol>
+    <li data-i18n-html="connect.token_help_1"></li>
+    <li data-i18n-html="connect.token_help_2"></li>
+    <li data-i18n-html="connect.token_help_3"></li>
+    <li data-i18n-html="connect.token_help_4"></li>
+    <li data-i18n-html="connect.token_help_5"></li>
+    <li data-i18n-html="connect.token_help_6"></li>
+  </ol>
+  <p class="hint" data-i18n="connect.token_help_note"></p>
+  <p class="hint hidden" id="tokenHelpNeedUrl" data-i18n="connect.token_help_need_url"></p>
+  <div class="actions">
+    <a class="btn primary" id="tokenHelpOpen" target="_blank" rel="noopener" data-i18n="connect.token_help_open"></a>
+    <button class="btn" type="button" id="tokenHelpClose" data-i18n="app.close"></button>
+  </div>
+</dialog>
+
+<main>
+<section>
+  <!-- STEP 1 -->
+  <div id="step-connect" class="step">
+    <div class="card">
+      <h2 data-i18n="connect.ha_title"></h2>
+      <p class="hint" data-i18n-html="connect.ha_hint"></p>
+      <div class="grid2">
+        <label class="field full"><span data-i18n="connect.url"></span>
+          <input id="haUrl" type="url" placeholder="http://192.168.1.10:8123" autocomplete="off">
+        </label>
+        <div class="field full">
+          <span class="labelrow"><label for="haToken" data-i18n="connect.token"></label>
+            <button class="help" id="tokenHelpBtn" type="button" data-i18n-title="connect.token_help_label" data-i18n-aria="connect.token_help_label">?</button></span>
+          <div class="row" style="flex-wrap:nowrap">
+            <input id="haToken" type="password" placeholder="eyJ…" autocomplete="off">
+            <button class="btn small" id="toggleToken" type="button" data-i18n="connect.show"></button>
+          </div>
+        </div>
+      </div>
+      <div class="row" style="margin-top:14px">
+        <button class="btn primary" id="testBtn" data-i18n="connect.test"></button>
+        <span class="hint" style="margin:0" data-i18n="connect.test_hint"></span>
+      </div>
+      <div id="testResult"></div>
+    </div>
+
+    <div class="card">
+      <h2 data-i18n="connect.display_title"></h2>
+      <div class="grid2">
+        <label class="field"><span data-i18n="connect.model"></span>
+          <select id="model"></select>
+          <span id="modelNote" class="model-note hidden"></span>
+        </label>
+        <label class="field"><span data-i18n="connect.dashboard_language"></span> <select id="language"></select></label>
+        <label class="field"><span data-i18n="connect.orientation"></span>
+          <select id="orientation"><option value="portrait" data-i18n="connect.portrait"></option><option value="landscape" data-i18n="connect.landscape"></option></select>
+        </label>
+        <label class="field"><span data-i18n="connect.theme"></span>
+          <select id="themeMode">
+            <option value="kaleido" data-i18n="connect.theme_kaleido"></option>
+            <option value="high_contrast_bw" data-i18n="connect.theme_bw"></option>
+            <option value="paper_warm" data-i18n="connect.theme_paper"></option>
+            <option value="dark" data-i18n="connect.theme_dark"></option>
+          </select>
+        </label>
+        <label class="field"><span data-i18n="connect.accent"></span>
+          <div class="row"><input id="accent" type="color"><span class="hint" style="margin:0" data-i18n="connect.accent_hint"></span></div>
+        </label>
+        <label class="field"><span data-i18n="connect.clock"></span>
+          <select id="timeFormat"><option value="24h" data-i18n="connect.clock_24"></option><option value="12h" data-i18n="connect.clock_12"></option></select>
+        </label>
+        <label class="field"><span data-i18n="connect.timezone"></span>
+          <div class="row" style="flex-wrap:nowrap">
+            <input id="utcOffset" type="text" placeholder="+01:00">
+            <button class="btn small" id="useTz" type="button" data-i18n="connect.use_mine"></button>
+          </div>
+        </label>
+        <label class="field"><span data-i18n="connect.refresh"></span>
+          <input id="refresh" type="number" min="5" max="3600">
+        </label>
+        <label class="field"><span data-i18n="connect.light_off_after"></span>
+          <select id="lightTimeout">
+            <option value="0" data-i18n="connect.light_never"></option>
+            <option value="30" data-i18n="connect.light_30s"></option>
+            <option value="60" data-i18n="connect.light_1m"></option>
+            <option value="120" data-i18n="connect.light_2m"></option>
+            <option value="300" data-i18n="connect.light_5m"></option>
+            <option value="600" data-i18n="connect.light_10m"></option>
+          </select>
+        </label>
+      </div>
+      <p class="hint" style="margin-top:12px" data-i18n="connect.light_hint"></p>
+      <div id="fontNote" class="notice warn hidden"></div>
+      <p class="hint" style="margin-top:14px" data-i18n="connect.utc_hint"></p>
+    </div>
+
+    <div class="card">
+      <h2 data-i18n="connect.starter_title"></h2>
+      <p class="hint" data-i18n="connect.starter_hint"></p>
+      <div class="row">
+        <button class="btn primary" id="generateBtn" data-i18n="connect.generate"></button>
+        <button class="btn" id="toDesign" data-i18n="connect.to_design"></button>
+      </div>
+      <div id="generateResult"></div>
+    </div>
+  </div>
+
+  <!-- STEP 2 -->
+  <div id="step-design" class="step hidden">
+    <div class="card">
+      <div class="row" style="margin-bottom:10px">
+        <h2 style="margin:0" data-i18n="design.pages"></h2>
+        <span class="spacer"></span>
+        <button class="btn small" id="addPage" data-i18n="design.add_page"></button>
+      </div>
+      <div class="pages" id="pageChips"></div>
+      <div id="pageSettings" class="grid2"></div>
+    </div>
+
+    <div class="card">
+      <div class="row" style="margin-bottom:12px">
+        <h2 style="margin:0" data-i18n="design.cards"></h2>
+        <span class="spacer"></span>
+        <select id="newCardType" style="width:auto;min-width:180px"></select>
+        <button class="btn small primary" id="addCard" data-i18n="design.add_card"></button>
+      </div>
+      <div id="overflowWarn" class="notice warn hidden"></div>
+      <div id="cardList"></div>
+      <p class="hint" id="emptyCards" data-i18n="design.no_cards"></p>
+      <p class="hint" style="margin-top:10px" data-i18n="design.cards_hint"></p>
+    </div>
+  </div>
+
+  <!-- STEP 3 -->
+  <div id="step-install" class="step hidden">
+    <div class="card">
+      <h2 data-i18n="install.title"></h2>
+      <ol class="steps-help">
+        <li data-i18n-html="install.step1"></li>
+        <li data-i18n-html="install.step2"></li>
+        <li data-i18n-html="install.step3"></li>
+        <li data-i18n="install.step4"></li>
+      </ol>
+      <div class="grid2" style="margin-top:16px">
+        <label class="field"><span data-i18n="install.menu_name"></span> <input id="menuName" type="text"></label>
+      </div>
+      <div id="binaryWarn" class="notice err hidden" data-i18n-html="install.binary_missing"></div>
+    </div>
+
+    <div class="card">
+      <div class="row" style="margin-bottom:10px">
+        <h2 style="margin:0" data-i18n="install.devices"></h2>
+        <span class="spacer"></span>
+        <button class="btn small" id="rescan" data-i18n="install.rescan"></button>
+      </div>
+      <div class="device-list" id="devices"></div>
+      <pre class="log hidden" id="installLog"></pre>
+    </div>
+  </div>
+</section>
+
+<aside class="preview">
+  <div class="device" id="deviceFrame"><img id="previewImg" alt=""></div>
+  <div class="preview-pages" id="previewPages"></div>
+  <div class="preview-tools">
+    <label class="check"><input type="checkbox" id="bw"> <span data-i18n="preview.grayscale"></span></label>
+    <button class="btn small" id="reloadPreview" data-i18n="preview.refresh"></button>
+  </div>
+  <div id="previewHidden" class="notice warn hidden"></div>
+</aside>
+</main>
+
+<script>
+"use strict";
+const $ = (id) => document.getElementById(id);
+const el = (tag, attrs = {}, ...children) => {
+  const n = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (k === "class") n.className = v;
+    else if (k.startsWith("on")) n.addEventListener(k.slice(2), v);
+    else if (v === true) n.setAttribute(k, "");
+    else if (v !== false && v != null) n.setAttribute(k, v);
+  }
+  for (const c of children.flat()) if (c != null) n.append(c.nodeType ? c : document.createTextNode(c));
+  return n;
+};
+
+let cfg = null;
+let entities = [];
+let icons = [];
+let models = [];
+let languages = [];
+let hidden = [];
+let page = 0;
+let openCard = null;
+let kobosTimer = null;
+
+// ---------- i18n ----------
+let STR = {};
+const T = (key, vars = {}) => {
+  let s = STR[key] ?? key;
+  for (const [k, v] of Object.entries(vars)) s = s.split(`{${k}}`).join(v);
+  return s;
+};
+const storage = {
+  get(k) { try { return localStorage.getItem(k); } catch { return null; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch { /* private mode */ } },
+};
+async function loadStrings(lang) {
+  STR = await api(`/api/setup-strings?lang=${encodeURIComponent(lang)}`);
+  document.documentElement.lang = lang;
+}
+function applyStatic(root = document) {
+  root.querySelectorAll("[data-i18n]").forEach((n) => (n.textContent = T(n.dataset.i18n)));
+  root.querySelectorAll("[data-i18n-html]").forEach((n) => (n.innerHTML = T(n.dataset.i18nHtml)));
+  root.querySelectorAll("[data-i18n-title]").forEach((n) => (n.title = T(n.dataset.i18nTitle)));
+  root.querySelectorAll("[data-i18n-aria]").forEach((n) => n.setAttribute("aria-label", T(n.dataset.i18nAria)));
+  $("previewImg").alt = T("steps.design");
+}
+function browserLang() {
+  const codes = languages.map(([c]) => c);
+  for (const l of navigator.languages || [navigator.language || "en"]) {
+    const base = l.toLowerCase().split("-")[0];
+    if (codes.includes(base)) return base;
+  }
+  return "en";
+}
+async function setUiLang(code) {
+  storage.set("uiLang", code);
+  $("uiLang").value = code;
+  await loadStrings(code);
+  applyStatic();
+  if (cfg) { renderModelSelect(); renderCardTypes(); renderDesign(); updateTokenButton(); }
+}
+
+// Card schemas: which entity domains fit, and which fields to edit.
+const TOGGLE_DOMAINS = ["switch", "fan", "input_boolean", "automation", "light", "cover", "climate", "media_player"];
+const SENSOR_DOMAINS = ["sensor", "binary_sensor", "input_number", "number", "counter", "input_text", "input_select", "select"];
+const ACTION_DOMAINS = ["scene", "script", "button", "input_button", "switch", "light", "input_boolean", "automation"];
+const CARD_TYPES = {
+  weather: { icon: "sun", domains: ["weather"], defaults: { forecast_days: 5 },
+    fields: [["entity_id"], ["forecast_days", "number", "design.forecast_days", { min: 1, max: 7 }]] },
+  light: { icon: "lightbulb", domains: ["light"], defaults: { show_brightness: false },
+    fields: [["entity_id"], ["title"], ["subtitle"], ["icon"], ["show_brightness", "bool", "design.show_brightness"]] },
+  switch: { icon: "power", domains: TOGGLE_DOMAINS, fields: [["entity_id"], ["title"], ["subtitle"], ["icon"]] },
+  climate: { icon: "thermometer", domains: ["climate"], defaults: { step: 0.5 },
+    fields: [["entity_id"], ["title"], ["step", "number", "design.step", { min: 0.1, max: 5, step: 0.1 }]] },
+  sensor: { icon: "zap", domains: SENSOR_DOMAINS, defaults: { show_graph: false },
+    fields: [["entity_id"], ["title"], ["unit", "text", "design.unit_optional"], ["icon"], ["show_graph", "bool", "design.show_graph"]] },
+  sensor_grid: { icon: "layers", defaults: { sensors: [] },
+    fields: [["title", "text", "design.title_optional"], ["sensors", "list", "design.sensors", { max: 8, domains: SENSOR_DOMAINS, item: "sensor" }]] },
+  media_player: { icon: "music", domains: ["media_player"], fields: [["entity_id"], ["title"]] },
+  scenes_row: { icon: "play", defaults: { scenes: [] },
+    fields: [["title", "text", "design.title_optional"], ["scenes", "list", "design.buttons", { max: 6, domains: ACTION_DOMAINS, item: "scene" }]] },
+  scene: { icon: "play", domains: ACTION_DOMAINS, defaults: { title: "" },
+    fields: [["entity_id"], ["title", "text", "design.label"], ["icon"]] },
+};
+const typeLabel = (type) => T("card_types." + type);
+
+// ---------- API ----------
+async function api(path, opts = {}) {
+  const res = await fetch(path, {
+    headers: opts.body ? { "content-type": "application/json" } : {},
+    ...opts,
+    body: opts.body ? JSON.stringify(opts.body) : undefined,
+  });
+  const text = await res.text();
+  let data = null;
+  try { data = text ? JSON.parse(text) : null; } catch { data = text; }
+  if (!res.ok) {
+    if (data && data.key) throw new Error(T("errors." + data.key, data.args || {}));
+    throw new Error((data && data.error) || `HTTP ${res.status}`);
+  }
+  return data;
+}
+
+// Edits go to a draft on the server (used by the preview); the config file
+// is only written on Save. Undo/redo keep snapshots for this session.
+let syncTimer = null;
+let dirty = false;
+let quitting = false;
+let undoStack = [];
+let redoStack = [];
+let lastSnapshot = null;
+const snapshot = () => JSON.stringify(cfg);
+
+function sync() {
+  clearTimeout(syncTimer);
+  syncTimer = setTimeout(() => pushDraft(true), 300);
+}
+
+/// Record a pending edit (if any) as an undo step.
+function recordPending() {
+  const snap = snapshot();
+  if (lastSnapshot !== null && snap !== lastSnapshot) {
+    undoStack.push(lastSnapshot);
+    if (undoStack.length > 200) undoStack.shift();
+    redoStack = [];
+  }
+  lastSnapshot = snap;
+}
+
+async function pushDraft(record) {
+  clearTimeout(syncTimer);
+  if (record) recordPending();
+  else lastSnapshot = snapshot();
+  try {
+    const r = await api("/api/config", { method: "POST", body: cfg });
+    hidden = r.hidden || [];
+    setDirty(r.dirty);
+    renderPageChips();
+    renderOverflow();
+    refreshPreview();
+  } catch (e) {
+    $("saveStatus").textContent = T("app.not_saved", { error: e.message });
+    $("saveStatus").classList.add("dirty");
+  }
+  updateUndoButtons();
+}
+
+function setDirty(d) {
+  dirty = d;
+  const st = $("saveStatus");
+  st.textContent = T(d ? "app.unsaved" : "app.saved");
+  st.classList.toggle("dirty", d);
+  $("saveBtn").disabled = !d;
+}
+
+function updateUndoButtons() {
+  $("undoBtn").disabled = !undoStack.length && snapshot() === lastSnapshot;
+  $("redoBtn").disabled = !redoStack.length;
+}
+
+async function saveNow() {
+  await pushDraft(true);
+  $("saveStatus").textContent = T("app.saving");
+  const r = await api("/api/save", { method: "POST" });
+  setDirty(r.dirty);
+}
+
+async function undo() {
+  recordPending();
+  if (!undoStack.length) return;
+  redoStack.push(snapshot());
+  cfg = JSON.parse(undoStack.pop());
+  reloadUi();
+  await pushDraft(false);
+}
+
+async function redo() {
+  recordPending();
+  if (!redoStack.length) return;
+  undoStack.push(snapshot());
+  cfg = JSON.parse(redoStack.pop());
+  reloadUi();
+  await pushDraft(false);
+}
+
+/// Replace the whole config (revert, restore, import) as one undoable step.
+async function replaceConfig(next) {
+  recordPending();
+  cfg = next;
+  reloadUi();
+  await pushDraft(true);
+}
+
+function reloadUi() {
+  bindAllFields();
+  renderModelSelect();
+  if (page >= cfg.pages.length) page = Math.max(0, cfg.pages.length - 1);
+  openCard = null;
+  renderDesign();
+  refreshPreview();
+}
+
+// ---------- Helpers ----------
+const entityById = (id) => entities.find((e) => e.entity_id === id);
+const iconUrl = (name) => `/api/icon.png?name=${encodeURIComponent(name || "home")}`;
+const modelByKey = (k) => models.find((m) => m.key === k);
+
+function shortName(e) {
+  if (!e) return "";
+  let n = e.name;
+  if (e.area && n.toLowerCase().startsWith(e.area.toLowerCase()) && n.length > e.area.length) {
+    const rest = n.slice(e.area.length).replace(/^[\s\-–—:·|/]+/, "");
+    if (rest) n = rest;
+  }
+  return n;
+}
+
+function datalistFor(domains) {
+  const id = "dl-" + domains.join("-");
+  if ($(id)) return id;
+  const dl = el("datalist", { id });
+  document.body.append(dl);
+  fillDatalist(dl, domains);
+  return id;
+}
+function fillDatalist(dl, domains) {
+  dl.replaceChildren(...entities
+    .filter((e) => domains.includes(e.domain))
+    .map((e) => el("option", { value: e.entity_id, label: `${e.name}${e.area ? " · " + e.area : ""} (${e.state})` })));
+}
+function refreshDatalists() {
+  document.querySelectorAll("datalist[id^=dl-]").forEach((dl) => fillDatalist(dl, dl.id.slice(3).split("-")));
+}
+
+function setStep(step) {
+  document.querySelectorAll("nav.steps button").forEach((b) => b.classList.toggle("active", b.dataset.step === step));
+  document.querySelectorAll(".step").forEach((s) => s.classList.toggle("hidden", s.id !== "step-" + step));
+  clearInterval(kobosTimer);
+  if (step === "design") renderDesign();
+  if (step === "install") { scanKobos(); kobosTimer = setInterval(scanKobos, 4000); }
+  window.scrollTo({ top: 0 });
+  history.replaceState(null, "", "#" + step);
+}
+
+// ---------- Splash ----------
+function showSplash() {
+  let chosen = browserLang();
+  const box = $("splashLangs");
+  const preview = async (code) => {
+    chosen = code;
+    box.querySelectorAll("button").forEach((b) => b.classList.toggle("active", b.dataset.code === code));
+    await loadStrings(code);
+    applyStatic($("splash"));
+  };
+  box.replaceChildren(...languages.map(([code, name]) =>
+    el("button", { "data-code": code, onclick: () => preview(code) }, name, el("small", {}, code))));
+  $("splashGo").onclick = async () => {
+    // A fresh setup also gets the dashboard in the chosen language.
+    if (!cfg.pages.length && !cfg.home_assistant.token) {
+      cfg.theme.language = chosen;
+      $("language").value = chosen;
+      sync();
+      ensureFont();
+    }
+    await setUiLang(chosen);
+    $("splash").classList.add("hidden");
+  };
+  $("splash").classList.remove("hidden");
+  preview(chosen);
+}
+
+// ---------- Step 1 ----------
+function updateTokenButton() {
+  $("toggleToken").textContent = T($("haToken").type === "password" ? "connect.show" : "connect.hide");
+}
+
+function renderModelSelect() {
+  const sel = $("model");
+  sel.replaceChildren(
+    el("option", { value: "auto" }, T("connect.model_auto")),
+    ...models.map((m) => el("option", { value: m.key }, m.name + (m.tested ? "" : ` (${T("connect.model_untested")})`))));
+  sel.value = cfg.device.model || "auto";
+}
+
+function setModel(key) {
+  cfg.device.model = key;
+  const m = modelByKey(key);
+  if (m) cfg.device.color_panel = m.color;
+  $("model").value = key;
+  sync();
+}
+
+function bindConnect() {
+  const bind = (id, get, set, evt = "input") => {
+    $(id).value = get() ?? "";
+    $(id).addEventListener(evt, () => { set($(id).value); sync(); });
+  };
+  bind("haUrl", () => cfg.home_assistant.url, (v) => (cfg.home_assistant.url = v.trim()));
+  bind("haToken", () => cfg.home_assistant.token, (v) => {
+    cfg.home_assistant.token = v.trim();
+    cfg.home_assistant.demo_mode_fallback = !v.trim();
+  });
+  bind("orientation", () => cfg.device.orientation, (v) => (cfg.device.orientation = v), "change");
+  bind("themeMode", () => cfg.theme.mode, (v) => (cfg.theme.mode = v), "change");
+  bind("accent", () => cfg.theme.accent_color, (v) => (cfg.theme.accent_color = v), "change");
+  bind("timeFormat", () => cfg.theme.time_format, (v) => (cfg.theme.time_format = v), "change");
+  bind("utcOffset", () => cfg.theme.utc_offset, (v) => (cfg.theme.utc_offset = v.trim() || null));
+  bind("refresh", () => cfg.home_assistant.refresh_interval_secs, (v) => (cfg.home_assistant.refresh_interval_secs = Math.max(5, parseInt(v) || 20)));
+  bind("lightTimeout", () => String(cfg.device.frontlight_timeout_secs || 0), (v) => (cfg.device.frontlight_timeout_secs = parseInt(v) || 0), "change");
+  bind("language", () => cfg.theme.language, (v) => { cfg.theme.language = v; ensureFont(); }, "change");
+  $("model").addEventListener("change", () => { $("modelNote").classList.add("hidden"); setModel($("model").value); });
+
+  $("toggleToken").onclick = () => {
+    const t = $("haToken");
+    t.type = t.type === "password" ? "text" : "password";
+    updateTokenButton();
+  };
+  $("useTz").onclick = () => {
+    const m = -new Date().getTimezoneOffset();
+    const s = (m >= 0 ? "+" : "-") + String(Math.floor(Math.abs(m) / 60)).padStart(2, "0") + ":" + String(Math.abs(m) % 60).padStart(2, "0");
+    $("utcOffset").value = s;
+    cfg.theme.utc_offset = s;
+    sync();
+  };
+  if (!cfg.theme.utc_offset) $("useTz").click();
+  $("tokenHelpBtn").onclick = openTokenHelp;
+  $("tokenHelpClose").onclick = () => $("tokenHelp").close();
+  $("testBtn").onclick = testConnection;
+  $("generateBtn").onclick = generate;
+  $("toDesign").onclick = () => setStep("design");
+}
+
+function openTokenHelp() {
+  // Link straight to the token page of the user's own Home Assistant.
+  let base = null;
+  try { base = new URL(cfg.home_assistant.url.trim()); } catch { /* no URL yet */ }
+  const link = $("tokenHelpOpen");
+  if (base && /^https?:$/.test(base.protocol)) {
+    link.href = new URL("/profile/security", base).href;
+    link.classList.remove("hidden");
+    $("tokenHelpNeedUrl").classList.add("hidden");
+  } else {
+    link.removeAttribute("href");
+    link.classList.add("hidden");
+    $("tokenHelpNeedUrl").classList.remove("hidden");
+  }
+  $("tokenHelp").showModal();
+}
+
+function quitSetup() {
+  const d = $("quitDialog");
+  $("quitText").textContent = T(dirty ? "app.quit_unsaved" : "app.quit_confirm");
+  $("quitDiscard").classList.toggle("hidden", !dirty);
+  $("quitConfirm").textContent = T(dirty ? "app.save_quit" : "app.quit");
+  $("quitConfirm").onclick = () => finishQuit(dirty);
+  $("quitDiscard").onclick = () => finishQuit(false);
+  $("quitCancel").onclick = () => d.close();
+  d.showModal();
+}
+
+async function finishQuit(saveFirst) {
+  $("quitDialog").close();
+  if (saveFirst) {
+    try { await saveNow(); } catch (e) { alert(e.message); return; }
+  }
+  quitting = true;
+  clearTimeout(syncTimer);
+  try { await api("/api/shutdown", { method: "POST" }); } catch { /* server already gone */ }
+  clearInterval(kobosTimer);
+  document.body.replaceChildren(el("div", { class: "done-screen" },
+    el("div", {}, el("h1", {}, T("app.quit_done_title")), el("p", {}, T(dirty && !saveFirst ? "app.quit_done_discarded" : "app.quit_done_text")))));
+  setTimeout(() => window.close(), 300);
+}
+
+async function openHistory() {
+  recordPending();
+  const unsaved = $("historyUnsaved");
+  unsaved.replaceChildren(dirty
+    ? el("button", { class: "btn danger", onclick: async () => {
+        if (!confirm(T("history.discard_confirm"))) return;
+        const r = await api("/api/revert", { method: "POST" });
+        await replaceConfig(r.config);
+        $("historyDialog").close();
+      } }, T("history.discard"))
+    : el("p", { class: "hint" }, T("history.clean")));
+  const list = $("historyList");
+  const versions = await api("/api/versions");
+  const lang = storage.get("uiLang") || "en";
+  list.replaceChildren(...(versions.length ? versions.map((v) => {
+    const when = new Date(v.saved_at).toLocaleString(lang, { dateStyle: "medium", timeStyle: "short" });
+    return el("div", { class: "version-row" },
+      el("div", { style: "flex:1" }, el("div", { class: "when" }, when), el("div", { class: "what" }, T("history.summary", { pages: v.pages, cards: v.cards }))),
+      el("button", { class: "btn small", onclick: async () => {
+        const r = await api("/api/versions/restore", { method: "POST", body: { id: v.id } });
+        await replaceConfig(r.config);
+        $("historyDialog").close();
+        $("saveStatus").textContent = T("history.restored", { time: when });
+      } }, T("history.restore")));
+  }) : [el("p", { class: "hint" }, T("history.none"))]));
+  $("historyDialog").showModal();
+}
+
+async function ensureFont() {
+  const note = $("fontNote");
+  try {
+    const r = await api(`/api/fonts/ensure?lang=${encodeURIComponent(cfg.theme.language)}`, { method: "POST" });
+    if (!r.needed) { note.classList.add("hidden"); return; }
+    note.className = "notice ok";
+    note.textContent = T("connect.font_ready", { family: r.family });
+    refreshPreview();
+  } catch (e) {
+    note.className = "notice err";
+    note.textContent = e.message;
+  }
+}
+
+function reportText(msg) {
+  return T("report." + msg.key, msg.args || {});
+}
+
+async function testConnection() {
+  const box = $("testResult");
+  box.replaceChildren(el("div", { class: "notice" }, T("connect.testing")));
+  try {
+    const r = await api("/api/ha/test", { method: "POST", body: { url: cfg.home_assistant.url, token: cfg.home_assistant.token } });
+    const parts = [];
+    if (r.ok) parts.push(el("div", { class: "notice ok" }, T("connect.connected", { name: r.location || "Home Assistant", version: r.version ? ` (${r.version})` : "" })));
+    else parts.push(el("div", { class: "notice err" }, reportText(r.message)));
+    if (r.warnings.length || r.suggested_url) {
+      const w = el("div", { class: "notice warn" }, el("ul", {}, r.warnings.map((x) => el("li", {}, reportText(x)))));
+      if (r.suggested_url) {
+        w.append(el("div", { class: "row", style: "margin-top:8px" },
+          T("connect.suggested", { url: r.suggested_url }),
+          el("button", { class: "btn small", onclick: () => { cfg.home_assistant.url = r.suggested_url; $("haUrl").value = r.suggested_url; sync(); testConnection(); } }, T("connect.use_this"))));
+      }
+      parts.push(w);
+    }
+    box.replaceChildren(...parts);
+    if (r.ok) await loadEntities(true);
+  } catch (e) {
+    box.replaceChildren(el("div", { class: "notice err" }, e.message));
+  }
+}
+
+async function loadEntities(force) {
+  try {
+    entities = await api("/api/ha/entities" + (force ? "?refresh=true" : ""));
+    refreshDatalists();
+  } catch { entities = []; }
+}
+
+async function generate() {
+  const box = $("generateResult");
+  if (cfg.pages.length && !confirm(T("connect.replace_confirm"))) return;
+  box.replaceChildren(el("div", { class: "notice" }, T("connect.reading_ha")));
+  try {
+    const pages = await api("/api/generate", { method: "POST" });
+    if (!pages.length) throw new Error(T("connect.no_entities"));
+    cfg.pages = pages;
+    page = 0;
+    await loadEntities(false);
+    sync();
+    const cards = pages.reduce((n, p) => n + p.cards.length, 0);
+    box.replaceChildren(el("div", { class: "notice ok" }, T("connect.generated", { pages: pages.length, cards })));
+  } catch (e) {
+    box.replaceChildren(el("div", { class: "notice err" }, T("connect.generate_failed", { error: e.message })));
+  }
+}
+
+// ---------- Step 2 ----------
+function renderCardTypes() {
+  const sel = $("newCardType");
+  const current = sel.value;
+  sel.replaceChildren(...Object.keys(CARD_TYPES).map((k) => el("option", { value: k }, typeLabel(k))));
+  if (current) sel.value = current;
+}
+
+function renderDesign() {
+  if (!cfg) return;
+  if (page >= cfg.pages.length) page = Math.max(0, cfg.pages.length - 1);
+  renderPageChips();
+  renderPageSettings();
+  renderCards();
+  renderOverflow();
+}
+
+function renderPageChips() {
+  const chip = (p, i) => el("button", { class: "chip" + (i === page ? " active" : ""), onclick: () => { page = i; openCard = null; renderDesign(); refreshPreview(); } },
+    el("img", { src: iconUrl(p.icon), alt: "" }), p.title || T("design.untitled"),
+    hidden[i] ? el("span", { class: "badge", title: T("design.overflow_badge") }, String(hidden[i])) : null);
+  $("pageChips").replaceChildren(...cfg.pages.map(chip));
+  $("previewPages").replaceChildren(...cfg.pages.map(chip));
+}
+
+function iconSelect(value, onchange, allowEmpty = true) {
+  const img = el("img", { src: iconUrl(value || "home"), alt: "" });
+  const sel = el("select", { onchange: () => { img.src = iconUrl(sel.value || "home"); onchange(sel.value || null); } },
+    allowEmpty ? el("option", { value: "" }, T("design.icon_auto")) : null,
+    icons.map((n) => el("option", { value: n, selected: n === value }, n)));
+  return el("div", { class: "iconpick" }, img, sel);
+}
+
+function renderPageSettings() {
+  const box = $("pageSettings");
+  const p = cfg.pages[page];
+  if (!p) { box.replaceChildren(el("p", { class: "hint full" }, T("design.no_pages"))); return; }
+  const title = el("input", { type: "text", value: p.title });
+  title.oninput = () => { p.title = title.value; p.id = slug(title.value) || "page" + page; sync(); };
+  box.replaceChildren(
+    el("label", { class: "field" }, T("design.page_title"), title),
+    el("label", { class: "field" }, T("design.tab_icon"), iconSelect(p.icon, (v) => { p.icon = v || "home"; sync(); }, false)),
+    el("div", { class: "row full", style: "grid-column:1/-1" },
+      el("button", { class: "btn small", disabled: page === 0, onclick: () => movePage(-1) }, T("design.move_left")),
+      el("button", { class: "btn small", disabled: page === cfg.pages.length - 1, onclick: () => movePage(1) }, T("design.move_right")),
+      el("span", { class: "spacer" }),
+      el("button", { class: "btn small danger", onclick: deletePage }, T("design.delete_page"))));
+}
+
+const slug = (s) => s.toLowerCase().normalize("NFKD").replace(/[^\w]+/g, "_").replace(/^_|_$/g, "");
+
+function movePage(d) {
+  const [p] = cfg.pages.splice(page, 1);
+  page += d;
+  cfg.pages.splice(page, 0, p);
+  renderDesign(); sync();
+}
+function deletePage() {
+  if (!confirm(T("design.delete_page_confirm", { title: cfg.pages[page].title }))) return;
+  cfg.pages.splice(page, 1);
+  page = Math.max(0, page - 1);
+  renderDesign(); sync();
+}
+
+function cardSummary(c) {
+  const t = CARD_TYPES[c.type] || { icon: "home" };
+  const e = c.entity_id ? entityById(c.entity_id) : null;
+  const title = c.title || (e ? shortName(e) : "") || typeLabel(c.type);
+  let sub = c.entity_id || "";
+  if (c.type === "sensor_grid") sub = T("design.sensors_count", { n: (c.sensors || []).length });
+  if (c.type === "scenes_row") sub = T("design.buttons_count", { n: (c.scenes || []).length });
+  const tags = [el("span", { class: "tag" }, typeLabel(c.type))];
+  if (entities.length && c.entity_id && !e) tags.push(el("span", { class: "tag err", title: T("design.not_found_title") }, T("design.not_found")));
+  return { t, title, sub, tags };
+}
+
+function renderCards() {
+  const list = $("cardList");
+  const p = cfg.pages[page];
+  const cards = p ? p.cards : [];
+  $("emptyCards").classList.toggle("hidden", cards.length > 0);
+  const offFrom = cards.length - (hidden[page] || 0);
+  list.replaceChildren(...cards.map((c, i) => {
+    const { t, title, sub, tags } = cardSummary(c);
+    const row = el("div", { class: "cardrow" + (i >= offFrom ? " offscreen" : ""), draggable: "true" },
+      el("span", { class: "handle", title: T("design.drag") }, "⋮⋮"),
+      el("img", { class: "ticon", src: iconUrl(c.icon || t.icon), alt: "" }),
+      el("div", { style: "min-width:0" },
+        el("div", { class: "title" }, title),
+        el("div", { class: "sub" }, ...tags, i >= offFrom ? el("span", { class: "tag warn" }, T("design.doesnt_fit")) : null, sub)),
+      el("div", { class: "row", style: "gap:6px" },
+        moveToSelect(i),
+        el("button", { class: "btn small", onclick: () => { openCard = openCard === i ? null : i; renderCards(); } }, T(openCard === i ? "design.done" : "design.edit")),
+        el("button", { class: "btn small icon danger", title: T("design.delete_card"), onclick: () => { cards.splice(i, 1); openCard = null; renderCards(); sync(); } }, "✕")));
+    if (openCard === i) row.append(cardForm(c));
+    addDrag(row, i, cards);
+    return row;
+  }));
+}
+
+function moveToSelect(i) {
+  if (cfg.pages.length < 2) return null;
+  const sel = el("select", { class: "compact", title: T("design.move_to_title") },
+    el("option", { value: "" }, T("design.move_to")),
+    cfg.pages.map((p, j) => j === page ? null : el("option", { value: j }, p.title)));
+  sel.onchange = () => {
+    if (sel.value === "") return;
+    const [c] = cfg.pages[page].cards.splice(i, 1);
+    cfg.pages[+sel.value].cards.push(c);
+    openCard = null; renderCards(); sync();
+  };
+  return sel;
+}
+
+let dragFrom = null;
+function addDrag(row, i, cards) {
+  row.addEventListener("dragstart", (ev) => {
+    if (ev.target.closest("input,select,button")) { ev.preventDefault(); return; }
+    dragFrom = i; row.classList.add("dragging");
+  });
+  row.addEventListener("dragend", () => { row.classList.remove("dragging"); dragFrom = null; });
+  row.addEventListener("dragover", (ev) => { ev.preventDefault(); row.classList.add("over"); });
+  row.addEventListener("dragleave", () => row.classList.remove("over"));
+  row.addEventListener("drop", (ev) => {
+    ev.preventDefault(); row.classList.remove("over");
+    if (dragFrom == null || dragFrom === i) return;
+    const [c] = cards.splice(dragFrom, 1);
+    cards.splice(i, 0, c);
+    openCard = null; renderCards(); sync();
+  });
+}
+
+function entityInput(value, domains, onchange) {
+  const input = el("input", { type: "text", list: datalistFor(domains), value: value || "", placeholder: domains.slice(0, 3).join(" / ") + ".…", spellcheck: "false" });
+  const meta = el("div", { class: "entity-meta" });
+  const update = () => {
+    const e = entityById(input.value.trim());
+    meta.textContent = e ? `${e.name}${e.area ? " · " + e.area : ""} — ${e.state}${e.unit ? " " + e.unit : ""}` : (input.value && entities.length ? T("design.entity_not_found") : "");
+  };
+  input.addEventListener("change", () => { update(); onchange(input.value.trim(), entityById(input.value.trim())); });
+  update();
+  return [input, meta];
+}
+
+function cardForm(c) {
+  const schema = CARD_TYPES[c.type];
+  const form = el("div", { class: "cardform grid2" });
+  for (const [key, kind = key === "entity_id" ? "entity" : key === "icon" ? "icon" : "text", label, opts = {}] of schema.fields) {
+    if (kind === "entity") {
+      const [input, meta] = entityInput(c.entity_id, schema.domains, (v, e) => {
+        c.entity_id = v;
+        if (e && c.type === "scene" && !c.title) c.title = shortName(e);
+        renderCardsSoon(); sync();
+      });
+      form.append(el("label", { class: "field full" }, T("design.entity"), input, meta));
+    } else if (kind === "icon") {
+      form.append(el("label", { class: "field" }, T("design.icon"), iconSelect(c.icon, (v) => { c.icon = v; if (!v) delete c.icon; renderCardsSoon(); sync(); })));
+    } else if (kind === "bool") {
+      const cb = el("input", { type: "checkbox", checked: !!c[key] });
+      cb.onchange = () => { c[key] = cb.checked; sync(); };
+      form.append(el("label", { class: "check" }, cb, T(label)));
+    } else if (kind === "number") {
+      const n = el("input", { type: "number", value: c[key] ?? "", min: opts.min, max: opts.max, step: opts.step || 1 });
+      n.onchange = () => { c[key] = parseFloat(n.value) || schema.defaults[key]; sync(); };
+      form.append(el("label", { class: "field" }, T(label), n));
+    } else if (kind === "list") {
+      form.append(listEditor(c, key, T(label), opts));
+    } else {
+      const placeholder = key === "title" && c.type !== "scene" ? T("design.title_auto") : "";
+      const t = el("input", { type: "text", value: c[key] || "", placeholder });
+      t.oninput = () => { if (t.value) c[key] = t.value; else if (key === "title" && c.type === "scene") c[key] = ""; else delete c[key]; renderCardsSoon(); sync(); };
+      const text = label ? T(label) : key === "title" ? T("design.title") : key === "subtitle" ? T("design.subtitle") : key;
+      form.append(el("label", { class: "field" }, text, t));
+    }
+  }
+  return form;
+}
+
+function listEditor(c, key, label, opts) {
+  const items = c[key] || (c[key] = []);
+  const wrap = el("div", { class: "sublist" }, el("div", { class: "field" }, `${label} (${items.length}/${opts.max})`));
+  items.forEach((item, j) => {
+    const [input, meta] = entityInput(item.entity_id, opts.domains, (v, e) => {
+      item.entity_id = v;
+      if (e && !item.title) { item.title = shortName(e); title.value = item.title; }
+      if (e && opts.item === "sensor" && !item.unit && e.unit) { item.unit = e.unit; unit.value = e.unit; }
+      sync();
+    });
+    const title = el("input", { type: "text", value: item.title || "", placeholder: T("design.label") });
+    title.oninput = () => { item.title = title.value; sync(); };
+    const unit = el("input", { type: "text", value: item.unit || "", placeholder: T("design.unit") });
+    unit.oninput = () => { if (unit.value) item.unit = unit.value; else delete item.unit; sync(); };
+    wrap.append(el("div", { class: "subitem" },
+      el("label", { class: "field" }, T("design.entity"), input, meta),
+      el("label", { class: "field" }, T("design.label"), title),
+      el("label", { class: "field" }, T("design.icon"), iconSelect(item.icon, (v) => { if (v) item.icon = v; else if (opts.item === "scene") item.icon = "play"; else delete item.icon; sync(); }, opts.item !== "scene")),
+      opts.item === "sensor" ? el("label", { class: "field" }, T("design.unit"), unit) : el("span"),
+      el("button", { class: "btn small icon danger", title: T("design.remove"), onclick: () => { items.splice(j, 1); renderCards(); sync(); } }, "✕")));
+  });
+  if (items.length < opts.max) {
+    wrap.append(el("div", {}, el("button", { class: "btn small", onclick: () => {
+      items.push(opts.item === "scene" ? { entity_id: "", title: "", icon: "play" } : { entity_id: "", title: "" });
+      renderCards();
+    } }, T("design.add"))));
+  }
+  return wrap;
+}
+
+let renderSoonTimer = null;
+function renderCardsSoon() {
+  // Refresh row titles without stealing focus from the input being edited.
+  clearTimeout(renderSoonTimer);
+  renderSoonTimer = setTimeout(() => {
+    const p = cfg.pages[page];
+    if (!p) return;
+    document.querySelectorAll("#cardList .cardrow").forEach((row, i) => {
+      const c = p.cards[i];
+      if (!c) return;
+      const { t, title } = cardSummary(c);
+      row.querySelector(".title").textContent = title;
+      row.querySelector(".ticon").src = iconUrl(c.icon || t.icon);
+    });
+  }, 300);
+}
+
+function addCard() {
+  if (!cfg.pages.length) cfg.pages.push({ id: "home", title: T("design.new_page"), icon: "home", cards: [] });
+  const type = $("newCardType").value;
+  const card = { type, ...(JSON.parse(JSON.stringify(CARD_TYPES[type].defaults || {}))) };
+  if (CARD_TYPES[type].domains) card.entity_id = "";
+  cfg.pages[page].cards.push(card);
+  openCard = cfg.pages[page].cards.length - 1;
+  renderDesign();
+  sync();
+  setTimeout(() => document.querySelector("#cardList .cardrow:last-child input")?.focus(), 50);
+}
+
+function renderOverflow() {
+  const n = hidden[page] || 0;
+  const msg = n === 1 ? T("design.overflow_one") : n > 1 ? T("design.overflow_many", { n }) : "";
+  for (const id of ["overflowWarn", "previewHidden"]) {
+    $(id).textContent = msg;
+    $(id).classList.toggle("hidden", !n);
+  }
+  document.querySelectorAll("#cardList .cardrow").forEach((row, i, all) => row.classList.toggle("offscreen", i >= all.length - n));
+}
+
+// ---------- Preview ----------
+function refreshPreview() {
+  if (!cfg) return;
+  $("deviceFrame").classList.toggle("landscape", cfg.device.orientation === "landscape");
+  $("previewImg").src = `/api/preview.png?page=${page}&bw=${$("bw").checked}&t=${Date.now()}`;
+}
+
+// ---------- Step 3 / device detection ----------
+function applyDetectedModel(devices) {
+  const known = devices.find((d) => d.model);
+  if (!known || (cfg.device.model && cfg.device.model !== "auto")) return;
+  setModel(known.model);
+  $("modelNote").textContent = T("connect.model_detected", { model: known.model_name });
+  $("modelNote").classList.remove("hidden");
+}
+
+async function scanKobos() {
+  try {
+    const r = await api("/api/kobo");
+    $("binaryWarn").classList.toggle("hidden", r.kobo_binary);
+    applyDetectedModel(r.devices);
+    const list = $("devices");
+    if (!r.devices.length) {
+      list.replaceChildren(el("p", { class: "hint" }, T("install.none")));
+      return;
+    }
+    list.replaceChildren(...r.devices.map((d) => {
+      const configured = modelByKey(cfg.device.model);
+      const mismatch = d.model && d.model !== cfg.device.model;
+      const nm = d.nickelmenu; // installed | pending | missing
+      const nmChip = el("span", { class: "status " + (nm === "installed" ? "ok" : nm === "pending" ? "" : "no") },
+        T(nm === "installed" ? "install.nm_found" : nm === "pending" ? "install.nm_pending" : "install.nm_missing"));
+      const explain = el("div", { class: "notice warn" });
+      explain.innerHTML = T("install.nm_explain");
+      const primary = nm === "missing"
+        ? el("button", { class: "btn primary", disabled: !r.kobo_binary, onclick: () => install(d.path, true) }, T("install.install_with_nm"))
+        : el("button", { class: "btn primary", disabled: !r.kobo_binary, onclick: () => install(d.path, false, nm === "pending") }, T(d.installed ? "install.update" : "install.install"));
+      return el("div", { class: "kobo" },
+        el("div", { style: "flex:1;min-width:220px" },
+          el("div", { class: "path" }, d.model_name || T("install.unknown_model")),
+          el("div", { class: "meta" }, `${d.path} · ${T("install.firmware", { version: d.firmware || "?" })}`),
+          el("div", { class: "row", style: "margin-top:6px;gap:6px" },
+            nmChip,
+            el("span", { class: "status" + (d.installed ? " ok" : "") }, T(d.installed ? "install.installed" : "install.not_installed"))),
+          !d.firmware_supported ? el("div", { class: "notice err" }, T("install.firmware_unsupported", { version: d.firmware || "?" })) : null,
+          nm === "missing" ? explain : null,
+          mismatch ? el("div", { class: "notice warn row" },
+            T("install.model_mismatch", { model: d.model_name, configured: configured ? configured.name : T("connect.model_auto") }),
+            el("button", { class: "btn small", onclick: () => { setModel(d.model); scanKobos(); } }, T("install.use_model", { model: d.model_name }))) : null),
+        d.has_config ? el("button", { class: "btn", onclick: () => importFrom(d.path) }, T("install.load_config")) : null,
+        primary);
+    }));
+  } catch (e) {
+    $("devices").replaceChildren(el("div", { class: "notice err" }, e.message));
+  }
+}
+
+async function install(path, withNickelMenu = false, nickelMenuPending = false) {
+  const log = $("installLog");
+  log.classList.remove("hidden");
+  log.textContent = T("install.installing");
+  const lines = [];
+  const show = (entries) => {
+    lines.push(...entries.map((l) => "✓ " + T("install.log." + l.key, l.args || {})));
+    log.textContent = lines.join("\n");
+  };
+  try {
+    await pushDraft(true);
+    if (withNickelMenu) show((await api("/api/kobo/nickelmenu", { method: "POST", body: { path } })).log);
+    show((await api("/api/kobo/install", { method: "POST", body: { path, menu_name: $("menuName").value } })).log);
+    setDirty(false);
+    if (withNickelMenu || nickelMenuPending) {
+      lines.push("", T("install.restart_hint"));
+      log.textContent = lines.join("\n");
+    }
+    $("finishRow")?.remove();
+    log.after(el("div", { id: "finishRow", class: "row", style: "margin-top:12px;justify-content:flex-end" },
+      el("button", { class: "btn primary", onclick: quitSetup }, T("install.finish"))));
+    scanKobos();
+  } catch (e) {
+    lines.push("✕ " + e.message);
+    log.textContent = lines.join("\n");
+  }
+}
+
+async function importFrom(path) {
+  if (!confirm(T("install.import_confirm"))) return;
+  try {
+    const imported = await api("/api/kobo/import", { method: "POST", body: { path } });
+    page = 0;
+    await replaceConfig(imported);
+    $("installLog").classList.remove("hidden");
+    $("installLog").textContent = T("install.imported", { path });
+  } catch (e) { alert(e.message); }
+}
+
+// ---------- Boot ----------
+/// Keep hand-edited timeouts (e.g. 90 s) selectable in the list.
+function lightTimeoutValue() {
+  const v = String(cfg.device.frontlight_timeout_secs || 0);
+  const sel = $("lightTimeout");
+  if (![...sel.options].some((o) => o.value === v)) sel.append(el("option", { value: v }, `${v} s`));
+  return v;
+}
+
+function bindAllFields() {
+  for (const [id, v] of [["haUrl", cfg.home_assistant.url], ["haToken", cfg.home_assistant.token], ["orientation", cfg.device.orientation],
+    ["themeMode", cfg.theme.mode], ["accent", cfg.theme.accent_color], ["timeFormat", cfg.theme.time_format],
+    ["utcOffset", cfg.theme.utc_offset || ""], ["refresh", cfg.home_assistant.refresh_interval_secs], ["language", cfg.theme.language],
+    ["model", cfg.device.model || "auto"], ["lightTimeout", lightTimeoutValue()]]) {
+    $(id).value = v ?? "";
+  }
+}
+
+async function boot() {
+  const s = await api("/api/state");
+  cfg = s.config;
+  icons = s.icons;
+  models = s.models;
+  languages = s.languages;
+  hidden = s.hidden || [];
+
+  // ?lang=xx picks the interface language directly (handy for shared links).
+  const fromUrl = new URLSearchParams(location.search).get("lang");
+  if (fromUrl && languages.some(([c]) => c === fromUrl)) storage.set("uiLang", fromUrl);
+  const uiLang = storage.get("uiLang");
+  await loadStrings(uiLang || browserLang());
+  $("uiLang").replaceChildren(...languages.map(([code, name]) => el("option", { value: code }, name)));
+  $("uiLang").value = uiLang || browserLang();
+  $("uiLang").onchange = () => setUiLang($("uiLang").value);
+  applyStatic();
+
+  $("language").replaceChildren(...languages.map(([code, name]) => el("option", { value: code }, `${name} (${code})`)));
+  renderModelSelect();
+  renderCardTypes();
+  $("menuName").value = s.menu_name;
+  bindConnect();
+  bindAllFields();
+  updateTokenButton();
+  applyDetectedModel(s.devices || []);
+
+  document.querySelectorAll("nav.steps button").forEach((b) => (b.onclick = () => setStep(b.dataset.step)));
+  $("addCard").onclick = addCard;
+  $("addPage").onclick = () => {
+    cfg.pages.push({ id: "page" + (cfg.pages.length + 1), title: T("design.new_page"), icon: "home", cards: [] });
+    page = cfg.pages.length - 1;
+    renderDesign(); sync();
+  };
+  $("bw").onchange = refreshPreview;
+  $("reloadPreview").onclick = refreshPreview;
+  $("rescan").onclick = scanKobos;
+  $("quitBtn").onclick = quitSetup;
+  $("saveStatus").title = T("app.config_file", { file: s.config_path });
+  lastSnapshot = snapshot();
+  setDirty(!!s.dirty);
+  updateUndoButtons();
+  $("saveBtn").onclick = () => saveNow().catch((e) => alert(e.message));
+  $("undoBtn").onclick = undo;
+  $("redoBtn").onclick = redo;
+  $("historyBtn").onclick = () => openHistory().catch((e) => alert(e.message));
+  $("historyClose").onclick = () => $("historyDialog").close();
+  window.addEventListener("beforeunload", (ev) => {
+    if (dirty && !quitting) { ev.preventDefault(); ev.returnValue = ""; }
+  });
+  document.addEventListener("keydown", (ev) => {
+    const mod = ev.metaKey || ev.ctrlKey;
+    if (!mod) return;
+    const key = ev.key.toLowerCase();
+    if (key === "s") { ev.preventDefault(); if (dirty) saveNow().catch((e) => alert(e.message)); return; }
+    // Inside text fields, leave Ctrl+Z to the browser's own text undo.
+    if (ev.target.closest("input, textarea")) return;
+    if (key === "z" && !ev.shiftKey) { ev.preventDefault(); undo(); }
+    else if ((key === "z" && ev.shiftKey) || key === "y") { ev.preventDefault(); redo(); }
+  });
+
+  renderPageChips();
+  refreshPreview();
+  setInterval(refreshPreview, 30000);
+  if (cfg.home_assistant.token) loadEntities(false);
+  const hash = location.hash.slice(1);
+  if (["connect", "design", "install"].includes(hash)) setStep(hash);
+  else if (hash === "token-help") { setStep("connect"); openTokenHelp(); }
+  else if (cfg.pages.length && cfg.home_assistant.token) setStep("design");
+  ensureFont();
+  if (!uiLang) showSplash();
+}
+
+boot().catch((e) => { document.body.prepend(el("div", { class: "notice err" }, T("app.load_failed", { error: e.message }))); });
+</script>
+</body>
+</html>

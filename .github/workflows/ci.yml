@@ -1,0 +1,58 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    name: Test (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      # Unit tests, including: every language file has every key, the setup
+      # tool only uses existing keys, demo pages fit the screen, config
+      # round-trips, Kobo install/NickelMenu/backup logic.
+      - run: cargo test --locked
+
+  editor:
+    name: Setup tool script
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      # Parse the embedded editor JavaScript to catch syntax errors.
+      - run: |
+          node -e '
+            const html = require("fs").readFileSync("src/setup/editor.html", "utf8");
+            const m = html.match(/<script>([\s\S]*)<\/script>/);
+            if (!m) throw new Error("no <script> block found");
+            new Function(m[1]);
+            console.log("editor.html script parses (" + m[1].length + " chars)");
+          '
+      - run: sh -n deploy/launch.sh && bash -n deploy/install.sh && bash -n deploy/build-kobo.sh
+
+  kobo-build:
+    name: Kobo build (ARMv7)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: armv7-unknown-linux-musleabihf
+      - uses: Swatinem/rust-cache@v2
+      - uses: mlugg/setup-zig@v2
+        with:
+          version: 0.17.0
+      - run: cargo install cargo-zigbuild --locked
+      - run: cargo zigbuild --locked --release --target armv7-unknown-linux-musleabihf
+      - run: file target/armv7-unknown-linux-musleabihf/release/kobo-ha-dashboard

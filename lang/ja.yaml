@@ -1,0 +1,68 @@
+meta:
+  name: "日本語"
+  font: "NotoSansJP"
+  percent: "{value}%"
+  decimal: "."
+
+date:
+  weekdays: ["月曜日", "火曜日", "水曜日", "木曜日", "金曜日", "土曜日", "日曜日"]
+  weekdays_short: ["月", "火", "水", "木", "金", "土", "日"]
+  months: ["1月", "2月", "3月", "4月", "5月", "6月", "7月", "8月", "9月", "10月", "11月", "12月"]
+  long: "{month}{day}日"
+  today: "今日"
+
+header:
+  live: "接続中 · {time}"
+  offline: "オフライン"
+  demo: "デモモード"
+
+state:
+  on: "オン"
+  off: "オフ"
+  unavailable: "利用不可"
+  unknown: "—"
+  running: "稼働中"
+  idle: "待機中"
+  standby: "スタンバイ"
+  heating: "暖房中"
+  cooling: "冷房中"
+  drying: "除湿中"
+  fan: "送風"
+  printing: "印刷中"
+  paused: "一時停止"
+  stopped: "停止"
+  finished: "完了"
+  error: "エラー"
+  not_playing: "再生していません"
+
+climate:
+  default_title: "サーモスタット"
+  room: "室温 {temp}°"
+
+media:
+  default_title: "メディア"
+
+weather:
+  no_forecast: "予報データなし"
+  wind_kmh: "km/h"
+  condition:
+    sunny: "晴れ"
+    clear-night: "快晴"
+    partlycloudy: "晴れ時々曇り"
+    cloudy: "曇り"
+    rainy: "雨"
+    pouring: "大雨"
+    snowy: "雪"
+    snowy-rainy: "みぞれ"
+    hail: "ひょう"
+    lightning: "雷雨"
+    lightning-rainy: "雷雨"
+    fog: "霧"
+    windy: "強風"
+    windy-variant: "強風"
+    exceptional: "異常気象"
+
+generated:
+  overview: "ホーム"
+  other: "その他"
+  scenes: "シーン"

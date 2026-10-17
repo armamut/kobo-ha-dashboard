@@ -1,0 +1,68 @@
+meta:
+  name: "Deutsch"
+  font: ""
+  percent: "{value} %"
+  decimal: ","
+
+date:
+  weekdays: ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag", "Sonntag"]
+  weekdays_short: ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"]
+  months: ["Januar", "Februar", "März", "April", "Mai", "Juni", "Juli", "August", "September", "Oktober", "November", "Dezember"]
+  long: "{day}. {month}"
+  today: "Heute"
+
+header:
+  live: "Live · {time}"
+  offline: "Offline"
+  demo: "Demo-Modus"
+
+state:
+  on: "An"
+  off: "Aus"
+  unavailable: "Nicht verfügbar"
+  unknown: "—"
+  running: "Läuft"
+  idle: "Leerlauf"
+  standby: "Standby"
+  heating: "Heizt"
+  cooling: "Kühlt"
+  drying: "Entfeuchtet"
+  fan: "Lüfter"
+  printing: "Druckt"
+  paused: "Pausiert"
+  stopped: "Gestoppt"
+  finished: "Fertig"
+  error: "Fehler"
+  not_playing: "Keine Wiedergabe"
+
+climate:
+  default_title: "Thermostat"
+  room: "Raum {temp}°"
+
+media:
+  default_title: "Medien"
+
+weather:
+  no_forecast: "Keine Vorhersage"
+  wind_kmh: "km/h"
+  condition:
+    sunny: "Sonnig"
+    clear-night: "Klar"
+    partlycloudy: "Teilweise bewölkt"
+    cloudy: "Bewölkt"
+    rainy: "Regen"
+    pouring: "Starkregen"
+    snowy: "Schnee"
+    snowy-rainy: "Schneeregen"
+    hail: "Hagel"
+    lightning: "Gewitter"
+    lightning-rainy: "Gewitter"
+    fog: "Nebel"
+    windy: "Windig"
+    windy-variant: "Windig"
+    exceptional: "Außergewöhnlich"
+
+generated:
+  overview: "Übersicht"
+  other: "Sonstiges"
+  scenes: "Szenen"

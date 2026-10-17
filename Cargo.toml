@@ -1,0 +1,37 @@
+[package]
+name = "kobo-ha-dashboard"
+version = "0.2.0"
+edition = "2021"
+description = "Home Assistant dashboard for Kobo e-readers, with a desktop setup tool"
+authors = ["armamut"]
+license = "MIT"
+readme = "README.md"
+repository = "https://github.com/armamut/kobo-ha-dashboard"
+keywords = ["kobo", "home-assistant", "e-ink", "dashboard"]
+
+[dependencies]
+tokio = { version = "1.38", features = ["full"] }
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+serde_yaml = "0.9"
+tiny-skia = "0.11"
+fontdue = "0.9"
+image = { version = "0.25", default-features = false, features = ["png", "jpeg"] }
+axum = "0.7"
+tower-http = { version = "0.5", features = ["cors", "trace"] }
+clap = { version = "4.5", features = ["derive"] }
+chrono = { version = "0.4", features = ["serde"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+async-trait = "0.1"
+libc = "0.2"
+ab_glyph = "0.2"
+sha2 = "0.10"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+panic = "unwind"
+strip = true

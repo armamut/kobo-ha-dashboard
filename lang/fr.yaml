@@ -1,0 +1,68 @@
+meta:
+  name: "Français"
+  font: ""
+  percent: "{value} %"
+  decimal: ","
+
+date:
+  weekdays: ["lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanche"]
+  weekdays_short: ["lun.", "mar.", "mer.", "jeu.", "ven.", "sam.", "dim."]
+  months: ["janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre", "octobre", "novembre", "décembre"]
+  long: "{day} {month}"
+  today: "Aujourd'hui"
+
+header:
+  live: "En direct · {time}"
+  offline: "Hors ligne"
+  demo: "Mode démo"
+
+state:
+  on: "Allumé"
+  off: "Éteint"
+  unavailable: "Indisponible"
+  unknown: "—"
+  running: "En marche"
+  idle: "Inactif"
+  standby: "Veille"
+  heating: "Chauffe"
+  cooling: "Refroidit"
+  drying: "Déshumidifie"
+  fan: "Ventilation"
+  printing: "Impression"
+  paused: "En pause"
+  stopped: "Arrêté"
+  finished: "Terminé"
+  error: "Erreur"
+  not_playing: "Aucune lecture"
+
+climate:
+  default_title: "Thermostat"
+  room: "Pièce {temp}°"
+
+media:
+  default_title: "Média"
+
+weather:
+  no_forecast: "Pas de prévisions"
+  wind_kmh: "km/h"
+  condition:
+    sunny: "Ensoleillé"
+    clear-night: "Dégagé"
+    partlycloudy: "Partiellement nuageux"
+    cloudy: "Nuageux"
+    rainy: "Pluie"
+    pouring: "Averses"
+    snowy: "Neige"
+    snowy-rainy: "Neige fondue"
+    hail: "Grêle"
+    lightning: "Orage"
+    lightning-rainy: "Orage"
+    fog: "Brouillard"
+    windy: "Venteux"
+    windy-variant: "Venteux"
+    exceptional: "Exceptionnel"
+
+generated:
+  overview: "Accueil"
+  other: "Autres"
+  scenes: "Scènes"

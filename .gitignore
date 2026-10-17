@@ -1,0 +1,9 @@
+/target
+# Your settings: contain the Home Assistant token
+config.yaml
+config.yaml.tmp
+backups/
+*.log
+# Built by ./deploy/build-kobo.sh or the release workflow
+/deploy/kobo-ha-dashboard
+.DS_Store

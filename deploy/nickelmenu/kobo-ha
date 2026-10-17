@@ -1,0 +1,5 @@
+# NickelMenu configuration for Kobo Home Assistant Dashboard
+# Placed in /mnt/onboard/.adds/nm/kobo-ha
+
+menu_item :main :Home Dashboard :cmd_spawn :quiet :/bin/sh /mnt/onboard/.kobo-ha/launch.sh
+menu_item :reader :Home Dashboard :cmd_spawn :quiet :/bin/sh /mnt/onboard/.kobo-ha/launch.sh

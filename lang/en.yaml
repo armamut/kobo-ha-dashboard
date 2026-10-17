@@ -1,0 +1,76 @@
+# Kobo HA Dashboard - English (reference language)
+# Every other language file must contain all keys found here.
+# {placeholders} are filled in by the app; keep them unchanged.
+
+meta:
+  name: "English"
+  # Extra font needed for this script ("" = built-in Roboto is enough)
+  font: ""
+  # How a percentage is written ("%{value}" in Turkish, "{value} %" in German)
+  percent: "{value}%"
+  decimal: "."
+
+date:
+  weekdays: [Monday, Tuesday, Wednesday, Thursday, Friday, Saturday, Sunday]
+  weekdays_short: [Mon, Tue, Wed, Thu, Fri, Sat, Sun]
+  months: [January, February, March, April, May, June, July, August, September, October, November, December]
+  # Second header line under the weekday
+  long: "{month} {day}"
+  today: "Today"
+
+header:
+  live: "Live · {time}"
+  offline: "Offline"
+  demo: "Demo mode"
+
+state:
+  on: "On"
+  off: "Off"
+  unavailable: "Unavailable"
+  unknown: "—"
+  running: "Running"
+  idle: "Idle"
+  standby: "Standby"
+  heating: "Heating"
+  cooling: "Cooling"
+  drying: "Drying"
+  fan: "Fan"
+  printing: "Printing"
+  paused: "Paused"
+  stopped: "Stopped"
+  finished: "Finished"
+  error: "Error"
+  not_playing: "Not playing"
+
+climate:
+  default_title: "Thermostat"
+  room: "Room {temp}°"
+
+media:
+  default_title: "Media"
+
+weather:
+  no_forecast: "No forecast data"
+  wind_kmh: "km/h"
+  condition:
+    sunny: "Sunny"
+    clear-night: "Clear"
+    partlycloudy: "Partly cloudy"
+    cloudy: "Cloudy"
+    rainy: "Rainy"
+    pouring: "Pouring"
+    snowy: "Snowy"
+    snowy-rainy: "Sleet"
+    hail: "Hail"
+    lightning: "Thunderstorm"
+    lightning-rainy: "Thunderstorm"
+    fog: "Fog"
+    windy: "Windy"
+    windy-variant: "Windy"
+    exceptional: "Exceptional"
+
+# Titles used when the setup tool generates a starter dashboard
+generated:
+  overview: "Home"
+  other: "Other"
+  scenes: "Scenes"
