@@ -349,6 +349,9 @@ struct PreviewQuery {
     page: usize,
     #[serde(default)]
     bw: bool,
+    /// Draw the sleep-mode note, as the Kobo shows it while asleep
+    #[serde(default)]
+    sleep: bool,
 }
 
 async fn preview(State(s): State<Shared>, Query(q): Query<PreviewQuery>) -> Response {
@@ -366,6 +369,10 @@ async fn preview(State(s): State<Shared>, Query(q): Query<PreviewQuery>) -> Resp
     renderer.last_update = ha.last_update().await;
     // Most Kobos have a frontlight; show its button as on the device.
     renderer.frontlight = Some(true);
+    if q.sleep {
+        let next = crate::ui::widgets::header::now_local(&config.theme) + chrono::Duration::seconds(config.device.sleep_wake_secs.max(120) as i64);
+        renderer.sleep_until = Some(crate::ui::widgets::header::format_time(&next, &config.theme));
+    }
     renderer.render(&mut canvas, &config, q.page.min(config.pages.len().saturating_sub(1)), &states, live);
     let hidden = renderer.hidden_cards;
     let png = if q.bw { canvas.to_grayscale_png_bytes() } else { canvas.to_png_bytes() };

@@ -5,4 +5,4 @@ pub mod icons;
 
 pub use canvas::{Canvas, TextAlign};
 pub use color::{palette, Color};
-pub use framebuffer::{create_framebuffer, FramebufferDriver, Rotation};
+pub use framebuffer::{create_framebuffer, FramebufferDriver, Refresh, Rotation};

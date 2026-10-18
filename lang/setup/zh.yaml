@@ -88,6 +88,20 @@ connect:
   light_5m: "5 分钟"
   light_10m: "10 分钟"
   light_hint: "将 Kobo 用作桌面仪表板时可节省电量。轻触屏幕即可重新亮灯，仪表板顶栏的灯光按钮也可随时开关灯光。"
+  sleep_after: "多久后进入睡眠"
+  sleep_never: "从不"
+  sleep_after_5m: "5 分钟"
+  sleep_after_10m: "10 分钟"
+  sleep_after_15m: "15 分钟"
+  sleep_after_30m: "30 分钟"
+  sleep_after_1h: "1 小时"
+  sleep_every: "睡眠时的刷新间隔"
+  sleep_every_5m: "每 5 分钟"
+  sleep_every_10m: "每 10 分钟"
+  sleep_every_15m: "每 15 分钟"
+  sleep_every_30m: "每 30 分钟"
+  sleep_every_1h: "每小时"
+  sleep_hint: "睡眠模式会在两次刷新之间让 Kobo 休眠，电池续航可从几小时延长到几天。屏幕会继续显示仪表板并附带提示；按电源键即可重新使用。充电时不会进入睡眠。"
   utc_hint: "Kobo 以 UTC 记录时间，上面的时区设置才能让时钟显示正确。"
   font_downloading: "正在下载此语言所需的字体（仅一次，几 MB）…"
   font_ready: "{family} 字体已就绪，安装时会复制到 Kobo。"
@@ -173,6 +187,7 @@ card_types:
   scene: "单个按钮"
 
 preview:
+  sleep: "显示睡眠画面"
   grayscale: "以灰度显示"
   refresh: "刷新"
 

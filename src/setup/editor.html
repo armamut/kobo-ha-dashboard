@@ -316,6 +316,28 @@ a.btn.primary { color: var(--accent-ink); }
         </label>
       </div>
       <p class="hint" style="margin-top:12px" data-i18n="connect.light_hint"></p>
+      <div class="grid2" style="margin-top:14px">
+        <label class="field"><span data-i18n="connect.sleep_after"></span>
+          <select id="sleepAfter">
+            <option value="0" data-i18n="connect.sleep_never"></option>
+            <option value="300" data-i18n="connect.sleep_after_5m"></option>
+            <option value="600" data-i18n="connect.sleep_after_10m"></option>
+            <option value="900" data-i18n="connect.sleep_after_15m"></option>
+            <option value="1800" data-i18n="connect.sleep_after_30m"></option>
+            <option value="3600" data-i18n="connect.sleep_after_1h"></option>
+          </select>
+        </label>
+        <label class="field"><span data-i18n="connect.sleep_every"></span>
+          <select id="sleepWake">
+            <option value="300" data-i18n="connect.sleep_every_5m"></option>
+            <option value="600" data-i18n="connect.sleep_every_10m"></option>
+            <option value="900" data-i18n="connect.sleep_every_15m"></option>
+            <option value="1800" data-i18n="connect.sleep_every_30m"></option>
+            <option value="3600" data-i18n="connect.sleep_every_1h"></option>
+          </select>
+        </label>
+      </div>
+      <p class="hint" style="margin-top:12px" data-i18n="connect.sleep_hint"></p>
       <div id="fontNote" class="notice warn hidden"></div>
       <p class="hint" style="margin-top:14px" data-i18n="connect.utc_hint"></p>
     </div>
@@ -389,7 +411,10 @@ a.btn.primary { color: var(--accent-ink); }
   <div class="device" id="deviceFrame"><img id="previewImg" alt=""></div>
   <div class="preview-pages" id="previewPages"></div>
   <div class="preview-tools">
-    <label class="check"><input type="checkbox" id="bw"> <span data-i18n="preview.grayscale"></span></label>
+    <div class="row" style="gap:14px">
+      <label class="check"><input type="checkbox" id="bw"> <span data-i18n="preview.grayscale"></span></label>
+      <label class="check"><input type="checkbox" id="sleepPreview"> <span data-i18n="preview.sleep"></span></label>
+    </div>
     <button class="btn small" id="reloadPreview" data-i18n="preview.refresh"></button>
   </div>
   <div id="previewHidden" class="notice warn hidden"></div>
@@ -706,6 +731,8 @@ function bindConnect() {
   bind("utcOffset", () => cfg.theme.utc_offset, (v) => (cfg.theme.utc_offset = v.trim() || null));
   bind("refresh", () => cfg.home_assistant.refresh_interval_secs, (v) => (cfg.home_assistant.refresh_interval_secs = Math.max(5, parseInt(v) || 20)));
   bind("lightTimeout", () => String(cfg.device.frontlight_timeout_secs || 0), (v) => (cfg.device.frontlight_timeout_secs = parseInt(v) || 0), "change");
+  bind("sleepAfter", () => String(cfg.device.sleep_after_secs || 0), (v) => (cfg.device.sleep_after_secs = parseInt(v) || 0), "change");
+  bind("sleepWake", () => String(cfg.device.sleep_wake_secs || 900), (v) => (cfg.device.sleep_wake_secs = parseInt(v) || 900), "change");
   bind("language", () => cfg.theme.language, (v) => { cfg.theme.language = v; ensureFont(); }, "change");
   $("model").addEventListener("change", () => { $("modelNote").classList.add("hidden"); setModel($("model").value); });
 
@@ -1117,7 +1144,7 @@ function renderOverflow() {
 function refreshPreview() {
   if (!cfg) return;
   $("deviceFrame").classList.toggle("landscape", cfg.device.orientation === "landscape");
-  $("previewImg").src = `/api/preview.png?page=${page}&bw=${$("bw").checked}&t=${Date.now()}`;
+  $("previewImg").src = `/api/preview.png?page=${page}&bw=${$("bw").checked}&sleep=${$("sleepPreview").checked}&t=${Date.now()}`;
 }
 
 // ---------- Step 3 / device detection ----------
@@ -1210,6 +1237,14 @@ async function importFrom(path) {
 }
 
 // ---------- Boot ----------
+/// Keep hand-edited values selectable in a fixed list of durations.
+function selectValue(id, secs) {
+  const v = String(secs);
+  const sel = $(id);
+  if (![...sel.options].some((o) => o.value === v)) sel.append(el("option", { value: v }, `${Math.round(secs / 60)} min`));
+  return v;
+}
+
 /// Keep hand-edited timeouts (e.g. 90 s) selectable in the list.
 function lightTimeoutValue() {
   const v = String(cfg.device.frontlight_timeout_secs || 0);
@@ -1222,7 +1257,9 @@ function bindAllFields() {
   for (const [id, v] of [["haUrl", cfg.home_assistant.url], ["haToken", cfg.home_assistant.token], ["orientation", cfg.device.orientation],
     ["themeMode", cfg.theme.mode], ["accent", cfg.theme.accent_color], ["timeFormat", cfg.theme.time_format],
     ["utcOffset", cfg.theme.utc_offset || ""], ["refresh", cfg.home_assistant.refresh_interval_secs], ["language", cfg.theme.language],
-    ["model", cfg.device.model || "auto"], ["lightTimeout", lightTimeoutValue()]]) {
+    ["model", cfg.device.model || "auto"], ["lightTimeout", lightTimeoutValue()],
+    ["sleepAfter", selectValue("sleepAfter", cfg.device.sleep_after_secs || 0)],
+    ["sleepWake", selectValue("sleepWake", cfg.device.sleep_wake_secs || 900)]]) {
     $(id).value = v ?? "";
   }
 }
@@ -1262,6 +1299,7 @@ async function boot() {
     renderDesign(); sync();
   };
   $("bw").onchange = refreshPreview;
+  $("sleepPreview").onchange = refreshPreview;
   $("reloadPreview").onclick = refreshPreview;
   $("rescan").onclick = scanKobos;
   $("quitBtn").onclick = quitSetup;

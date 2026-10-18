@@ -88,6 +88,20 @@ connect:
   light_5m: "5 minuti"
   light_10m: "10 minuti"
   light_hint: "Risparmia batteria quando il Kobo è usato come dashboard da scrivania. Un tocco riaccende la luce e il pulsante luce nella barra in alto della dashboard la accende o spegne in qualsiasi momento."
+  sleep_after: "Sospendi dopo"
+  sleep_never: "Mai"
+  sleep_after_5m: "5 minuti"
+  sleep_after_10m: "10 minuti"
+  sleep_after_15m: "15 minuti"
+  sleep_after_30m: "30 minuti"
+  sleep_after_1h: "1 ora"
+  sleep_every: "In sospensione, aggiorna ogni"
+  sleep_every_5m: "5 minuti"
+  sleep_every_10m: "10 minuti"
+  sleep_every_15m: "15 minuti"
+  sleep_every_30m: "30 minuti"
+  sleep_every_1h: "ora"
+  sleep_hint: "La sospensione spegne il Kobo tra un aggiornamento e l'altro: la batteria dura giorni invece di ore. Lo schermo continua a mostrare la dashboard con una nota; premi il tasto di accensione per usarla di nuovo. Non va in sospensione durante la ricarica."
   utc_hint: "Il Kobo tiene l'orologio in UTC: è il fuso orario qui sopra a rendere l'ora corretta."
   font_downloading: "Download del font necessario per questa lingua (una volta sola, pochi MB)…"
   font_ready: "Il font {family} è pronto. Verrà copiato sul Kobo durante l'installazione."
@@ -173,6 +187,7 @@ card_types:
   scene: "Pulsante singolo"
 
 preview:
+  sleep: "Mostra la schermata di sospensione"
   grayscale: "Mostra in scala di grigi"
   refresh: "Aggiorna"
 

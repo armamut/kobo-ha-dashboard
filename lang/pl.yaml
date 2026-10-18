@@ -66,3 +66,8 @@ generated:
   overview: "Start"
   other: "Inne"
   scenes: "Sceny"
+
+sleep:
+  title: "Tryb uśpienia"
+  next: "Następna aktualizacja {time}"
+  wake_hint: "Naciśnij przycisk zasilania, aby wybudzić panel"

@@ -88,6 +88,20 @@ connect:
   light_5m: "5 minutes"
   light_10m: "10 minutes"
   light_hint: "Économise la batterie quand la Kobo sert de tableau de bord sur un bureau. Un toucher rallume l'éclairage, et le bouton lumière en haut du tableau de bord l'allume ou l'éteint à tout moment."
+  sleep_after: "Mise en veille après"
+  sleep_never: "Jamais"
+  sleep_after_5m: "5 minutes"
+  sleep_after_10m: "10 minutes"
+  sleep_after_15m: "15 minutes"
+  sleep_after_30m: "30 minutes"
+  sleep_after_1h: "1 heure"
+  sleep_every: "En veille, actualiser toutes les"
+  sleep_every_5m: "5 minutes"
+  sleep_every_10m: "10 minutes"
+  sleep_every_15m: "15 minutes"
+  sleep_every_30m: "30 minutes"
+  sleep_every_1h: "heures"
+  sleep_hint: "Le mode veille éteint la Kobo entre deux actualisations : la batterie tient des jours au lieu de quelques heures. L'écran continue d'afficher le tableau de bord avec une note ; appuyez sur le bouton d'alimentation pour l'utiliser à nouveau. Pas de veille pendant la charge."
   utc_hint: "La Kobo garde son horloge en UTC : c'est le fuseau horaire ci-dessus qui affiche l'heure correcte."
   font_downloading: "Téléchargement de la police nécessaire à cette langue (une seule fois, quelques Mo)…"
   font_ready: "La police {family} est prête. Elle sera copiée sur la Kobo lors de l'installation."
@@ -173,6 +187,7 @@ card_types:
   scene: "Bouton unique"
 
 preview:
+  sleep: "Afficher l'écran de veille"
   grayscale: "Afficher en niveaux de gris"
   refresh: "Actualiser"
 

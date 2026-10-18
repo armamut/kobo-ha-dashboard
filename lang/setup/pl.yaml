@@ -88,6 +88,20 @@ connect:
   light_5m: "5 minutach"
   light_10m: "10 minutach"
   light_hint: "Oszczędza baterię, gdy Kobo służy jako panel na biurku. Dotknięcie ekranu ponownie włącza światło, a przycisk światła na górnym pasku panelu w każdej chwili je włącza lub wyłącza."
+  sleep_after: "Uśpij po"
+  sleep_never: "Nigdy"
+  sleep_after_5m: "5 minutach"
+  sleep_after_10m: "10 minutach"
+  sleep_after_15m: "15 minutach"
+  sleep_after_30m: "30 minutach"
+  sleep_after_1h: "1 godzinie"
+  sleep_every: "W uśpieniu odświeżaj co"
+  sleep_every_5m: "5 minut"
+  sleep_every_10m: "10 minut"
+  sleep_every_15m: "15 minut"
+  sleep_every_30m: "30 minut"
+  sleep_every_1h: "godzinę"
+  sleep_hint: "Tryb uśpienia wyłącza Kobo między odświeżeniami, dzięki czemu bateria wystarcza na dni zamiast godzin. Ekran nadal pokazuje panel z informacją; naciśnij przycisk zasilania, aby znów z niego korzystać. Podczas ładowania urządzenie nie usypia."
   utc_hint: "Kobo trzyma zegar w UTC, więc to strefa czasowa powyżej sprawia, że godzina jest poprawna."
   font_downloading: "Pobieranie czcionki potrzebnej dla tego języka (jednorazowo, kilka MB)…"
   font_ready: "Czcionka {family} jest gotowa. Zostanie skopiowana na Kobo podczas instalacji."
@@ -173,6 +187,7 @@ card_types:
   scene: "Pojedynczy przycisk"
 
 preview:
+  sleep: "Pokaż ekran uśpienia"
   grayscale: "Pokaż w skali szarości"
   refresh: "Odśwież"
 

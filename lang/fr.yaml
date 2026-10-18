@@ -66,3 +66,8 @@ generated:
   overview: "Accueil"
   other: "Autres"
   scenes: "Scènes"
+
+sleep:
+  title: "Mode veille"
+  next: "Prochaine mise à jour {time}"
+  wake_hint: "Appuyez sur le bouton d'alimentation pour réveiller le tableau de bord"

@@ -88,6 +88,20 @@ connect:
   light_5m: "5 Minuten"
   light_10m: "10 Minuten"
   light_hint: "Spart Akku, wenn der Kobo als Schreibtisch-Dashboard dient. Ein Tippen schaltet das Licht wieder ein; mit der Licht-Taste oben im Dashboard schaltest du es jederzeit ein oder aus."
+  sleep_after: "Ruhemodus nach"
+  sleep_never: "Nie"
+  sleep_after_5m: "5 Minuten"
+  sleep_after_10m: "10 Minuten"
+  sleep_after_15m: "15 Minuten"
+  sleep_after_30m: "30 Minuten"
+  sleep_after_1h: "1 Stunde"
+  sleep_every: "Im Ruhemodus aktualisieren"
+  sleep_every_5m: "alle 5 Minuten"
+  sleep_every_10m: "alle 10 Minuten"
+  sleep_every_15m: "alle 15 Minuten"
+  sleep_every_30m: "alle 30 Minuten"
+  sleep_every_1h: "stündlich"
+  sleep_hint: "Der Ruhemodus schaltet den Kobo zwischen den Aktualisierungen aus; der Akku hält so Tage statt Stunden. Der Bildschirm zeigt weiter das Dashboard mit einem Hinweis; drücke die Ein-/Aus-Taste, um es wieder zu benutzen. Beim Laden schläft er nicht."
   utc_hint: "Der Kobo führt seine Uhr in UTC. Erst die Zeitzone oben sorgt für die richtige Uhrzeit."
   font_downloading: "Die Schriftart für diese Sprache wird heruntergeladen (einmalig, einige MB)…"
   font_ready: "Schriftart {family} ist bereit. Sie wird bei der Installation auf den Kobo kopiert."
@@ -173,6 +187,7 @@ card_types:
   scene: "Einzelne Taste"
 
 preview:
+  sleep: "Ruhebildschirm anzeigen"
   grayscale: "In Graustufen anzeigen"
   refresh: "Aktualisieren"
 

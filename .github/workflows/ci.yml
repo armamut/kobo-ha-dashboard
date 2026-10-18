@@ -39,7 +39,7 @@ jobs:
             new Function(m[1]);
             console.log("editor.html script parses (" + m[1].length + " chars)");
           '
-      - run: sh -n deploy/launch.sh && bash -n deploy/install.sh && bash -n deploy/build-kobo.sh
+      - run: sh -n deploy/launch.sh && sh -n deploy/wifi.sh && bash -n deploy/install.sh && bash -n deploy/build-kobo.sh
 
   kobo-build:
     name: Kobo build (ARMv7)

@@ -66,3 +66,8 @@ generated:
   overview: "Overzicht"
   other: "Overig"
   scenes: "Scènes"
+
+sleep:
+  title: "Slaapstand"
+  next: "Volgende update {time}"
+  wake_hint: "Druk op de aan/uit-knop om het dashboard te wekken"

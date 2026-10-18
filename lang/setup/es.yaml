@@ -88,6 +88,20 @@ connect:
   light_5m: "5 minutos"
   light_10m: "10 minutos"
   light_hint: "Ahorra batería cuando el Kobo se usa como panel de escritorio. Un toque vuelve a encender la luz, y el botón de luz de la barra superior del panel la enciende o apaga cuando quieras."
+  sleep_after: "Pasar a reposo tras"
+  sleep_never: "Nunca"
+  sleep_after_5m: "5 minutos"
+  sleep_after_10m: "10 minutos"
+  sleep_after_15m: "15 minutos"
+  sleep_after_30m: "30 minutos"
+  sleep_after_1h: "1 hora"
+  sleep_every: "En reposo, actualizar cada"
+  sleep_every_5m: "5 minutos"
+  sleep_every_10m: "10 minutos"
+  sleep_every_15m: "15 minutos"
+  sleep_every_30m: "30 minutos"
+  sleep_every_1h: "hora"
+  sleep_hint: "El modo reposo apaga el Kobo entre actualizaciones, así la batería dura días en lugar de horas. La pantalla sigue mostrando el panel con una nota; pulsa el botón de encendido para volver a usarlo. No entra en reposo mientras se carga."
   utc_hint: "El Kobo guarda su reloj en UTC; la zona horaria de arriba es lo que hace que la hora sea correcta."
   font_downloading: "Descargando la fuente que necesita este idioma (una sola vez, unos MB)…"
   font_ready: "La fuente {family} está lista. Se copiará al Kobo al instalar."
@@ -173,6 +187,7 @@ card_types:
   scene: "Botón único"
 
 preview:
+  sleep: "Mostrar la pantalla de reposo"
   grayscale: "Mostrar en escala de grises"
   refresh: "Actualizar"
 

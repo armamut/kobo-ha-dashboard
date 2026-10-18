@@ -66,3 +66,8 @@ generated:
   overview: "Início"
   other: "Outros"
   scenes: "Cenas"
+
+sleep:
+  title: "Modo de suspensão"
+  next: "Próxima atualização {time}"
+  wake_hint: "Pressione o botão liga/desliga para despertar o painel"

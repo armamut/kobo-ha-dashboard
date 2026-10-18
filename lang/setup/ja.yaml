@@ -88,6 +88,20 @@ connect:
   light_5m: "5 分"
   light_10m: "10 分"
   light_hint: "Kobo を卓上ダッシュボードとして使うときにバッテリーを節約します。画面をタップするとライトが再び点き、ダッシュボード上部のライトボタンでいつでもオン・オフできます。"
+  sleep_after: "スリープまでの時間"
+  sleep_never: "スリープしない"
+  sleep_after_5m: "5 分"
+  sleep_after_10m: "10 分"
+  sleep_after_15m: "15 分"
+  sleep_after_30m: "30 分"
+  sleep_after_1h: "1 時間"
+  sleep_every: "スリープ中の更新間隔"
+  sleep_every_5m: "5 分ごと"
+  sleep_every_10m: "10 分ごと"
+  sleep_every_15m: "15 分ごと"
+  sleep_every_30m: "30 分ごと"
+  sleep_every_1h: "1 時間ごと"
+  sleep_hint: "スリープモードでは更新の合間に Kobo を休止させるため、バッテリーが数時間ではなく数日もちます。画面にはメモ付きでダッシュボードが表示されたままで、電源ボタンを押すと再び操作できます。充電中はスリープしません。"
   utc_hint: "Kobo は時計を UTC で保持するため、上のタイムゾーンで正しい時刻になります。"
   font_downloading: "この言語に必要なフォントをダウンロードしています（初回のみ、数 MB）…"
   font_ready: "{family} フォントの準備ができました。インストール時に Kobo へコピーされます。"
@@ -173,6 +187,7 @@ card_types:
   scene: "単独ボタン"
 
 preview:
+  sleep: "スリープ画面を表示"
   grayscale: "グレースケールで表示"
   refresh: "更新"
 

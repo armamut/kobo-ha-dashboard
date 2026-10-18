@@ -40,8 +40,8 @@ fi
 cp "$BIN" "$TARGET_DIR/"
 echo "Copied $BIN"
 
-cp deploy/launch.sh "$TARGET_DIR/"
-echo "Copied launch.sh"
+cp deploy/launch.sh deploy/wifi.sh "$TARGET_DIR/"
+echo "Copied launch.sh and wifi.sh"
 
 if [ -f config.yaml ]; then
     [ -f "$TARGET_DIR/config.yaml" ] && cp "$TARGET_DIR/config.yaml" "$TARGET_DIR/config.yaml.bak"

@@ -4,6 +4,7 @@ use crate::ha::models::EntityState;
 use reqwest::header::{HeaderMap, HeaderValue, AUTHORIZATION, CONTENT_TYPE};
 use serde_json::Value;
 use std::collections::HashMap;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::sync::RwLock;
@@ -11,7 +12,8 @@ use tokio::sync::RwLock;
 /// Attribute key under which recent numeric history is stored for sparklines
 pub const HISTORY_ATTR: &str = "__history";
 
-const HISTORY_REFRESH: Duration = Duration::from_secs(300);
+/// Forecasts and graph history change slowly; fetching them rarely saves power.
+const HISTORY_REFRESH: Duration = Duration::from_secs(1800);
 const HISTORY_SPAN_HOURS: i64 = 24;
 const HISTORY_POINTS: usize = 48;
 
@@ -27,6 +29,12 @@ pub struct HaClient {
     history_entities: Arc<Vec<String>>,
     extras: Arc<RwLock<Extras>>,
     last_update: Arc<RwLock<Option<chrono::DateTime<chrono::Utc>>>>,
+    /// Every entity the dashboard shows (the WebSocket subscription list)
+    pub(crate) entity_ids: Arc<Vec<String>>,
+    /// True while the WebSocket subscription delivers live updates
+    pub(crate) ws_live: Arc<AtomicBool>,
+    /// Wakes the WebSocket task out of its reconnect backoff
+    pub(crate) ws_nudge: Arc<tokio::sync::Notify>,
 }
 
 #[derive(Default)]
@@ -69,6 +77,9 @@ impl HaClient {
             history_entities: Arc::new(Vec::new()),
             extras: Arc::new(RwLock::new(Extras::default())),
             last_update: Arc::new(RwLock::new(None)),
+            entity_ids: Arc::new(Vec::new()),
+            ws_live: Arc::new(AtomicBool::new(false)),
+            ws_nudge: Arc::new(tokio::sync::Notify::new()),
         }
     }
 
@@ -77,18 +88,85 @@ impl HaClient {
         let mut client = Self::new(app.home_assistant.clone());
         let mut weather = Vec::new();
         let mut history = Vec::new();
+        let mut all = Vec::new();
         for card in app.pages.iter().flat_map(|p| p.cards.iter()) {
             match card {
                 CardConfig::Weather { entity_id, .. } => weather.push(entity_id.clone()),
                 CardConfig::Sensor { entity_id, show_graph: true, .. } => history.push(entity_id.clone()),
                 _ => {}
             }
+            match card {
+                CardConfig::Weather { entity_id, .. }
+                | CardConfig::Light { entity_id, .. }
+                | CardConfig::Switch { entity_id, .. }
+                | CardConfig::Climate { entity_id, .. }
+                | CardConfig::Sensor { entity_id, .. }
+                | CardConfig::MediaPlayer { entity_id, .. }
+                | CardConfig::Scene { entity_id, .. } => all.push(entity_id.clone()),
+                CardConfig::SensorGrid { sensors, .. } => all.extend(sensors.iter().map(|s| s.entity_id.clone())),
+                CardConfig::ScenesRow { scenes, .. } => all.extend(scenes.iter().map(|s| s.entity_id.clone())),
+            }
         }
         weather.dedup();
         history.dedup();
+        all.retain(|e| !e.is_empty());
+        all.sort();
+        all.dedup();
         client.weather_entities = Arc::new(weather);
         client.history_entities = Arc::new(history);
+        client.entity_ids = Arc::new(all);
         client
+    }
+
+    /// Reconnect the live updates now (after Wi-Fi came back).
+    pub fn reconnect_now(&self) {
+        self.ws_nudge.notify_one();
+    }
+
+    pub fn is_live_push(&self) -> bool {
+        self.ws_live.load(Ordering::Relaxed)
+    }
+
+    pub(crate) fn config(&self) -> &HomeAssistantConfig {
+        &self.config
+    }
+
+    pub(crate) fn states_handle(&self) -> &Arc<RwLock<HashMap<String, EntityState>>> {
+        &self.states
+    }
+
+    pub(crate) async fn set_live(&self, live: bool) {
+        *self.is_live.write().await = live;
+        if live {
+            *self.last_update.write().await = Some(chrono::Utc::now());
+        }
+    }
+
+    /// Forecast/history attributes are fetched separately; copy them onto a state.
+    pub(crate) async fn decorate(&self, state: &mut EntityState) {
+        let extras = self.extras.read().await;
+        if let Some(fc) = extras.forecasts.get(&state.entity_id) {
+            state.attributes.insert("forecast".to_string(), fc.clone());
+        }
+        if let Some(h) = extras.history.get(&state.entity_id) {
+            state.attributes.insert(HISTORY_ATTR.to_string(), serde_json::json!(h));
+        }
+    }
+
+    /// With live updates running, only the slow extras need polling.
+    pub async fn refresh_extras_only(&self) {
+        if self.is_demo() {
+            return;
+        }
+        self.refresh_extras().await;
+        let ids: Vec<String> = self.states.read().await.keys().cloned().collect();
+        for id in ids {
+            let current = self.states.read().await.get(&id).cloned();
+            if let Some(mut state) = current {
+                self.decorate(&mut state).await;
+                self.states.write().await.insert(id, state);
+            }
+        }
     }
 
     fn is_demo(&self) -> bool {
@@ -135,7 +213,9 @@ impl HaClient {
                 let extras = self.extras.read().await;
                 let mut map = self.states.write().await;
                 map.clear();
-                for mut state in raw_states {
+                // Keep only what the dashboard shows (or everything, e.g. in the setup tool).
+                let wanted = |id: &str| self.entity_ids.is_empty() || self.entity_ids.iter().any(|e| e == id);
+                for mut state in raw_states.into_iter().filter(|s| wanted(&s.entity_id)) {
                     if let Some(fc) = extras.forecasts.get(&state.entity_id) {
                         state.attributes.insert("forecast".to_string(), fc.clone());
                     }
@@ -281,9 +361,11 @@ impl HaClient {
             .await?;
         if resp.status().is_success() {
             tracing::info!("Service call {}.{} succeeded", domain, service);
-            // Give HA a moment to settle state before re-reading it
-            tokio::time::sleep(Duration::from_millis(300)).await;
-            let _ = self.refresh_states().await;
+            // Live updates deliver the new state by themselves.
+            if !self.is_live_push() {
+                tokio::time::sleep(Duration::from_millis(300)).await;
+                let _ = self.refresh_states().await;
+            }
             Ok(())
         } else {
             let status = resp.status();

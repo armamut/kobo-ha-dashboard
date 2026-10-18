@@ -1,8 +1,20 @@
 use crate::display::canvas::Canvas;
 use std::error::Error;
 
+/// How to update the e-ink panel after drawing.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Refresh {
+    /// Update only the changed area, if anything changed.
+    Partial,
+    /// Flash the whole panel to clear ghosting, but only if something changed.
+    FullIfChanged,
+    /// Flash the whole panel regardless (page switch, sleep screen).
+    Full,
+}
+
 pub trait FramebufferDriver: Send {
-    fn flush(&mut self, canvas: &Canvas, full_refresh: bool) -> Result<(), Box<dyn Error + Send + Sync>>;
+    /// Push the canvas to the screen. Returns whether any pixel changed.
+    fn flush(&mut self, canvas: &Canvas, refresh: Refresh) -> Result<bool, Box<dyn Error + Send + Sync>>;
     fn dimensions(&self) -> (u32, u32);
     /// Put back whatever was on screen before we took over (Nickel's last frame).
     fn restore(&mut self) {}
@@ -582,16 +594,18 @@ mod linux {
     }
 
     impl FramebufferDriver for LinuxFramebuffer {
-        fn flush(&mut self, canvas: &Canvas, full_refresh: bool) -> Result<(), Box<dyn Error + Send + Sync>> {
+        fn flush(&mut self, canvas: &Canvas, refresh: Refresh) -> Result<bool, Box<dyn Error + Send + Sync>> {
             self.compose(canvas);
             let dirty = self.commit();
-            if full_refresh {
-                let rect = self.full_rect();
-                self.send_update(rect, true);
-            } else if let Some(rect) = dirty {
-                self.send_update(rect, false);
+            match (refresh, dirty) {
+                (Refresh::Full, _) | (Refresh::FullIfChanged, Some(_)) => {
+                    let rect = self.full_rect();
+                    self.send_update(rect, true);
+                }
+                (Refresh::Partial, Some(rect)) => self.send_update(rect, false),
+                _ => {}
             }
-            Ok(())
+            Ok(dirty.is_some())
         }
 
         fn dimensions(&self) -> (u32, u32) {
@@ -641,9 +655,9 @@ impl MockFramebuffer {
 }
 
 impl FramebufferDriver for MockFramebuffer {
-    fn flush(&mut self, _canvas: &Canvas, _full_refresh: bool) -> Result<(), Box<dyn Error + Send + Sync>> {
+    fn flush(&mut self, _canvas: &Canvas, _refresh: Refresh) -> Result<bool, Box<dyn Error + Send + Sync>> {
         // On desktop, canvas is served via web simulator
-        Ok(())
+        Ok(true)
     }
 
     fn dimensions(&self) -> (u32, u32) {

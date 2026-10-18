@@ -66,3 +66,8 @@ generated:
   overview: "Home"
   other: "Altro"
   scenes: "Scene"
+
+sleep:
+  title: "Modalità sospensione"
+  next: "Prossimo aggiornamento {time}"
+  wake_hint: "Premi il tasto di accensione per riattivare la dashboard"

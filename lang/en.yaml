@@ -74,3 +74,9 @@ generated:
   overview: "Home"
   other: "Other"
   scenes: "Scenes"
+
+# Note shown at the bottom of the screen while the Kobo sleeps
+sleep:
+  title: "Sleep mode"
+  next: "Next update {time}"
+  wake_hint: "Press the power button to wake the dashboard"

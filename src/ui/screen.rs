@@ -13,6 +13,8 @@ use std::collections::HashMap;
 
 const GAP: f32 = 18.0;
 const BOTTOM_PAD: f32 = 28.0;
+/// Space kept at the bottom for the sleep-mode note
+const SLEEP_NOTE_H: f32 = 124.0;
 /// Width of the left column in landscape (weather + sensor grid)
 const LANDSCAPE_LEFT_W: f32 = 440.0;
 
@@ -71,7 +73,7 @@ fn heights(card: &CardConfig, w: f32) -> (f32, f32) {
         CardConfig::SensorGrid { title, sensors } => {
             let nat = sensor_grid_height(w, sensors.len(), title.is_some());
             let rows = sensors.len().div_ceil(sensor_grid_columns(w, sensors.len())).max(1);
-            (nat, nat - rows as f32 * 22.0)
+            (nat, nat - rows as f32 * 10.0)
         }
         CardConfig::MediaPlayer { .. } => (180.0, 140.0),
         CardConfig::Scene { .. } => (112.0, 86.0),
@@ -184,6 +186,9 @@ pub struct ScreenRenderer {
     pub last_update: Option<DateTime<Utc>>,
     /// Frontlight state for the header button (None hides the button)
     pub frontlight: Option<bool>,
+    /// While in sleep mode: the time of the next timed refresh, shown in a
+    /// note at the bottom of the screen
+    pub sleep_until: Option<String>,
 }
 
 impl ScreenRenderer {
@@ -194,6 +199,7 @@ impl ScreenRenderer {
             hidden_cards: 0,
             last_update: None,
             frontlight: None,
+            sleep_until: None,
         }
     }
 
@@ -232,11 +238,54 @@ impl ScreenRenderer {
 
         let Some(page) = config.pages.get(active_page_idx) else { return };
 
-        let placements = zones_for(&page.cards, canvas.width as f32, canvas.height as f32, header_bottom);
+        // The sleep note replaces the page tabs (useless while asleep); with a
+        // single page there are no tabs, so room is made at the bottom instead.
+        let has_tabs = config.pages.len() > 1;
+        let reserve = if self.sleep_until.is_some() && !has_tabs { SLEEP_NOTE_H } else { 0.0 };
+        let placements = zones_for(&page.cards, canvas.width as f32, canvas.height as f32 - reserve, header_bottom);
         self.hidden_cards = page.cards.len() - placements.len();
 
         for (card, rect) in placements {
             self.render_card(canvas, card, rect, states);
+        }
+
+        if let Some(next) = self.sleep_until.clone() {
+            let w = canvas.width as f32;
+            let bar = if has_tabs {
+                // Same place and size as the tab row drawn by the header
+                Rect::new(SIDE_PAD, HEADER_WITH_TABS - 84.0, w - 2.0 * SIDE_PAD, 64.0)
+            } else {
+                let h = canvas.height as f32;
+                Rect::new(SIDE_PAD, h - SLEEP_NOTE_H + 4.0, w - 2.0 * SIDE_PAD, SLEEP_NOTE_H - 28.0)
+            };
+            self.render_sleep_note(canvas, bar, &next);
+            // Nothing is tappable while the device sleeps.
+            self.targets.clear();
+        }
+    }
+
+    fn render_sleep_note(&self, canvas: &mut Canvas, bar: Rect, next: &str) {
+        use crate::display::TextAlign;
+        use crate::i18n;
+        let theme = &self.theme;
+        canvas.fill_rounded_rect(bar.x, bar.y, bar.w, bar.h, bar.h / 2.0, theme.text);
+        let icon = (bar.h * 0.5).min(40.0);
+        let ix = bar.x + bar.h * 0.4;
+        canvas.draw_icon("moon", ix, bar.y + (bar.h - icon) / 2.0, icon, theme.surface, 2.2);
+        let tx = ix + icon + 18.0;
+        let max_w = bar.x + bar.w - bar.h * 0.4 - tx;
+        let title = format!("{} · {}", i18n::t("sleep.title"), i18n::tf("sleep.next", &[("time", next)]));
+        if bar.h < 80.0 {
+            // One line: "Sleep mode · Next update 22:56" then the hint, muted
+            let tw = canvas.draw_text_fit(&title, tx, bar.y + bar.h / 2.0 - 12.0, 24.0, true, theme.surface, TextAlign::Left, max_w);
+            let hint_x = tx + tw + 18.0;
+            if hint_x + 120.0 < tx + max_w {
+                let muted = theme.surface.mix(theme.text, 0.35);
+                canvas.draw_text_fit(&i18n::t("sleep.wake_hint"), hint_x, bar.y + bar.h / 2.0 - 11.0, 22.0, false, muted, TextAlign::Left, tx + max_w - hint_x);
+            }
+        } else {
+            canvas.draw_text_fit(&title, tx, bar.y + 16.0, 26.0, true, theme.surface, TextAlign::Left, max_w);
+            canvas.draw_text_fit(&i18n::t("sleep.wake_hint"), tx, bar.y + 52.0, 22.0, false, theme.surface, TextAlign::Left, max_w);
         }
     }
 

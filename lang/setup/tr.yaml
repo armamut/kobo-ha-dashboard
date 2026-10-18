@@ -88,6 +88,20 @@ connect:
   light_5m: "5 dakika"
   light_10m: "10 dakika"
   light_hint: "Kobo masaüstü paneli olarak kullanılırken pil tasarrufu sağlar. Ekrana bir dokunuş ışığı geri açar; panelin üst çubuğundaki ışık butonu da ışığı istediğiniz zaman açıp kapatır."
+  sleep_after: "Uyku moduna geç"
+  sleep_never: "Hiçbir zaman"
+  sleep_after_5m: "5 dakika sonra"
+  sleep_after_10m: "10 dakika sonra"
+  sleep_after_15m: "15 dakika sonra"
+  sleep_after_30m: "30 dakika sonra"
+  sleep_after_1h: "1 saat sonra"
+  sleep_every: "Uykudayken şu aralıkla güncelle"
+  sleep_every_5m: "5 dakikada bir"
+  sleep_every_10m: "10 dakikada bir"
+  sleep_every_15m: "15 dakikada bir"
+  sleep_every_30m: "30 dakikada bir"
+  sleep_every_1h: "Saatte bir"
+  sleep_hint: "Uyku modu, Kobo'yu güncellemeler arasında uyutur; pil saatler yerine günlerce dayanır. Ekran, altında bir notla paneli göstermeye devam eder; tekrar kullanmak için güç tuşuna basın. Şarjdayken uyumaz."
   utc_hint: "Kobo saatini UTC olarak tutar; saatin doğru görünmesini yukarıdaki saat dilimi sağlar."
   font_downloading: "Bu dilin gerektirdiği font indiriliyor (bir kereliğine, birkaç MB)…"
   font_ready: "{family} fontu hazır. Kurulumda Kobo'ya kopyalanacak."
@@ -173,6 +187,7 @@ card_types:
   scene: "Tek buton"
 
 preview:
+  sleep: "Uyku ekranını göster"
   grayscale: "Gri tonlamalı göster"
   refresh: "Yenile"
 

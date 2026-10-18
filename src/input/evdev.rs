@@ -60,6 +60,11 @@ impl TouchDriver {
     pub async fn recv(&mut self) -> Option<InputEvent> {
         self.rx.recv().await
     }
+
+    /// Throw away queued events (e.g. the power-button press that woke the device).
+    pub fn drain(&mut self) {
+        while self.rx.try_recv().is_ok() {}
+    }
 }
 
 #[cfg(target_os = "linux")]
@@ -140,11 +145,11 @@ mod linux {
         (ret >= 0 && info[2] > info[1]).then_some((info[1], info[2]))
     }
 
-    fn grab(file: &File) {
+    fn grab(file: &File, path: &str) {
         let req = ioc(1, 0x90, std::mem::size_of::<libc::c_int>() as u32);
         let ret = unsafe { libc::ioctl(file.as_raw_fd(), req as _, 1 as libc::c_int) };
         if ret < 0 {
-            tracing::warn!("EVIOCGRAB failed; Nickel may receive input events too");
+            tracing::warn!("EVIOCGRAB on {} failed ({}); Nickel may receive input events too", path, std::io::Error::last_os_error());
         }
     }
 
@@ -214,7 +219,7 @@ mod linux {
     fn run_power_listener(path: &str, tx: Sender<InputEvent>) {
         let Some(mut file) = open_with_retry(path) else { return };
         // Grab it so Nickel doesn't process the press (and go to sleep) once resumed.
-        grab(&file);
+        grab(&file, path);
         let mut buf = [0u8; EVENT_SIZE];
         while file.read_exact(&mut buf).is_ok() {
             let ev = parse_event(&buf);
@@ -229,7 +234,7 @@ mod linux {
     fn run_touch_listener(path: &str, mapping: TouchMapping, tx: Sender<InputEvent>) {
         tracing::info!("Starting touch listener on {} ({:?})", path, mapping);
         let Some(mut file) = open_with_retry(path) else { return };
-        grab(&file);
+        grab(&file, path);
 
         let fd = file.as_raw_fd();
         let fallback_x = (0, if mapping.swap_xy { mapping.portrait_h } else { mapping.portrait_w } as i32 - 1);

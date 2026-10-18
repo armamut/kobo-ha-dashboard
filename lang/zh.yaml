@@ -66,3 +66,8 @@ generated:
   overview: "首页"
   other: "其他"
   scenes: "场景"
+
+sleep:
+  title: "睡眠模式"
+  next: "下次更新 {time}"
+  wake_hint: "按电源键唤醒仪表板"

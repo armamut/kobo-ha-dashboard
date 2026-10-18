@@ -66,3 +66,8 @@ generated:
   overview: "Übersicht"
   other: "Sonstiges"
   scenes: "Szenen"
+
+sleep:
+  title: "Ruhemodus"
+  next: "Nächste Aktualisierung {time}"
+  wake_hint: "Ein-/Aus-Taste drücken, um das Dashboard aufzuwecken"

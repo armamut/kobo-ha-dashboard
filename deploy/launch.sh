@@ -33,16 +33,44 @@ if [ ! -f "$BINARY" ]; then
 fi
 chmod +x "$BINARY" 2>/dev/null
 
-# Remember the frontlight level so it is restored even if the dashboard
-# crashes while the light is switched off.
+# The dashboard puts the frontlight back itself when it exits. If it crashes
+# with the light off, restore Nickel's saved level instead (reading the sysfs
+# value back returns 0 on some models, so it can't be saved here).
 LIGHT="/sys/class/backlight/mxc_msp430.0/brightness"
-LIGHT_LEVEL=""
-[ -r "$LIGHT" ] && LIGHT_LEVEL="$(cat "$LIGHT" 2>/dev/null)"
+NICKEL_CONF="/mnt/onboard/.kobo/Kobo/Kobo eReader.conf"
+CLEAN_EXIT=""
+nickel_light() {
+    tr -d '\r' <"$NICKEL_CONF" 2>/dev/null | awk -F= '
+        /^\[/ { p = ($0 == "[PowerOptions]") }
+        p && $1 == "FrontLightLevel" { level = $2 }
+        p && $1 == "FrontLightState" { state = $2 }
+        END { if (state == "false") level = 0; print level }'
+}
+
+# CPU cores other than cpu0 are switched off while the dashboard runs (it
+# needs one core); remember their state to give Nickel back what it had.
+CORES_SAVED=""
+for c in /sys/devices/system/cpu/cpu[1-9]*/online; do
+    [ -w "$c" ] || continue
+    CORES_SAVED="$CORES_SAVED $c=$(cat "$c" 2>/dev/null)"
+done
+WIFI_PM_SAVED=""
+WIFI_PM="/sys/class/net/${INTERFACE:-wlan0}/device/power/control"
+[ -w "$WIFI_PM" ] && WIFI_PM_SAVED="$(cat "$WIFI_PM" 2>/dev/null)"
 
 PAUSED=""
 resume() {
-    if [ -n "$LIGHT_LEVEL" ] && [ -w "$LIGHT" ]; then
-        echo "$LIGHT_LEVEL" >"$LIGHT" 2>/dev/null
+    if [ -z "$CLEAN_EXIT" ] && [ -w "$LIGHT" ]; then
+        level="$(nickel_light)"
+        [ -n "$level" ] && echo "$level" >"$LIGHT" 2>/dev/null && echo "Frontlight restored to $level"
+    fi
+    for entry in $CORES_SAVED; do
+        echo "${entry#*=}" >"${entry%=*}" 2>/dev/null
+    done
+    [ -n "$WIFI_PM_SAVED" ] && echo "$WIFI_PM_SAVED" >"$WIFI_PM" 2>/dev/null
+    # Sleep mode powers Wi-Fi down between refreshes; make sure Nickel gets it back.
+    if [ -n "$WIFI_MODULE" ] && [ ! -e "/sys/class/net/${INTERFACE:-wlan0}" ] && [ -f "$APP_DIR/wifi.sh" ]; then
+        /bin/sh "$APP_DIR/wifi.sh" on
     fi
     # Nickel first, so it can answer the watchdog as soon as that wakes up.
     if [ -n "$PAUSED" ]; then
@@ -57,10 +85,17 @@ resume() {
 trap resume EXIT
 trap 'exit 1' INT TERM HUP
 
-# Keep Wi-Fi from power-saving while we poll Home Assistant
-if [ -f "/sys/class/net/wlan0/power/control" ]; then
-    echo on >/sys/class/net/wlan0/power/control 2>/dev/null
-fi
+echo "Device: PLATFORM=$PLATFORM WIFI_MODULE=$WIFI_MODULE INTERFACE=$INTERFACE PRODUCT=$PRODUCT"
+
+# Power saving while the dashboard runs (restored on exit):
+# - let the Wi-Fi chip power-save between packets (updates are pushed by
+#   Home Assistant, so the radio may sleep most of the time)
+# - one CPU core is plenty for the dashboard
+[ -w "$WIFI_PM" ] && echo auto >"$WIFI_PM" 2>/dev/null
+command -v iw >/dev/null 2>&1 && iw dev "${INTERFACE:-wlan0}" set power_save on 2>/dev/null
+for c in /sys/devices/system/cpu/cpu[1-9]*/online; do
+    [ -w "$c" ] && echo 0 >"$c" 2>/dev/null
+done
 
 # Let NickelMenu's menu close and Nickel finish drawing before we pause it.
 sleep 1
@@ -73,6 +108,8 @@ echo "Nickel paused"
 
 cd "$APP_DIR" || exit 1
 RUST_LOG="${RUST_LOG:-kobo_ha_dashboard=info}" "$BINARY" --device --config "$CONFIG"
-echo "Dashboard exited with status $?"
+STATUS=$?
+echo "Dashboard exited with status $STATUS"
+[ "$STATUS" -eq 0 ] && CLEAN_EXIT=1
 
 exit 0

@@ -28,6 +28,8 @@ async-trait = "0.1"
 libc = "0.2"
 ab_glyph = "0.2"
 sha2 = "0.10"
+tokio-tungstenite = { version = "0.24", default-features = false, features = ["connect", "rustls-tls-webpki-roots"] }
+futures-util = { version = "0.3", default-features = false, features = ["sink"] }
 
 [profile.release]
 opt-level = 3

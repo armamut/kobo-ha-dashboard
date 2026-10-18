@@ -41,6 +41,16 @@ device:
   # Use colour e-ink waveforms (Kaleido panels such as the Clara Colour)
   color_panel: true
 
+  # Switch the frontlight off after this many seconds without a tap (0 = never)
+  frontlight_timeout_secs: 0
+
+  # Sleep mode: suspend the Kobo after this many seconds without a tap
+  # (0 = never). The screen keeps showing the dashboard with a note; the
+  # power button wakes it. Never sleeps while plugged in.
+  sleep_after_secs: 0
+  # While asleep, wake up this often (seconds) to refresh the screen
+  sleep_wake_secs: 900
+
 home_assistant:
   # An address the Kobo can reach on your Wi-Fi. ".local" (mDNS) names do NOT
   # work on the Kobo - use the IP address of Home Assistant.
@@ -50,7 +60,7 @@ home_assistant:
   # Leave empty to run with built-in demo data.
   token: ""
 
-  refresh_interval_secs: 20
+  refresh_interval_secs: 60
   timeout_secs: 8
 
   # Show demo data when no token is set

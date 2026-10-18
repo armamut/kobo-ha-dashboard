@@ -75,6 +75,15 @@ If you prefer to install it by hand, follow the [official instructions](https://
 - The **exit** button (top right) or the **power button** returns to the Kobo reader.
 - The status line shows **Live** with the time of the last update, **Offline**, or **Demo mode** (no token configured).
 
+## Battery life
+
+The Kobo itself normally sleeps whenever you aren't reading; while the dashboard is open it would stay fully awake. Two things keep that in check:
+
+- **Always on:** Home Assistant pushes changes over its WebSocket API instead of the dashboard downloading every entity once a minute, so the screen only redraws when something visible changes. The Wi-Fi chip may power-save between packets, and only one CPU core is used. Weather forecasts and graph history are fetched every 30 minutes.
+- **Sleep mode (optional):** after a period without taps (5 minutes to 1 hour, set in the setup tool), the Kobo suspends to RAM like it does when you close a book. The screen keeps showing the dashboard, with a note in place of the page tabs ("Sleep mode · Next update 22:57 · Press the power button to wake the dashboard"). It wakes on its own every 5 minutes to 1 hour to refresh the data, then goes back to sleep. Press the power button to use the dashboard again.
+
+Sleep mode switches Wi-Fi off before suspending (suspending with Wi-Fi on can crash Kobo kernels) and reconnects with the networks you saved in the Kobo's settings when it wakes. It never suspends while the Kobo is plugged in, because that hangs MediaTek-based Kobos. Wi-Fi chips that need special handling (NXP "moal", used in some newer models) are not supported yet; the dashboard then simply stays awake.
+
 ## Languages
 
 The language is set in the setup tool, or with `theme.language` in `config.yaml`. Dates, weather conditions, device states and number formats follow the chosen language.
@@ -110,7 +119,8 @@ The setup tool writes `config.yaml` for you. If you prefer editing it by hand, [
 - **Taps land in the wrong place:** adjust `swap_touch_xy`, `invert_touch_x` and `invert_touch_y`.
 - **The clock is wrong:** set `theme.utc_offset` (the setup tool's **Use mine** button fills it in). The Kobo keeps its system clock in UTC.
 - **"Offline":** check the URL from another device on the same Wi-Fi. If Home Assistant sits behind a reverse proxy or Cloudflare, HTTPS usually runs on the default port, so leave out `:8123`.
-- **Battery use:** the Kobo doesn't go to sleep while the dashboard is open. Exit when you're done, or keep it on a charger if you use it as a wall panel.
+- **Battery drains fast:** turn on sleep mode (see [Battery life](#battery-life)), or keep the Kobo on a charger if you use it as a wall panel. The log records the battery level every 10 minutes, so you can compare settings.
+- **Sleep mode doesn't start:** the log says why (`Sleep mode: unavailable, …`). It never sleeps while the Kobo is plugged in, by design. If the Kobo hangs while asleep, hold the power button for about 15 seconds to restart it, set sleep mode to **Never**, and please open an issue with `dashboard.log.old`.
 
 ## Building from source
 

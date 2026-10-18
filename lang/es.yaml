@@ -66,3 +66,8 @@ generated:
   overview: "Inicio"
   other: "Otros"
   scenes: "Escenas"
+
+sleep:
+  title: "Modo reposo"
+  next: "Próxima actualización {time}"
+  wake_hint: "Pulsa el botón de encendido para activar el panel"

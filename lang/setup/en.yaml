@@ -92,6 +92,20 @@ connect:
   light_5m: "5 minutes"
   light_10m: "10 minutes"
   light_hint: "Saves battery when the Kobo is used as a desk dashboard. A tap turns the light back on, and the light button in the dashboard's top bar switches it on or off at any time."
+  sleep_after: "Go to sleep after"
+  sleep_never: "Never"
+  sleep_after_5m: "5 minutes"
+  sleep_after_10m: "10 minutes"
+  sleep_after_15m: "15 minutes"
+  sleep_after_30m: "30 minutes"
+  sleep_after_1h: "1 hour"
+  sleep_every: "While asleep, refresh every"
+  sleep_every_5m: "5 minutes"
+  sleep_every_10m: "10 minutes"
+  sleep_every_15m: "15 minutes"
+  sleep_every_30m: "30 minutes"
+  sleep_every_1h: "1 hour"
+  sleep_hint: "Sleep mode turns the Kobo off between refreshes, which makes the battery last days instead of hours. The screen keeps showing the dashboard with a note; press the power button to use it again. It doesn't sleep while charging."
   utc_hint: "The Kobo keeps its clock in UTC, so the time zone above is what makes the clock correct."
   font_downloading: "Downloading the font this language needs (one time, a few MB)…"
   font_ready: "{family} font is ready. It will be copied to the Kobo when you install."
@@ -177,6 +191,7 @@ card_types:
   scene: "Single button"
 
 preview:
+  sleep: "Show the sleep screen"
   grayscale: "Show in grayscale"
   refresh: "Refresh"
 

@@ -7,6 +7,7 @@ use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
 pub const LAUNCH_SH: &str = include_str!("../../deploy/launch.sh");
+pub const WIFI_SH: &str = include_str!("../../deploy/wifi.sh");
 pub const DEFAULT_MENU_NAME: &str = "Home Dashboard";
 
 #[derive(Debug, Clone, Serialize)]
@@ -202,6 +203,7 @@ pub fn install(
     log.push(Msg::new("binary"));
 
     std::fs::write(app.join("launch.sh"), LAUNCH_SH).map_err(|e| err("Writing launch.sh", e))?;
+    std::fs::write(app.join("wifi.sh"), WIFI_SH).map_err(|e| err("Writing wifi.sh", e))?;
     log.push(Msg::new("launcher"));
 
     let cfg_path = app.join("config.yaml");
@@ -257,6 +259,7 @@ mod tests {
         assert_eq!(log.last().unwrap().key, "done");
         assert_eq!(std::fs::read_to_string(root.join(".kobo-ha/config.yaml.bak")).unwrap(), "old");
         assert!(root.join(".kobo-ha/kobo-ha-dashboard").is_file());
+        assert!(root.join(".kobo-ha/wifi.sh").is_file());
         assert!(!root.join(".adds/nm/._kobo-ha").exists());
         assert_eq!(read_menu_name(&root).as_deref(), Some("My  Home"));
 

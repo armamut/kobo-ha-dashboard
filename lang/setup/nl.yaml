@@ -88,6 +88,20 @@ connect:
   light_5m: "5 minuten"
   light_10m: "10 minuten"
   light_hint: "Spaart de batterij als de Kobo als bureaudashboard dient. Een tik zet het licht weer aan, en met de lichtknop bovenin het dashboard zet je het altijd aan of uit."
+  sleep_after: "Slaapstand na"
+  sleep_never: "Nooit"
+  sleep_after_5m: "5 minuten"
+  sleep_after_10m: "10 minuten"
+  sleep_after_15m: "15 minuten"
+  sleep_after_30m: "30 minuten"
+  sleep_after_1h: "1 uur"
+  sleep_every: "In slaapstand vernieuwen"
+  sleep_every_5m: "elke 5 minuten"
+  sleep_every_10m: "elke 10 minuten"
+  sleep_every_15m: "elk kwartier"
+  sleep_every_30m: "elk halfuur"
+  sleep_every_1h: "elk uur"
+  sleep_hint: "De slaapstand zet de Kobo uit tussen updates; de batterij gaat zo dagen mee in plaats van uren. Het scherm blijft het dashboard tonen met een melding; druk op de aan/uit-knop om het weer te gebruiken. Tijdens het opladen slaapt hij niet."
   utc_hint: "De Kobo houdt zijn klok bij in UTC; de tijdzone hierboven zorgt voor de juiste tijd."
   font_downloading: "Het lettertype voor deze taal wordt gedownload (eenmalig, enkele MB)…"
   font_ready: "Lettertype {family} is klaar. Het wordt bij het installeren naar de Kobo gekopieerd."
@@ -173,6 +187,7 @@ card_types:
   scene: "Losse knop"
 
 preview:
+  sleep: "Slaapscherm tonen"
   grayscale: "In grijstinten tonen"
   refresh: "Vernieuwen"
 

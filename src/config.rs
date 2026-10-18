@@ -79,6 +79,19 @@ pub struct DeviceConfig {
     /// (0 = never). A tap turns it back on.
     #[serde(default)]
     pub frontlight_timeout_secs: u32,
+
+    /// Sleep mode: suspend the Kobo after this many seconds without a tap
+    /// (0 = never). The screen keeps showing the dashboard with a note.
+    #[serde(default)]
+    pub sleep_after_secs: u32,
+
+    /// While asleep, wake up this often to refresh the screen.
+    #[serde(default = "default_sleep_wake_secs")]
+    pub sleep_wake_secs: u32,
+}
+
+fn default_sleep_wake_secs() -> u32 {
+    900
 }
 
 fn default_orientation() -> String {
@@ -117,6 +130,8 @@ impl Default for DeviceConfig {
             landscape_rotation: default_landscape_rotation(),
             color_panel: true,
             frontlight_timeout_secs: 0,
+            sleep_after_secs: 0,
+            sleep_wake_secs: default_sleep_wake_secs(),
         }
     }
 }
@@ -189,7 +204,7 @@ fn default_ha_url() -> String {
     "http://homeassistant.local:8123".to_string()
 }
 fn default_refresh_secs() -> u64 {
-    20
+    60
 }
 fn default_timeout_secs() -> u64 {
     8
