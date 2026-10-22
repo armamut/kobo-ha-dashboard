@@ -7,6 +7,16 @@ pub enum InputEvent {
     Tap { x: f32, y: f32 },
     /// The hardware power button was pressed
     PowerButton,
+    /// A USB cable to a computer was connected (not just a charger)
+    Plugged,
+    /// A charger or cable was connected or removed (the battery icon changes)
+    PowerSourceChanged,
+}
+
+/// Throw away power-key presses queued for Nickel (see `linux::discard_nickel_power_presses`).
+pub fn discard_nickel_power_presses() {
+    #[cfg(target_os = "linux")]
+    linux::discard_nickel_power_presses();
 }
 
 /// How raw touch-controller coordinates map to the app canvas.
@@ -59,6 +69,10 @@ impl TouchDriver {
 
     pub async fn recv(&mut self) -> Option<InputEvent> {
         self.rx.recv().await
+    }
+
+    pub fn try_recv(&mut self) -> Option<InputEvent> {
+        self.rx.try_recv().ok()
     }
 
     /// Throw away queued events (e.g. the power-button press that woke the device).
@@ -145,6 +159,15 @@ mod linux {
         (ret >= 0 && info[2] > info[1]).then_some((info[1], info[2]))
     }
 
+    fn device_name(fd: i32) -> String {
+        let mut name = [0u8; 128];
+        let ret = unsafe { libc::ioctl(fd, ioc(2, 0x06, name.len() as u32) as _, name.as_mut_ptr()) };
+        if ret <= 0 {
+            return String::new();
+        }
+        String::from_utf8_lossy(&name[..name.iter().position(|b| *b == 0).unwrap_or(name.len())]).into_owned()
+    }
+
     fn grab(file: &File, path: &str) {
         let req = ioc(1, 0x90, std::mem::size_of::<libc::c_int>() as u32);
         let ret = unsafe { libc::ioctl(file.as_raw_fd(), req as _, 1 as libc::c_int) };
@@ -176,7 +199,7 @@ mod linux {
             let fd = file.as_raw_fd();
             let is_touch = has_bit(fd, EV_ABS as u32, ABS_MT_POSITION_X) || has_bit(fd, EV_ABS as u32, ABS_X);
             let has_power = has_bit(fd, EV_KEY as u32, KEY_POWER);
-            tracing::info!("Input device {}: touch={} power_key={}", path, is_touch, has_power);
+            tracing::info!("Input device {} ({:?}): touch={} power_key={}", path, device_name(fd), is_touch, has_power);
             if is_touch && touch_path.is_none() {
                 touch_path = Some(path.clone());
             }
@@ -201,6 +224,114 @@ mod linux {
             let tx = tx.clone();
             std::thread::spawn(move || run_power_listener(&path, tx));
         }
+
+        std::thread::spawn(move || run_power_watch(tx));
+    }
+
+    /// Interrupt count of the power key, summed over CPUs and matching lines.
+    /// Nickel keeps the power-key device grabbed (EVIOCGRAB fails with EBUSY),
+    /// so its events never reach us; the interrupt counter still moves.
+    fn power_key_interrupts() -> Option<u64> {
+        let text = std::fs::read_to_string("/proc/interrupts").ok()?;
+        let mut total = None;
+        for line in text.lines().filter(|l| is_power_key_line(l)) {
+            let count: u64 = line.split_whitespace().skip(1).map_while(|t| t.parse::<u64>().ok()).sum();
+            total = Some(total.unwrap_or(0) + count);
+        }
+        total
+    }
+
+    fn is_power_key_line(line: &str) -> bool {
+        let l = line.to_ascii_lowercase();
+        ["pwrkey", "pwr-key", "pwr_key", "powerkey", "power-key", "power_key"].iter().any(|k| l.contains(k))
+    }
+
+    /// Once a second: power-key presses (by interrupt count) and the USB cable
+    /// or charger being plugged in or out. A charger reads `online=1` and a
+    /// computer `online=2` on the Clara Colour, a few seconds after the cable
+    /// goes in.
+    fn run_power_watch(tx: Sender<InputEvent>) {
+        if let Ok(text) = std::fs::read_to_string("/proc/interrupts") {
+            for line in text.lines().filter(|l| {
+                let l = l.to_ascii_lowercase();
+                l.contains("key") || l.contains("bd7") || l.contains("pwr") || l.contains("power")
+            }) {
+                tracing::info!("Interrupt: {}", line.trim());
+            }
+        }
+        let mut last_irq = power_key_interrupts();
+        if last_irq.is_none() {
+            tracing::warn!("No power-key interrupt found in /proc/interrupts; the power button is only seen through its input device");
+        }
+        let mut was_plugged = crate::power::is_plugged();
+        loop {
+            std::thread::sleep(Duration::from_secs(1));
+            if let Some(now) = power_key_interrupts() {
+                if last_irq.is_some_and(|prev| now > prev) {
+                    tracing::info!("Power key pressed (interrupts {:?} -> {})", last_irq, now);
+                    if tx.blocking_send(InputEvent::PowerButton).is_err() {
+                        return;
+                    }
+                }
+                last_irq = Some(now);
+            }
+            let plugged = crate::power::is_plugged();
+            if plugged != was_plugged && tx.blocking_send(InputEvent::PowerSourceChanged).is_err() {
+                return;
+            }
+            if plugged && !was_plugged {
+                tracing::info!("USB cable or charger connected");
+                // A computer enumerates the USB controller within a moment.
+                let computer = (0..5).any(|i| {
+                    if i > 0 {
+                        std::thread::sleep(Duration::from_secs(1));
+                    }
+                    crate::power::connected_to_computer()
+                });
+                if !computer {
+                    tracing::info!("Only a charger: staying in the dashboard");
+                } else if tx.blocking_send(InputEvent::Plugged).is_err() {
+                    return;
+                }
+            }
+            was_plugged = plugged;
+        }
+    }
+
+    /// Nickel holds the power-key device grabbed, so every press while the
+    /// dashboard runs (including the one that wakes it from sleep) waits in
+    /// Nickel's queue, and Nickel goes to sleep as soon as it is resumed.
+    /// Writing to the device injects events that only the grabbing client
+    /// receives: enough harmless SYN_CONFIG events overflow its queue, and the
+    /// kernel then drops everything that was waiting.
+    pub fn discard_nickel_power_presses() {
+        use std::io::Write;
+        const SYN_CONFIG: u16 = 1;
+        for path in event_devices() {
+            let Ok(file) = File::open(&path) else { continue };
+            let fd = file.as_raw_fd();
+            let is_touch = has_bit(fd, EV_ABS as u32, ABS_MT_POSITION_X) || has_bit(fd, EV_ABS as u32, ABS_X);
+            if is_touch || !has_bit(fd, EV_KEY as u32, KEY_POWER) {
+                continue;
+            }
+            let Ok(mut dev) = std::fs::OpenOptions::new().write(true).open(&path) else { continue };
+            let event = |code: u16| {
+                let mut e = [0u8; EVENT_SIZE];
+                let o = EVENT_SIZE - 8;
+                e[o..o + 2].copy_from_slice(&EV_SYN.to_ne_bytes());
+                e[o + 2..o + 4].copy_from_slice(&code.to_ne_bytes());
+                e
+            };
+            let mut buf = Vec::with_capacity(EVENT_SIZE * 1025);
+            for _ in 0..1024 {
+                buf.extend_from_slice(&event(SYN_CONFIG));
+            }
+            buf.extend_from_slice(&event(SYN_REPORT));
+            match dev.write_all(&buf) {
+                Ok(()) => tracing::info!("Cleared Nickel's queued power-key presses on {}", path),
+                Err(e) => tracing::warn!("Could not clear power-key presses on {}: {}", path, e),
+            }
+        }
     }
 
     fn open_with_retry(path: &str) -> Option<File> {
@@ -224,6 +355,7 @@ mod linux {
         while file.read_exact(&mut buf).is_ok() {
             let ev = parse_event(&buf);
             if ev.type_ == EV_KEY && ev.code == KEY_POWER && ev.value == 1 {
+                tracing::info!("Power key pressed ({})", path);
                 if tx.blocking_send(InputEvent::PowerButton).is_err() {
                     return;
                 }
@@ -269,6 +401,13 @@ mod linux {
                     released = true
                 }
                 (EV_KEY, BTN_TOUCH) if ev.value == 0 => released = true,
+                // Some models report the power key on the touch device too.
+                (EV_KEY, KEY_POWER) if ev.value == 1 => {
+                    tracing::info!("Power key pressed ({})", path);
+                    if tx.blocking_send(InputEvent::PowerButton).is_err() {
+                        return;
+                    }
+                }
                 (EV_SYN, SYN_REPORT) => {
                     if ev.time_us - last_report_us > NEW_TOUCH_GAP_US {
                         emitted = false;

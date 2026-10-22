@@ -305,6 +305,9 @@ async fn run_device(
     let mut ignore_power_until = Instant::now();
     // Sleep rounds in a row where the kernel refused to suspend.
     let mut sleep_failures = 0u32;
+    // The power button asks for sleep right away, like it does in Nickel.
+    let mut sleep_requested = false;
+    let mut last_power_press = Instant::now() - Duration::from_secs(10);
 
     {
         redraw(&mut renderer, &mut canvas, &config, active_page, &ha_client).await;
@@ -319,7 +322,11 @@ async fn run_device(
             Some(l) if l.is_on() && !light_timeout.is_zero() => Some(tokio::time::Instant::from_std(last_activity + light_timeout)),
             _ => None,
         };
-        let sleep_deadline = sleep_enabled.then(|| tokio::time::Instant::from_std(last_activity + sleep_after));
+        let sleep_deadline = if sleep_requested {
+            Some(tokio::time::Instant::now())
+        } else {
+            sleep_enabled.then(|| tokio::time::Instant::from_std(last_activity + sleep_after))
+        };
         tokio::select! {
             _ = async {
                 match sleep_deadline {
@@ -327,6 +334,7 @@ async fn run_device(
                     None => std::future::pending::<()>().await,
                 }
             } => {
+                sleep_requested = false;
                 if power::is_plugged() {
                     // Suspending while plugged in hangs MediaTek Kobos; and power isn't an issue.
                     tracing::info!("Sleep postponed: the Kobo is plugged in");
@@ -352,8 +360,21 @@ async fn run_device(
                     // The display controller (hwtcon) refuses to suspend while its
                     // panel power-off timer runs, a few seconds after the last update
                     // ("xon off timer pending" in dmesg). With Wi-Fi off and the
-                    // state-extended pause this adds up to about 9 s.
-                    tokio::time::sleep(Duration::from_secs(7)).await;
+                    // state-extended pause this adds up to about 9 s. A tap or the
+                    // power button meanwhile means "stay awake".
+                    let wait_until = tokio::time::Instant::now() + Duration::from_secs(7);
+                    let mut cancelled = false;
+                    while !cancelled {
+                        tokio::select! {
+                            _ = tokio::time::sleep_until(wait_until) => break,
+                            Some(ev) = touch_driver.recv() => cancelled = wants_awake(&ev, last_power_press, ignore_power_until),
+                        }
+                    }
+                    if cancelled {
+                        tracing::info!("Sleep cancelled by a tap or the power button");
+                        woke_by_button = true;
+                        break;
+                    }
 
                     if power::is_plugged() {
                         tracing::info!("Plugged in: staying awake");
@@ -364,6 +385,17 @@ async fn run_device(
                         tracing::warn!("Could not switch Wi-Fi off; not suspending");
                         let script = wifi_script.clone();
                         let _ = tokio::task::spawn_blocking(move || power::wifi(&script, true)).await;
+                        break;
+                    }
+                    // Pressed while Wi-Fi was going down?
+                    let mut cancelled = false;
+                    while let Some(ev) = touch_driver.try_recv() {
+                        cancelled |= wants_awake(&ev, last_power_press, ignore_power_until);
+                    }
+                    if cancelled {
+                        tracing::info!("Sleep cancelled by a tap or the power button");
+                        woke_by_button = true;
+                        wifi_down = true;
                         break;
                     }
                     if let Err(e) = power::set_alarm(sleep_wake.as_secs()) {
@@ -390,15 +422,23 @@ async fn run_device(
                     }
                     power::clear_alarm();
                     sleep_failures = if suspended.is_ok() { 0 } else { sleep_failures + 1 };
-                    ignore_power_until = Instant::now() + Duration::from_secs(3);
                     let woke_early = chrono::Utc::now() < alarm_at - chrono::Duration::seconds(20);
+                    if woke_early {
+                        // The press that woke us shows up in the power-key watcher a moment later.
+                        ignore_power_until = Instant::now() + Duration::from_secs(5);
+                    }
                     match &suspended {
                         Ok(()) if woke_early => tracing::info!("Woke up: power button"),
                         Ok(()) => tracing::info!("Woke up: timer"),
                         Err(_) => tracing::warn!("The kernel refused to suspend"),
                     }
+                    if suspended.is_ok() {
+                        power::log_wakeup_reason();
+                    }
+                    power::sync();
                     woke_by_button = suspended.is_ok() && woke_early;
-                    tokio::time::sleep(Duration::from_millis(500)).await;
+                    // Give the display controller a moment after resume before drawing.
+                    tokio::time::sleep(Duration::from_millis(1500)).await;
                     touch_driver.drain();
                     if suspended.is_err() || woke_early {
                         wifi_down = true;
@@ -438,6 +478,7 @@ async fn run_device(
                 redraw(&mut renderer, &mut canvas, &config, active_page, &ha_client).await;
                 flush(&mut fb, &canvas, true);
                 tracing::info!("Left sleep mode");
+                power::sync();
                 if wifi_down {
                     let script = wifi_script.clone();
                     let ha = ha_client.clone();
@@ -472,9 +513,39 @@ async fn run_device(
                 let Some(event) = event else { continue };
                 let (x, y) = match event {
                     InputEvent::PowerButton if Instant::now() < ignore_power_until => continue,
+                    // Press and release can arrive as two events.
+                    InputEvent::PowerButton if last_power_press.elapsed() < Duration::from_secs(2) => continue,
                     InputEvent::PowerButton => {
-                        tracing::info!("Power button pressed, exiting");
+                        last_power_press = Instant::now();
+                        if sleep_enabled && !power::is_plugged() {
+                            tracing::info!("Power button pressed: going to sleep");
+                            sleep_requested = true;
+                            continue;
+                        }
+                        // No suspend while plugged in (or with sleep mode off):
+                        // the button switches the light instead, like a screen sleep.
+                        if let Some(l) = light.as_mut() {
+                            let on = !l.is_on();
+                            tracing::info!("Power button pressed: light {} (sleep mode not available now)", if on { "on" } else { "off" });
+                            l.set_on(on);
+                            light_dimmed = !on;
+                            renderer.frontlight = Some(on);
+                            last_activity = Instant::now();
+                            redraw(&mut renderer, &mut canvas, &config, active_page, &ha_client).await;
+                            flush(&mut fb, &canvas, false);
+                        }
+                        continue;
+                    }
+                    InputEvent::Plugged => {
+                        // Nickel is paused and can't ask "connect to computer?"; give it the screen back.
+                        tracing::info!("Connected to a computer: returning to the Kobo");
                         break;
+                    }
+                    InputEvent::PowerSourceChanged => {
+                        // Charging bolt on the battery icon
+                        redraw(&mut renderer, &mut canvas, &config, active_page, &ha_client).await;
+                        flush(&mut fb, &canvas, false);
+                        continue;
                     }
                     InputEvent::Tap { x, y } => (x, y),
                 };
@@ -574,6 +645,8 @@ async fn run_device(
         }
     }
 
+    // Presses meant for us must not put Nickel to sleep once it resumes.
+    input::discard_nickel_power_presses();
     // Leave the light the way Nickel had it, and put its last frame back.
     if let Some(l) = light.as_mut() {
         l.restore();
@@ -583,6 +656,17 @@ async fn run_device(
     tracing::info!("Dashboard exited cleanly");
     // Don't wait for in-flight HTTP requests or blocked input threads.
     std::process::exit(0);
+}
+
+/// During the run-up to sleep: does this event mean the user wants the
+/// dashboard? Skips the press that asked for sleep (press and release can
+/// arrive a poll apart) and the one that woke the device.
+fn wants_awake(event: &InputEvent, last_power_press: Instant, ignore_power_until: Instant) -> bool {
+    match event {
+        InputEvent::PowerButton => last_power_press.elapsed() >= Duration::from_secs(2) && Instant::now() >= ignore_power_until,
+        InputEvent::Tap { .. } | InputEvent::Plugged => true,
+        InputEvent::PowerSourceChanged => false,
+    }
 }
 
 async fn redraw(renderer: &mut ScreenRenderer, canvas: &mut Canvas, config: &AppConfig, page: usize, ha: &HaClient) {

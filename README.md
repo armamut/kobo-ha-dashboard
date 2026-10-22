@@ -19,7 +19,7 @@ A touch-friendly [Home Assistant](https://www.home-assistant.io/) dashboard for 
 - **Setup tool:** connect Home Assistant, get a starter dashboard generated from your areas, rearrange it with a live, pixel-exact preview, and install with one click.
 - **11 languages:** English, Türkçe, Deutsch, Français, Español, Italiano, Nederlands, Português, Polski, 日本語 and 简体中文, for both the dashboard and the setup tool. The setup tool asks for your language when it first opens.
 - **Portrait or landscape**, and four themes: colour, high-contrast black & white, warm paper, and dark.
-- **Safe exit:** the Kobo's reading software is paused while the dashboard runs and resumed afterwards. Tap the exit icon or press the power button to go back to your books.
+- **Safe exit:** the Kobo's reading software is paused while the dashboard runs and resumed afterwards. Tap the exit icon to go back to your books. Connecting the Kobo to a computer also returns to the reader, so it can offer to connect; a plain charger doesn't.
 
 <p align="center">
   <img src="docs/images/setup-design.png" width="860" alt="The setup tool">
@@ -72,7 +72,7 @@ If you prefer to install it by hand, follow the [official instructions](https://
 - Tap a card to toggle it. Thermostats have **−** and **+** buttons, media players have playback controls.
 - Tabs at the top switch pages. The **refresh** button reloads states, and tapping the weather card does the same.
 - The **light** button switches the Kobo's frontlight on or off. In the setup tool you can also have the light turn off automatically after a period without taps (30 seconds to 10 minutes), which saves a lot of battery on a desk; a tap brings it back. The original brightness is restored when you leave the dashboard.
-- The **exit** button (top right) or the **power button** returns to the Kobo reader.
+- The **exit** button (top right) returns to the Kobo reader. The **power button** puts the dashboard to sleep when sleep mode is on; while charging or with sleep mode off it switches the light off and on.
 - The status line shows **Live** with the time of the last update, **Offline**, or **Demo mode** (no token configured).
 
 ## Battery life
@@ -141,7 +141,7 @@ Releases are built by GitHub Actions: pushing a tag like `v0.2.0` produces packa
 ### How it works
 
 - `src/display/framebuffer.rs` draws into `/dev/fb0` and triggers e-ink updates through the MediaTek (`hwtcon`) or NXP (`mxcfb`) refresh ioctls, with FBInk as a fallback.
-- `src/input/evdev.rs` reads the touch screen and the power button, and grabs them so the paused reading app doesn't receive the taps.
+- `src/input/evdev.rs` reads the touch screen and grabs it so the paused reading app doesn't receive the taps. The reading app keeps the power button to itself, so presses are noticed through its interrupt counter, and the presses queued for the reading app are discarded on exit.
 - `src/ui/` lays out and renders the cards with [tiny-skia](https://github.com/RazrFalcon/tiny-skia) and [fontdue](https://github.com/mooman219/fontdue). The same renderer produces the setup tool's preview.
 - `src/setup/` is the setup tool: a local web app served on `127.0.0.1` only, since it handles your token.
 - `deploy/launch.sh` is started by NickelMenu. It pauses the reading app and its watchdog, runs the dashboard, and always resumes them.

@@ -68,7 +68,8 @@ pub fn read_device_status() -> (Option<u8>, bool, Option<bool>) {
             }
             if let Some(cap) = std::fs::read_to_string(p.join("capacity")).ok().and_then(|c| c.trim().parse::<u8>().ok()) {
                 battery = Some(cap.min(100));
-                charging = std::fs::read_to_string(p.join("status")).map(|s| s.trim() == "Charging").unwrap_or(false);
+                // On the cable: a full battery reads "Full" or "Not charging", not "Charging".
+                charging = crate::power::is_plugged();
                 break;
             }
         }
@@ -87,7 +88,11 @@ fn draw_battery(canvas: &mut Canvas, theme: &Theme, x: f32, y: f32, pct: u8, cha
         canvas.fill_rounded_rect(x + 4.0, y + 4.0, (w - 8.0) * level, h - 8.0, 2.5, color);
     }
     if charging {
-        canvas.draw_icon("zap", x + w / 2.0 - 10.0, y + 1.0, 20.0, theme.surface, 1.0);
+        // A bolt with a light outline reads on both the filled and the empty part.
+        let (cx, cy) = (x + w / 2.0, y + h / 2.0);
+        canvas.draw_icon("zap", cx - 14.0, cy - 14.0, 28.0, theme.surface, 1.0);
+        canvas.stroke_rounded_rect(x, y, w, h, 5.0, 2.5, theme.text);
+        canvas.draw_icon("zap", cx - 10.0, cy - 10.0, 20.0, theme.text, 1.0);
     }
 }
 

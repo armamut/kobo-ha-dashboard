@@ -34,30 +34,56 @@ pub fn log_battery() {
         .unwrap_or_default();
     let wifi = read_trim(Path::new("/sys/class/net/wlan0/operstate")).unwrap_or_else(|| "absent".into());
     let plugged = if is_plugged() { "plugged in" } else { "on battery" };
-    tracing::info!("Battery: {}% {}{} ({}) | Wi-Fi: {}", capacity, status, current, plugged, wifi);
+    let supplies: Vec<String> = chargers().iter().map(|(name, online)| format!("{}={}", name, online)).collect();
+    tracing::info!("Battery: {}% {}{} ({}; online: {}) | Wi-Fi: {}", capacity, status, current, plugged, supplies.join(" "), wifi);
 }
 
-/// Plugged into USB/charger. Treated as plugged when unsure, since suspending
-/// while plugged in hangs MediaTek Kobos.
-pub fn is_plugged() -> bool {
-    // Chargers (USB/Mains) report `online` directly. The battery status alone
-    // can read "Full" or "Not charging" with no cable at 100%.
-    let chargers: Vec<bool> = std::fs::read_dir("/sys/class/power_supply")
+/// Non-battery supplies and their `online` value, e.g. ("usb", "0").
+fn chargers() -> Vec<(String, String)> {
+    std::fs::read_dir("/sys/class/power_supply")
         .into_iter()
         .flatten()
         .flatten()
         .map(|e| e.path())
         .filter(|p| read_trim(&p.join("type")).map(|t| t != "Battery").unwrap_or(false))
-        .filter_map(|p| read_trim(&p.join("online")))
-        .map(|online| online == "1")
-        .collect();
-    if !chargers.is_empty() {
-        return chargers.contains(&true);
+        .filter_map(|p| Some((p.file_name()?.to_string_lossy().into_owned(), read_trim(&p.join("online"))?)))
+        .collect()
+}
+
+/// Plugged into USB/charger. Errs towards "plugged", since suspending while
+/// plugged in hangs MediaTek Kobos: only a discharging battery with no charger
+/// online counts as unplugged. (The Clara Colour's `bd71827_ac` reads 2, not
+/// 1, while plugged in.)
+pub fn is_plugged() -> bool {
+    if chargers().iter().any(|(_, online)| online != "0") {
+        return true;
     }
     match battery_dir().and_then(|d| read_trim(&d.join("status"))) {
         Some(status) => status != "Discharging",
         None => true,
     }
+}
+
+/// USB device-controller states, e.g. ("musb-hdrc", "configured").
+fn udc_states() -> Vec<(String, String)> {
+    std::fs::read_dir("/sys/class/udc")
+        .into_iter()
+        .flatten()
+        .flatten()
+        .filter_map(|e| Some((e.file_name().to_string_lossy().into_owned(), read_trim(&e.path().join("state"))?)))
+        .collect()
+}
+
+/// Whether the cable goes to a computer rather than a wall charger. A host
+/// resets and addresses the USB controller; a charger only powers it. Kobos
+/// without a bound gadget may not report that, so a supply reading `online=2`
+/// (USB, as opposed to 1 for a charger) counts too.
+pub fn connected_to_computer() -> bool {
+    let udc = udc_states();
+    let supplies = chargers();
+    tracing::info!("USB: controller {:?}, supplies {:?}", udc, supplies);
+    udc.iter().any(|(_, s)| matches!(s.as_str(), "default" | "addressed" | "configured" | "suspended"))
+        || supplies.iter().any(|(_, online)| online == "2")
 }
 
 /// Why sleep mode can't be used here, or None when it can.
@@ -186,6 +212,28 @@ pub fn set_alarm(_seconds: u64) -> Result<(), String> {
 
 #[cfg(not(target_os = "linux"))]
 pub fn clear_alarm() {}
+
+/// Flush the log to the FAT partition, so it survives a forced restart.
+pub fn sync() {
+    #[cfg(unix)]
+    unsafe {
+        libc::sync();
+    }
+}
+
+/// What woke the device, from the kernel log.
+pub fn log_wakeup_reason() {
+    if let Ok(out) = std::process::Command::new("dmesg").output() {
+        let text = String::from_utf8_lossy(&out.stdout);
+        let lines: Vec<&str> = text.lines().collect();
+        for line in lines[lines.len().saturating_sub(150)..]
+            .iter()
+            .filter(|l| l.contains("wake") || l.contains("Wake") || l.contains("PM: suspend") || l.contains("pwrkey") || l.contains("rtc"))
+        {
+            tracing::info!("  dmesg: {}", line);
+        }
+    }
+}
 
 /// Kernel messages around a failed suspend, into our log: the kernel names
 /// the driver that refused ("PM: Device ... failed to suspend").

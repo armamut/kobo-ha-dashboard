@@ -18,7 +18,7 @@ Kobo e-okuyucular için dokunmatik bir [Home Assistant](https://www.home-assista
 - **11 dil:** English, Türkçe, Deutsch, Français, Español, Italiano, Nederlands, Português, Polski, 日本語, 简体中文. Hem panel hem kurulum aracı çevrili; araç ilk açılışta dilinizi sorar.
 - **Model desteği:** Clara Colour, Clara BW, Libra Colour ve Tolino modelleri bağlanınca otomatik tanınır; diğerleri listeden seçilir. Cihazda her zaman gerçek ekran çözünürlüğü kullanılır.
 - Dikey veya yatay kullanım ve dört tema: renkli, yüksek kontrast siyah-beyaz, sıcak kağıt, koyu.
-- **Güvenli çıkış:** Kobo'nun okuma yazılımı dashboard açıkken duraklatılır, çıkınca devam eder. Çıkış simgesine dokunun ya da güç tuşuna basın.
+- **Güvenli çıkış:** Kobo'nun okuma yazılımı dashboard açıkken duraklatılır, çıkınca devam eder. Çıkış simgesine dokunun. Kobo'yu bilgisayara bağlayınca da okuma ekranına dönülür, böylece bağlanmayı sorabilir; sadece şarj cihazına takmak paneli kapatmaz.
 
 ## Hızlı başlangıç
 
@@ -41,7 +41,7 @@ Kobo e-okuyucular için dokunmatik bir [Home Assistant](https://www.home-assista
 
 - Bir karta dokunmak onu açıp kapatır; termostatlarda **−** / **+**, medya oynatıcıda oynatma butonları vardır.
 - Üst çubuktaki **ışık** butonu Kobo'nun ön ışığını açıp kapatır. Kurulum aracında ışığın, belirli bir süre dokunulmayınca (30 saniye – 10 dakika) otomatik kapanmasını da seçebilirsiniz; masaüstünde pilden çok tasarruf sağlar. Bir dokunuş ışığı geri açar. Panelden çıkınca ışık eski parlaklığına döner.
-- **Çıkış** butonu ya da Kobo'nun **güç tuşu** okuma ekranına geri döndürür.
+- **Çıkış** butonu (sağ üst) okuma ekranına geri döndürür. **Güç tuşu**, uyku modu açıksa paneli uyutur; şarjdayken ya da uyku modu kapalıyken ışığı kapatıp açar.
 
 ## Pil ömrü
 

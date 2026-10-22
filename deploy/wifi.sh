@@ -122,16 +122,29 @@ wifi_on() {
     echo "on: $(address)"
 }
 
+# Keep going if whoever reads our output goes away (the dashboard exiting
+# while Wi-Fi comes up in the background): dying on SIGPIPE would leave the
+# lock behind.
+trap '' PIPE
+
 # One at a time: the dashboard may still be bringing Wi-Fi up in the
-# background when launch.sh does the same on exit.
+# background when launch.sh does the same on exit. A lock whose owner is
+# gone is taken over.
 LOCK="/tmp/kobo-ha-wifi.lock"
 n=0
 while ! mkdir "$LOCK" 2>/dev/null; do
+    owner="$(cat "$LOCK/pid" 2>/dev/null)"
+    if [ -z "$owner" ] || ! kill -0 "$owner" 2>/dev/null; then
+        rm -rf "$LOCK"
+        continue
+    fi
     n=$((n + 1))
     [ $n -ge 120 ] && break
     usleep 500000
 done
-trap 'rmdir "$LOCK" 2>/dev/null' EXIT
+echo $$ >"$LOCK/pid" 2>/dev/null
+trap 'rm -rf "$LOCK"' EXIT
+trap 'exit 1' INT TERM HUP
 
 case "$1" in
     off) wifi_off ;;
