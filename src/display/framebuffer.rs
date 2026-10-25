@@ -178,6 +178,18 @@ mod linux {
         alt_update_region: EinkRect,
     }
 
+    /// Netronix kernels on i.MX50/i.MX6SL (Touch, Glo, Mini, Aura...) carry
+    /// an extra virtual address pointer in the alt buffer data.
+    #[repr(C)]
+    #[derive(Default)]
+    struct MxcfbAltBufferDataNtx {
+        virt_addr: usize,
+        phys_addr: u32,
+        width: u32,
+        height: u32,
+        alt_update_region: EinkRect,
+    }
+
     /// NXP i.MX "Mark 7" (Clara HD, Libra, Forma, Sage...)
     #[repr(C)]
     #[derive(Default)]
@@ -206,9 +218,30 @@ mod linux {
         alt_buffer_data: MxcfbAltBufferData,
     }
 
+    /// Oldest Kobos (Touch, Glo, Mini, Aura HD...)
+    #[repr(C)]
+    #[derive(Default)]
+    struct MxcfbUpdateDataV1Ntx {
+        update_region: EinkRect,
+        waveform_mode: u32,
+        update_mode: u32,
+        update_marker: u32,
+        temp: i32,
+        flags: u32,
+        alt_buffer_data: MxcfbAltBufferDataNtx,
+    }
+
     const SEND_UPDATE_HWTCON: libc::c_ulong = iow(0x2E, std::mem::size_of::<HwtconUpdateData>() as u32);
     const SEND_UPDATE_MXCFB_V2: libc::c_ulong = iow(0x2E, std::mem::size_of::<MxcfbUpdateDataV2>() as u32);
     const SEND_UPDATE_MXCFB_V1: libc::c_ulong = iow(0x2E, std::mem::size_of::<MxcfbUpdateDataV1>() as u32);
+    const SEND_UPDATE_MXCFB_V1_NTX: libc::c_ulong = iow(0x2E, std::mem::size_of::<MxcfbUpdateDataV1Ntx>() as u32);
+
+    // Request numbers as the 32-bit Kobo kernels define them.
+    #[cfg(target_pointer_width = "32")]
+    const _: () = {
+        assert!(SEND_UPDATE_MXCFB_V1 == 0x4040_462E);
+        assert!(SEND_UPDATE_MXCFB_V1_NTX == 0x4044_462E);
+    };
 
     const UPDATE_MODE_PARTIAL: u32 = 0;
     const UPDATE_MODE_FULL: u32 = 1;
@@ -224,6 +257,7 @@ mod linux {
         Hwtcon,
         MxcfbV2,
         MxcfbV1,
+        MxcfbV1Ntx,
         Fbink,
         None,
     }
@@ -494,10 +528,11 @@ mod linux {
             self.marker = self.marker.wrapping_add(1).max(1);
             let fd = self.file.as_raw_fd();
             let order: &[EinkBackend] = match self.backend {
-                EinkBackend::Unknown => &[EinkBackend::Hwtcon, EinkBackend::MxcfbV2, EinkBackend::MxcfbV1, EinkBackend::Fbink],
+                EinkBackend::Unknown => &[EinkBackend::Hwtcon, EinkBackend::MxcfbV2, EinkBackend::MxcfbV1, EinkBackend::MxcfbV1Ntx, EinkBackend::Fbink],
                 EinkBackend::Hwtcon => &[EinkBackend::Hwtcon],
                 EinkBackend::MxcfbV2 => &[EinkBackend::MxcfbV2],
                 EinkBackend::MxcfbV1 => &[EinkBackend::MxcfbV1],
+                EinkBackend::MxcfbV1Ntx => &[EinkBackend::MxcfbV1Ntx],
                 EinkBackend::Fbink => &[EinkBackend::Fbink],
                 EinkBackend::None => return,
             };
@@ -556,6 +591,17 @@ mod linux {
                             ..Default::default()
                         };
                         unsafe { libc::ioctl(fd, SEND_UPDATE_MXCFB_V1 as _, &data) >= 0 }
+                    }
+                    EinkBackend::MxcfbV1Ntx => {
+                        let data = MxcfbUpdateDataV1Ntx {
+                            update_region: rect,
+                            waveform_mode: if full { WAVEFORM_MODE_GC16 } else { WAVEFORM_MODE_AUTO },
+                            update_mode: if full { UPDATE_MODE_FULL } else { UPDATE_MODE_PARTIAL },
+                            update_marker: self.marker,
+                            temp: TEMP_USE_AMBIENT,
+                            ..Default::default()
+                        };
+                        unsafe { libc::ioctl(fd, SEND_UPDATE_MXCFB_V1_NTX as _, &data) >= 0 }
                     }
                     EinkBackend::Fbink => fbink_refresh(full),
                     _ => false,
