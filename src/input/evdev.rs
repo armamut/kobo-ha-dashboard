@@ -363,17 +363,33 @@ mod linux {
         }
     }
 
+    /// More than 10% beyond the screen size on either axis.
+    fn past_screen(rx: i32, ry: i32, (_, max_x): (i32, i32), (_, max_y): (i32, i32)) -> bool {
+        rx > max_x + max_x / 10 || ry > max_y + max_y / 10
+    }
+
     fn run_touch_listener(path: &str, mapping: TouchMapping, tx: Sender<InputEvent>) {
         tracing::info!("Starting touch listener on {} ({:?})", path, mapping);
         let Some(mut file) = open_with_retry(path) else { return };
         grab(&file, path);
 
         let fd = file.as_raw_fd();
-        let fallback_x = (0, if mapping.swap_xy { mapping.portrait_h } else { mapping.portrait_w } as i32 - 1);
-        let fallback_y = (0, if mapping.swap_xy { mapping.portrait_w } else { mapping.portrait_h } as i32 - 1);
-        let range_x = abs_range(fd, ABS_MT_POSITION_X).or_else(|| abs_range(fd, ABS_X)).unwrap_or(fallback_x);
-        let range_y = abs_range(fd, ABS_MT_POSITION_Y).or_else(|| abs_range(fd, ABS_Y)).unwrap_or(fallback_y);
+        let screen_x = (0, if mapping.swap_xy { mapping.portrait_h } else { mapping.portrait_w } as i32 - 1);
+        let screen_y = (0, if mapping.swap_xy { mapping.portrait_w } else { mapping.portrait_h } as i32 - 1);
+        let range_x = abs_range(fd, ABS_MT_POSITION_X).or_else(|| abs_range(fd, ABS_X)).unwrap_or(screen_x);
+        let range_y = abs_range(fd, ABS_MT_POSITION_Y).or_else(|| abs_range(fd, ABS_Y)).unwrap_or(screen_y);
         tracing::info!("Touch axis ranges: x={:?} y={:?}", range_x, range_y);
+
+        // zForce panels (Touch, Glo, Aura...) report screen pixels but
+        // advertise a bigger range (1200x1600 on the 758x1024 Glo), and
+        // scaling by it squeezes every tap towards one corner. KOReader never
+        // scales Kobo touch input; do the same here, and go back to the
+        // advertised range if a coordinate lands clearly past the screen.
+        let mut pixels = device_name(fd).to_ascii_lowercase().contains("zforce") && (range_x, range_y) != (screen_x, screen_y);
+        if pixels {
+            tracing::info!("Touch panel reports screen pixels; using x={:?} y={:?}", screen_x, screen_y);
+        }
+        let mut logged_taps = 0;
 
         let norm = |v: i32, (lo, hi): (i32, i32)| ((v - lo) as f32 / (hi - lo) as f32).clamp(0.0, 1.0);
 
@@ -417,8 +433,19 @@ mod linux {
                     // Fire once per touch, as soon as we know where the finger went down.
                     if !emitted && moved {
                         if let (Some(rx), Some(ry)) = (cur_x, cur_y) {
-                            let (x, y) = mapping.to_canvas(norm(rx, range_x), norm(ry, range_y));
-                            tracing::debug!("Tap raw=({}, {}) canvas=({:.0}, {:.0})", rx, ry, x, y);
+                            if pixels && past_screen(rx, ry, screen_x, screen_y) {
+                                tracing::info!("Touch at ({}, {}) is past the screen; using the advertised ranges", rx, ry);
+                                pixels = false;
+                            }
+                            let (ax, ay) = if pixels { (screen_x, screen_y) } else { (range_x, range_y) };
+                            let (x, y) = mapping.to_canvas(norm(rx, ax), norm(ry, ay));
+                            // The first few go to the log to check the mapping on new models.
+                            if logged_taps < 5 {
+                                logged_taps += 1;
+                                tracing::info!("Tap raw=({}, {}) canvas=({:.0}, {:.0})", rx, ry, x, y);
+                            } else {
+                                tracing::debug!("Tap raw=({}, {}) canvas=({:.0}, {:.0})", rx, ry, x, y);
+                            }
                             emitted = true;
                             if tx.blocking_send(InputEvent::Tap { x, y }).is_err() {
                                 return;
@@ -463,6 +490,17 @@ mod tests {
         assert_eq!((x.round(), y.round()), (0.0, 1447.0));
         let (x, y) = m.to_canvas(0.5, 0.25);
         assert_eq!((x.round(), y.round()), (804.0, 724.0));
+    }
+
+    #[test]
+    fn glo_pixels_land_where_touched() {
+        // Kobo Glo: zForce reports screen pixels (raw x = row, raw y mirrored
+        // column) while advertising 1200x1600; normalised by the screen size,
+        // a tap on the left-hand "Home" tab must stay on the left.
+        let m = TouchMapping { portrait_w: 758, portrait_h: 1024, ..kobo() };
+        let norm = |v: f32, max: f32| v / max;
+        let (x, y) = m.to_canvas(norm(150.0, 1023.0), norm(757.0 - 190.0, 757.0));
+        assert_eq!((x.round(), y.round()), (190.0, 150.0));
     }
 
     #[test]

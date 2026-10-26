@@ -4,6 +4,9 @@
 //! take a 0-100 brightness in `mxc_msp430.0/brightness` (see KOReader's
 //! device definitions); the warmth mixer lives elsewhere and is left alone.
 //! Other models fall back to a single-channel backlight if one exists.
+//! Older Kobos with a light (Glo, Aura, Aura HD, Glo HD, Aura H2O...) have no
+//! sysfs knob: their light is set with ioctl 241 on `/dev/ntx_io`, which can't
+//! be read back.
 //!
 //! The starting level comes from Nickel's own settings when possible (as
 //! KOReader does), because reading the sysfs value back is not reliable on
@@ -38,8 +41,19 @@ fn nickel_light(conf: &Path) -> Option<(u32, Option<bool>)> {
     level.map(|l| (l.min(100), state))
 }
 
+/// Netronix product codenames whose light is only reachable through
+/// `/dev/ntx_io` (from KOReader's device list).
+const NTX_IO_PRODUCTS: &[&str] = &["kraken", "phoenix", "dragon", "dahlia", "alyssum", "snow", "star"];
+const NTX_IO: &str = "/dev/ntx_io";
+const NTX_IO_SET_LIGHT: libc::c_ulong = 241;
+
+enum Control {
+    Sysfs(PathBuf),
+    NtxIo,
+}
+
 pub struct Frontlight {
-    brightness: PathBuf,
+    control: Control,
     max: u32,
     /// Level when the dashboard started, restored on exit
     original: u32,
@@ -56,7 +70,29 @@ fn read_u32(path: &Path) -> Option<u32> {
 
 impl Frontlight {
     pub fn detect() -> Option<Self> {
-        Self::detect_in(Path::new("/sys/class/backlight"), Path::new(NICKEL_CONF))
+        Self::detect_in(Path::new("/sys/class/backlight"), Path::new(NICKEL_CONF)).or_else(Self::detect_ntx_io)
+    }
+
+    fn detect_ntx_io() -> Option<Self> {
+        let product = std::env::var("PRODUCT").unwrap_or_default();
+        if !NTX_IO_PRODUCTS.contains(&product.as_str()) || !Path::new(NTX_IO).exists() {
+            return None;
+        }
+        // No readback: Nickel's settings are the only source for the level.
+        let nickel = nickel_light(Path::new(NICKEL_CONF));
+        let (current, remembered) = match nickel {
+            Some((level, state)) => (if state.unwrap_or(level > 0) { level } else { 0 }, level),
+            None => (0, 0),
+        };
+        tracing::info!("Frontlight via {} ({}): Nickel settings {:?} -> currently {}", NTX_IO, product, nickel, current);
+        Some(Self {
+            control: Control::NtxIo,
+            max: 100,
+            original: current,
+            level: if remembered > 0 { remembered } else { 30 },
+            on: current > 0,
+            touched: false,
+        })
     }
 
     fn detect_in(base: &Path, nickel_conf: &Path) -> Option<Self> {
@@ -127,7 +163,7 @@ impl Frontlight {
                 current
             );
             return Some(Self {
-                brightness,
+                control: Control::Sysfs(brightness),
                 max,
                 original: current,
                 // With no known level, switching the light on uses 30%.
@@ -136,15 +172,27 @@ impl Frontlight {
                 touched: false,
             });
         }
-        tracing::info!("No controllable frontlight found");
+        tracing::info!("No controllable frontlight found in sysfs");
         None
     }
 
     fn write(&mut self, value: u32) {
         self.touched = true;
-        match std::fs::write(&self.brightness, value.min(self.max).to_string()) {
-            Ok(()) => tracing::info!("Frontlight set to {}", value.min(self.max)),
+        let value = value.min(self.max);
+        let result = match &self.control {
+            Control::Sysfs(path) => std::fs::write(path, value.to_string()),
+            Control::NtxIo => set_ntx_io_light(value),
+        };
+        match result {
+            Ok(()) => tracing::info!("Frontlight set to {}", value),
             Err(e) => tracing::warn!("Could not set frontlight: {}", e),
+        }
+    }
+
+    fn read_back(&self) -> Option<u32> {
+        match &self.control {
+            Control::Sysfs(path) => read_u32(path),
+            Control::NtxIo => None,
         }
     }
 
@@ -158,7 +206,7 @@ impl Frontlight {
         }
         if !on {
             // Remember a level the user may have changed from elsewhere.
-            if let Some(v) = read_u32(&self.brightness).filter(|v| *v > 0) {
+            if let Some(v) = self.read_back().filter(|v| *v > 0) {
                 self.level = v;
             }
         }
@@ -175,6 +223,22 @@ impl Frontlight {
         self.write(self.original);
         self.on = self.original > 0;
     }
+}
+
+#[cfg(target_os = "linux")]
+fn set_ntx_io_light(value: u32) -> std::io::Result<()> {
+    use std::os::unix::io::AsRawFd;
+    let file = std::fs::OpenOptions::new().read(true).write(true).open(NTX_IO)?;
+    // The level is passed by value, not through a pointer.
+    if unsafe { libc::ioctl(file.as_raw_fd(), NTX_IO_SET_LIGHT as _, value as libc::c_ulong) } < 0 {
+        return Err(std::io::Error::last_os_error());
+    }
+    Ok(())
+}
+
+#[cfg(not(target_os = "linux"))]
+fn set_ntx_io_light(_value: u32) -> std::io::Result<()> {
+    Err(std::io::ErrorKind::Unsupported.into())
 }
 
 #[cfg(test)]

@@ -18,6 +18,13 @@ fn battery_dir() -> Option<PathBuf> {
         .find(|p| std::fs::read_to_string(p.join("type")).map(|t| t.trim() == "Battery").unwrap_or(false))
 }
 
+/// `operstate` of the Wi-Fi interface (`INTERFACE` from Nickel: eth0 on
+/// older Kobos such as the Glo, wlan0 on newer ones).
+pub fn wifi_operstate_path() -> PathBuf {
+    let iface = std::env::var("INTERFACE").ok().filter(|i| !i.is_empty()).unwrap_or_else(|| "wlan0".into());
+    PathBuf::from(format!("/sys/class/net/{}/operstate", iface))
+}
+
 fn read_trim(path: &Path) -> Option<String> {
     std::fs::read_to_string(path).ok().map(|s| s.trim().to_string())
 }
@@ -32,7 +39,7 @@ pub fn log_battery() {
         .and_then(|c| c.parse::<i64>().ok())
         .map(|ua| format!(", {} mA", ua.abs() / 1000))
         .unwrap_or_default();
-    let wifi = read_trim(Path::new("/sys/class/net/wlan0/operstate")).unwrap_or_else(|| "absent".into());
+    let wifi = read_trim(&wifi_operstate_path()).unwrap_or_else(|| "absent".into());
     let plugged = if is_plugged() { "plugged in" } else { "on battery" };
     let supplies: Vec<String> = chargers().iter().map(|(name, online)| format!("{}={}", name, online)).collect();
     tracing::info!("Battery: {}% {}{} ({}; online: {}) | Wi-Fi: {}", capacity, status, current, plugged, supplies.join(" "), wifi);

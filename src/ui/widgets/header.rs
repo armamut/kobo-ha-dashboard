@@ -74,7 +74,7 @@ pub fn read_device_status() -> (Option<u8>, bool, Option<bool>) {
             }
         }
     }
-    let wifi = std::fs::read_to_string("/sys/class/net/wlan0/operstate").ok().map(|s| s.trim() == "up");
+    let wifi = std::fs::read_to_string(crate::power::wifi_operstate_path()).ok().map(|s| s.trim() == "up");
     (battery, charging, wifi)
 }
 

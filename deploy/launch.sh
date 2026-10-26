@@ -15,6 +15,7 @@ BINARY="$APP_DIR/kobo-ha-dashboard"
 CONFIG="$APP_DIR/config.yaml"
 LOG="$APP_DIR/dashboard.log"
 LOCK="/tmp/kobo-ha-dashboard.lock"
+WIFI_MARKER="/tmp/kobo-ha-wifi-off"
 
 # Only one instance at a time (a double tap in NickelMenu would otherwise
 # start two copies fighting over the screen).
@@ -25,6 +26,7 @@ fi
 [ -f "$LOG" ] && mv -f "$LOG" "$LOG.old"
 exec >"$LOG" 2>&1
 echo "=== $(date) launching dashboard ==="
+rm -f "$WIFI_MARKER"
 
 if [ ! -f "$BINARY" ]; then
     echo "ERROR: $BINARY not found"
@@ -68,10 +70,15 @@ resume() {
         echo "${entry#*=}" >"${entry%=*}" 2>/dev/null
     done
     [ -n "$WIFI_PM_SAVED" ] && echo "$WIFI_PM_SAVED" >"$WIFI_PM" 2>/dev/null
-    # Sleep mode powers Wi-Fi down between refreshes; make sure Nickel gets it back.
-    if [ -n "$WIFI_MODULE" ] && [ ! -e "/sys/class/net/${INTERFACE:-wlan0}" ] && [ -f "$APP_DIR/wifi.sh" ]; then
+    # Get the log onto the disk before anything that could hang the kernel.
+    sync
+    # Sleep mode powers Wi-Fi down between refreshes; make sure Nickel gets it
+    # back. Only if the dashboard turned it off: when Wi-Fi was already off in
+    # Nickel, loading the driver behind its back can freeze older Kobos (Glo).
+    if [ -e "$WIFI_MARKER" ] && [ -n "$WIFI_MODULE" ] && [ ! -e "/sys/class/net/${INTERFACE:-wlan0}" ] && [ -f "$APP_DIR/wifi.sh" ]; then
         /bin/sh "$APP_DIR/wifi.sh" on
     fi
+    rm -f "$WIFI_MARKER"
     # Nickel first, so it can answer the watchdog as soon as that wakes up.
     if [ -n "$PAUSED" ]; then
         killall -CONT nickel 2>/dev/null
@@ -81,6 +88,7 @@ resume() {
         echo "Nickel resumed"
     fi
     rmdir "$LOCK" 2>/dev/null
+    sync
 }
 trap resume EXIT
 trap 'exit 1' INT TERM HUP

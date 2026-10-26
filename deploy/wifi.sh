@@ -12,6 +12,8 @@
 # ==============================================================================
 
 IFACE="${INTERFACE:-wlan0}"
+# Left behind by "off" so launch.sh only turns Wi-Fi back on if we turned it off
+MARKER="/tmp/kobo-ha-wifi-off"
 MODULE="${WIFI_MODULE:-}"
 KMOD_DIR="/drivers/${PLATFORM}/wifi"
 
@@ -44,12 +46,14 @@ wifi_off() {
         loaded "$MODULE" && { sleep 1; rmmod "$MODULE"; }
         loaded sdio_wifi_pwr && { sleep 1; rmmod sdio_wifi_pwr; }
     fi
+    touch "$MARKER"
     echo "off"
 }
 
 wifi_on() {
     if [ -e "/sys/class/net/$IFACE" ] && [ -n "$(address)" ] &&
         wpa_cli -i "$IFACE" status 2>/dev/null | grep -q "wpa_state=COMPLETED"; then
+        rm -f "$MARKER"
         echo "on: $(address) (already)"
         return 0
     fi
@@ -119,6 +123,7 @@ wifi_on() {
         fi
         usleep 500000
     done
+    rm -f "$MARKER"
     echo "on: $(address)"
 }
 
