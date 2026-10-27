@@ -13,6 +13,7 @@ date:
 
 header:
   live: "En vivo · {time}"
+  live_short: "En vivo"
   offline: "Sin conexión"
   demo: "Modo demo"
 

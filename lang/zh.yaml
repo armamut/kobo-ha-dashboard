@@ -13,6 +13,7 @@ date:
 
 header:
   live: "在线 · {time}"
+  live_short: "在线"
   offline: "离线"
   demo: "演示模式"
 

@@ -122,19 +122,57 @@ pub fn render_header(
 
     let w = canvas.width as f32;
     let top = 26.0;
-    let time_size = 76.0;
+    let row_h = 76.0;
+
+    let (dot, status_text, status_short) = if status.is_demo {
+        (theme.warm.solid, i18n::t("header.demo"), None)
+    } else if status.is_live {
+        let t = status
+            .last_update
+            .map(|t| format_time(&to_local(t, theme_cfg), theme_cfg))
+            .unwrap_or_default();
+        (theme.eco.solid, i18n::tf("header.live", &[("time", &t)]), Some(i18n::t("header.live_short")))
+    } else {
+        (theme.heat.solid, i18n::t("header.offline"), None)
+    };
+    let battery_label = status.battery.map(|pct| i18n::tf("meta.percent", &[("value", &pct.to_string())]));
+    let n_buttons = if status.frontlight.is_some() { 3.0 } else { 2.0 };
+
+    // Narrow screens (the 758 px wide Glo) can't fit everything at full
+    // size: take the first variant where the date and the status block don't
+    // collide. Smaller buttons and clock first, then the battery percentage,
+    // then the update time.
+    let variants = [(76.0, 14.0, 76.0, true, true), (64.0, 10.0, 64.0, true, true), (64.0, 10.0, 64.0, false, true), (64.0, 10.0, 64.0, false, false)];
+    let mut chosen = variants[variants.len() - 1];
+    for v in variants {
+        let (btn, gap, time_size, show_pct, full_text) = v;
+        let leftmost = w - SIDE_PAD - n_buttons * btn - (n_buttons - 1.0) * gap;
+        let right = leftmost - 24.0;
+        let dx = SIDE_PAD + canvas.measure_text(&time_str, time_size, true).0 + 24.0;
+        let mut row1 = if status.wifi_up.is_some() { 48.0 } else { 0.0 };
+        if let Some(label) = &battery_label {
+            row1 += 46.0 + if show_pct { canvas.measure_text(label, 24.0, true).0 + 10.0 } else { 0.0 };
+        }
+        let text = if full_text { &status_text } else { status_short.as_ref().unwrap_or(&status_text) };
+        let row2 = canvas.measure_text(text, 22.0, false).0 + 21.0;
+        let weekday_end = dx + canvas.measure_text(&weekday, 28.0, true).0 + 16.0;
+        let date_end = dx + canvas.measure_text(&date, 24.0, false).0 + 16.0;
+        if weekday_end <= right - row1 && date_end <= right - row2 {
+            chosen = v;
+            break;
+        }
+    }
+    let (btn, gap, time_size, show_pct, full_text) = chosen;
 
     // Clock + date
-    canvas.draw_text(&time_str, SIDE_PAD, top - 4.0, time_size, true, theme.text, TextAlign::Left);
+    canvas.draw_text(&time_str, SIDE_PAD, top - 4.0 + (row_h - time_size) / 2.0, time_size, true, theme.text, TextAlign::Left);
     let time_w = canvas.measure_text(&time_str, time_size, true).0;
     let dx = SIDE_PAD + time_w + 24.0;
-    canvas.draw_text(&weekday, dx, top + 6.0, 28.0, true, theme.text, TextAlign::Left);
-    canvas.draw_text(&date, dx, top + 42.0, 24.0, false, theme.text_muted, TextAlign::Left);
 
-    // Exit + refresh buttons (big touch targets)
-    let btn = 76.0;
-    let exit_rect = Rect::new(w - SIDE_PAD - btn, top, btn, btn);
-    let refresh_rect = Rect::new(exit_rect.x - 14.0 - btn, top, btn, btn);
+    // Exit + refresh buttons (big touch targets), centred in the row
+    let by = top + (row_h - btn) / 2.0;
+    let exit_rect = Rect::new(w - SIDE_PAD - btn, by, btn, btn);
+    let refresh_rect = Rect::new(exit_rect.x - gap - btn, by, btn, btn);
     draw_header_button(canvas, theme, exit_rect, "logout");
     draw_header_button(canvas, theme, refresh_rect, "refresh");
     targets.push(InteractiveTarget { rect: exit_rect.inset(-8.0), action: UiAction::ExitToReader });
@@ -142,7 +180,7 @@ pub fn render_header(
 
     let mut leftmost = refresh_rect.x;
     if let Some(on) = status.frontlight {
-        let light_rect = Rect::new(refresh_rect.x - 14.0 - btn, top, btn, btn);
+        let light_rect = Rect::new(refresh_rect.x - gap - btn, by, btn, btn);
         draw_header_button(canvas, theme, light_rect, if on { "lightbulb_on" } else { "lightbulb" });
         targets.push(InteractiveTarget { rect: light_rect.inset(-8.0), action: UiAction::ToggleFrontlight });
         leftmost = light_rect.x;
@@ -156,30 +194,27 @@ pub fn render_header(
         canvas.draw_icon(if up { "wifi" } else { "wifi_off" }, sx, top + 4.0, 30.0, if up { theme.text } else { theme.heat.solid }, 2.2);
         sx -= 18.0;
     }
-    if let Some(pct) = status.battery {
-        let label = i18n::tf("meta.percent", &[("value", &pct.to_string())]);
-        let lw = canvas.measure_text(&label, 24.0, true).0;
-        canvas.draw_text(&label, sx, top + 7.0, 24.0, true, theme.text, TextAlign::Right);
-        sx -= lw + 10.0 + 46.0;
+    if let (Some(pct), Some(label)) = (status.battery, &battery_label) {
+        if show_pct {
+            let lw = canvas.measure_text(label, 24.0, true).0;
+            canvas.draw_text(label, sx, top + 7.0, 24.0, true, theme.text, TextAlign::Right);
+            sx -= lw + 10.0;
+        }
+        sx -= 46.0;
         draw_battery(canvas, theme, sx, top + 8.0, pct, status.charging);
     }
 
-    let (dot, text) = if status.is_demo {
-        (theme.warm.solid, i18n::t("header.demo"))
-    } else if status.is_live {
-        let t = status
-            .last_update
-            .map(|t| format_time(&to_local(t, theme_cfg), theme_cfg))
-            .unwrap_or_default();
-        (theme.eco.solid, i18n::tf("header.live", &[("time", &t)]))
-    } else {
-        (theme.heat.solid, i18n::t("header.offline"))
-    };
-    let tw = canvas.measure_text(&text, 22.0, false).0;
-    canvas.draw_text(&text, right, top + 46.0, 22.0, false, theme.text_muted, TextAlign::Right);
+    let text = if full_text { &status_text } else { status_short.as_ref().unwrap_or(&status_text) };
+    let tw = canvas.measure_text(text, 22.0, false).0;
+    // Even the most compact variant may not fit a long date; shorten it then.
+    let weekday = canvas.fit_text(&weekday, 28.0, true, sx - 16.0 - dx);
+    let date = canvas.fit_text(&date, 24.0, false, right - tw - 21.0 - 16.0 - dx);
+    canvas.draw_text(&weekday, dx, top + 6.0, 28.0, true, theme.text, TextAlign::Left);
+    canvas.draw_text(&date, dx, top + 42.0, 24.0, false, theme.text_muted, TextAlign::Left);
+    canvas.draw_text(text, right, top + 46.0, 22.0, false, theme.text_muted, TextAlign::Right);
     canvas.fill_circle(right - tw - 14.0, top + 46.0 + 11.0, 7.0, dot);
 
-    let mut y = top + btn + 20.0;
+    let mut y = top + row_h + 20.0;
 
     // Page tabs as a segmented control
     if pages.len() > 1 {

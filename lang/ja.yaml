@@ -13,6 +13,7 @@ date:
 
 header:
   live: "接続中 · {time}"
+  live_short: "接続中"
   offline: "オフライン"
   demo: "デモモード"
 
