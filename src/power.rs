@@ -29,6 +29,11 @@ fn operstate_path(interface: Option<&str>) -> PathBuf {
     PathBuf::from(format!("/sys/class/net/{}/operstate", iface))
 }
 
+/// Left by `wifi.sh off` until Wi-Fi is back on.
+pub fn wifi_switched_off() -> bool {
+    Path::new("/tmp/kobo-ha-wifi-off").exists()
+}
+
 fn read_trim(path: &Path) -> Option<String> {
     std::fs::read_to_string(path).ok().map(|s| s.trim().to_string())
 }

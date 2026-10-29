@@ -216,6 +216,7 @@ impl ScreenRenderer {
         canvas.clear(self.theme.bg);
 
         let (battery, charging, wifi_up) = read_device_status();
+        let wifi_up = crate::ui::widgets::header::shown_wifi(wifi_up, self.sleep_until.is_some(), crate::power::wifi_switched_off());
         let status = HeaderStatus {
             is_live,
             is_demo: config.home_assistant.token.trim().is_empty(),

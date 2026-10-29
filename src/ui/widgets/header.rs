@@ -78,6 +78,18 @@ pub fn read_device_status() -> (Option<u8>, bool, Option<bool>) {
     (battery, charging, wifi)
 }
 
+/// Wi-Fi state for the header. The sleep screen is drawn just before Wi-Fi is
+/// switched off and stays up while it is off, so it shows Wi-Fi as off. Once
+/// we have switched it off the interface may be gone entirely (driver
+/// unloaded); that is "off" too, not "no Wi-Fi".
+pub fn shown_wifi(read: Option<bool>, asleep: bool, switched_off: bool) -> Option<bool> {
+    match read {
+        Some(_) if asleep => Some(false),
+        None if switched_off => Some(false),
+        other => other,
+    }
+}
+
 fn draw_battery(canvas: &mut Canvas, theme: &Theme, x: f32, y: f32, pct: u8, charging: bool) {
     let (w, h) = (40.0, 22.0);
     canvas.stroke_rounded_rect(x, y, w, h, 5.0, 2.5, theme.text);
@@ -289,6 +301,18 @@ pub fn render_header(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn sleep_screen_shows_wifi_off() {
+        // Drawn while Wi-Fi is still up, seen while it is off (issue #2)
+        assert_eq!(shown_wifi(Some(true), true, false), Some(false));
+        assert_eq!(shown_wifi(Some(true), false, false), Some(true));
+        // Driver unloaded by wifi.sh off: off, not hidden
+        assert_eq!(shown_wifi(None, false, true), Some(false));
+        // No Wi-Fi interface at all (desktop): no icon
+        assert_eq!(shown_wifi(None, false, false), None);
+        assert_eq!(shown_wifi(None, true, false), None);
+    }
 
     /// Widest of `key`'s list entries in the current language
     fn widest(key: &str, n: usize, canvas: &Canvas, size: f32, bold: bool) -> String {
