@@ -275,10 +275,9 @@ impl ScreenRenderer {
         canvas.draw_icon("moon", ix, bar.y + (bar.h - icon) / 2.0, icon, theme.surface, 2.2);
         let tx = ix + icon + 18.0;
         let max_w = bar.x + bar.w - bar.h * 0.4 - tx;
-        let title = format!("{} · {}", i18n::t("sleep.title"), i18n::tf("sleep.next", &[("time", next)]));
         if bar.h < 80.0 {
             // One line: "Sleep mode · Next update 22:56" then the hint, muted
-            let (line, size) = sleep_line(canvas, next, max_w);
+            let (line, size) = sleep_line(canvas, next, max_w, 24.0);
             let tw = canvas.draw_text_fit(&line, tx, bar.y + bar.h / 2.0 - size / 2.0, size, true, theme.surface, TextAlign::Left, max_w);
             let hint_x = tx + tw + 18.0;
             if hint_x + 120.0 < tx + max_w {
@@ -286,7 +285,8 @@ impl ScreenRenderer {
                 canvas.draw_text_fit(&i18n::t("sleep.wake_hint"), hint_x, bar.y + bar.h / 2.0 - 11.0, 22.0, false, muted, TextAlign::Left, tx + max_w - hint_x);
             }
         } else {
-            canvas.draw_text_fit(&title, tx, bar.y + 16.0, 26.0, true, theme.surface, TextAlign::Left, max_w);
+            let (line, size) = sleep_line(canvas, next, max_w, 26.0);
+            canvas.draw_text_fit(&line, tx, bar.y + 16.0 + (26.0 - size) / 2.0, size, true, theme.surface, TextAlign::Left, max_w);
             canvas.draw_text_fit(&i18n::t("sleep.wake_hint"), tx, bar.y + 52.0, 22.0, false, theme.surface, TextAlign::Left, max_w);
         }
     }
@@ -377,16 +377,28 @@ impl ScreenRenderer {
 /// The one-line sleep note: "Sleep mode · Next update 22:56", smaller if
 /// needed, and on narrow screens (Kobo Aura, Glo) just "Next update 22:56";
 /// the moon icon already says it's sleeping. The time is never cut off.
-fn sleep_line(canvas: &Canvas, next: &str, max_w: f32) -> (String, f32) {
+fn sleep_line(canvas: &Canvas, time: &str, max_w: f32, size: f32) -> (String, f32) {
     use crate::i18n;
-    let next = i18n::tf("sleep.next", &[("time", next)]);
+    let small = size * 0.875;
+    let next = i18n::tf("sleep.next", &[("time", time)]);
     let full = format!("{} · {}", i18n::t("sleep.title"), next);
-    for (text, size) in [(&full, 24.0), (&full, 21.0), (&next, 24.0), (&next, 21.0)] {
+    for (text, size) in [(&full, size), (&full, small), (&next, size), (&next, small)] {
         if canvas.measure_text(text, size, true).0 <= max_w {
             return (text.clone(), size);
         }
     }
-    (next, 21.0)
+    // Still too wide: shorten the words but keep the time, "Next upd… 22:56"
+    let Some(at) = next.find(time) else { return (next, small) };
+    let (label, rest) = next.split_at(at);
+    let mut chars: Vec<char> = label.trim_end().chars().collect();
+    while !chars.is_empty() {
+        chars.pop();
+        let text = format!("{}… {}", chars.iter().collect::<String>().trim_end(), rest);
+        if canvas.measure_text(&text, small, true).0 <= max_w {
+            return (text, small);
+        }
+    }
+    (rest.to_string(), small)
 }
 
 #[cfg(test)]
@@ -399,19 +411,25 @@ mod tests {
         // aggiorname…" lost the time (issue #2).
         let _guard = crate::i18n::TEST_LANGUAGE_LOCK.lock().unwrap_or_else(|e| e.into_inner());
         let canvas = Canvas::new(758, 200);
-        // Same geometry as render_sleep_note's one-line bar
-        let (bar_w, bar_h) = (758.0 - 2.0 * SIDE_PAD, 64.0);
-        let icon = (bar_h * 0.5f32).min(40.0);
-        let max_w = bar_w - bar_h * 0.4 - (bar_h * 0.4 + icon + 18.0);
-        for (code, _) in crate::i18n::BUILTIN {
-            crate::i18n::set_language(code);
-            let (line, size) = sleep_line(&canvas, "22:56", max_w);
-            assert!(line.ends_with("22:56"), "{}: {}", code, line);
-            assert!(canvas.measure_text(&line, size, true).0 <= max_w, "{}: {}", code, line);
+        // Same geometry as render_sleep_note: the one-line bar in place of the
+        // tabs, and the two-line bar at the bottom of a single page
+        let bar_w = 758.0 - 2.0 * SIDE_PAD;
+        for (bar_h, size) in [(64.0f32, 24.0), (SLEEP_NOTE_H - 28.0, 26.0)] {
+            let icon = (bar_h * 0.5).min(40.0);
+            let max_w = bar_w - bar_h * 0.4 - (bar_h * 0.4 + icon + 18.0);
+            for (code, _) in crate::i18n::BUILTIN {
+                crate::i18n::set_language(code);
+                let (line, size) = sleep_line(&canvas, "22:56", max_w, size);
+                assert!(line.contains("22:56"), "{}: {}", code, line);
+                assert!(canvas.measure_text(&line, size, true).0 <= max_w, "{}: {}", code, line);
+            }
         }
         crate::i18n::set_language("en");
         // Wide screens keep the full line
-        assert_eq!(sleep_line(&canvas, "22:56", 1000.0), ("Sleep mode · Next update 22:56".to_string(), 24.0));
+        assert_eq!(sleep_line(&canvas, "22:56", 1000.0, 24.0), ("Sleep mode · Next update 22:56".to_string(), 24.0));
+        // Very narrow: the words are shortened, the time stays
+        let (line, _) = sleep_line(&canvas, "22:56", 150.0, 24.0);
+        assert!(line.ends_with("… 22:56"), "{}", line);
     }
 
     fn overlaps(a: &Rect, b: &Rect) -> bool {
