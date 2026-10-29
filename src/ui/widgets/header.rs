@@ -103,6 +103,61 @@ fn draw_header_button(canvas: &mut Canvas, theme: &Theme, rect: Rect, icon: &str
     canvas.draw_icon(icon, rect.x + (rect.w - s) / 2.0, rect.y + (rect.h - s) / 2.0, s, theme.text, 2.2);
 }
 
+/// Sizes and optional parts of the header row.
+#[derive(Debug, Clone, Copy, PartialEq)]
+struct HeaderFit {
+    btn: f32,
+    gap: f32,
+    time_size: f32,
+    /// Space after the clock and before the buttons
+    pad: f32,
+    show_pct: bool,
+    full_text: bool,
+}
+
+const HEADER_FITS: [HeaderFit; 5] = [
+    HeaderFit { btn: 76.0, gap: 14.0, time_size: 76.0, pad: 24.0, show_pct: true, full_text: true },
+    HeaderFit { btn: 64.0, gap: 10.0, time_size: 64.0, pad: 16.0, show_pct: true, full_text: true },
+    HeaderFit { btn: 64.0, gap: 10.0, time_size: 64.0, pad: 16.0, show_pct: false, full_text: true },
+    HeaderFit { btn: 64.0, gap: 10.0, time_size: 64.0, pad: 16.0, show_pct: false, full_text: false },
+    HeaderFit { btn: 64.0, gap: 10.0, time_size: 56.0, pad: 16.0, show_pct: false, full_text: false },
+];
+
+struct HeaderTexts<'a> {
+    time: &'a str,
+    weekday: &'a str,
+    date: &'a str,
+    wifi: bool,
+    battery: Option<&'a str>,
+    status: &'a str,
+    status_short: Option<&'a str>,
+}
+
+/// Narrow screens (the 758 px wide Glo) can't fit everything at full size:
+/// take the first variant where the date and the status block don't collide.
+/// Smaller buttons and clock first, then the battery percentage, then the
+/// update time, then an even smaller clock. Returns whether it fits (if not,
+/// the date gets shortened).
+fn choose_fit(canvas: &Canvas, w: f32, n_buttons: f32, t: &HeaderTexts) -> (HeaderFit, bool) {
+    for fit in HEADER_FITS {
+        let leftmost = w - SIDE_PAD - n_buttons * fit.btn - (n_buttons - 1.0) * fit.gap;
+        let right = leftmost - fit.pad;
+        let dx = SIDE_PAD + canvas.measure_text(t.time, fit.time_size, true).0 + fit.pad;
+        let mut row1 = if t.wifi { 48.0 } else { 0.0 };
+        if let Some(label) = t.battery {
+            row1 += 46.0 + if fit.show_pct { canvas.measure_text(label, 24.0, true).0 + 10.0 } else { 0.0 };
+        }
+        let text = if fit.full_text { t.status } else { t.status_short.unwrap_or(t.status) };
+        let row2 = canvas.measure_text(text, 22.0, false).0 + 21.0;
+        let weekday_end = dx + canvas.measure_text(t.weekday, 28.0, true).0 + 16.0;
+        let date_end = dx + canvas.measure_text(t.date, 24.0, false).0 + 16.0;
+        if weekday_end <= right - row1 && date_end <= right - row2 {
+            return (fit, true);
+        }
+    }
+    (HEADER_FITS[HEADER_FITS.len() - 1], false)
+}
+
 pub fn render_header(
     canvas: &mut Canvas,
     theme: &Theme,
@@ -138,36 +193,21 @@ pub fn render_header(
     let battery_label = status.battery.map(|pct| i18n::tf("meta.percent", &[("value", &pct.to_string())]));
     let n_buttons = if status.frontlight.is_some() { 3.0 } else { 2.0 };
 
-    // Narrow screens (the 758 px wide Glo) can't fit everything at full
-    // size: take the first variant where the date and the status block don't
-    // collide. Smaller buttons and clock first, then the battery percentage,
-    // then the update time.
-    let variants = [(76.0, 14.0, 76.0, true, true), (64.0, 10.0, 64.0, true, true), (64.0, 10.0, 64.0, false, true), (64.0, 10.0, 64.0, false, false)];
-    let mut chosen = variants[variants.len() - 1];
-    for v in variants {
-        let (btn, gap, time_size, show_pct, full_text) = v;
-        let leftmost = w - SIDE_PAD - n_buttons * btn - (n_buttons - 1.0) * gap;
-        let right = leftmost - 24.0;
-        let dx = SIDE_PAD + canvas.measure_text(&time_str, time_size, true).0 + 24.0;
-        let mut row1 = if status.wifi_up.is_some() { 48.0 } else { 0.0 };
-        if let Some(label) = &battery_label {
-            row1 += 46.0 + if show_pct { canvas.measure_text(label, 24.0, true).0 + 10.0 } else { 0.0 };
-        }
-        let text = if full_text { &status_text } else { status_short.as_ref().unwrap_or(&status_text) };
-        let row2 = canvas.measure_text(text, 22.0, false).0 + 21.0;
-        let weekday_end = dx + canvas.measure_text(&weekday, 28.0, true).0 + 16.0;
-        let date_end = dx + canvas.measure_text(&date, 24.0, false).0 + 16.0;
-        if weekday_end <= right - row1 && date_end <= right - row2 {
-            chosen = v;
-            break;
-        }
-    }
-    let (btn, gap, time_size, show_pct, full_text) = chosen;
+    let texts = HeaderTexts {
+        time: &time_str,
+        weekday: &weekday,
+        date: &date,
+        wifi: status.wifi_up.is_some(),
+        battery: battery_label.as_deref(),
+        status: &status_text,
+        status_short: status_short.as_deref(),
+    };
+    let (HeaderFit { btn, gap, time_size, pad, show_pct, full_text }, _) = choose_fit(canvas, w, n_buttons, &texts);
 
     // Clock + date
     canvas.draw_text(&time_str, SIDE_PAD, top - 4.0 + (row_h - time_size) / 2.0, time_size, true, theme.text, TextAlign::Left);
     let time_w = canvas.measure_text(&time_str, time_size, true).0;
-    let dx = SIDE_PAD + time_w + 24.0;
+    let dx = SIDE_PAD + time_w + pad;
 
     // Exit + refresh buttons (big touch targets), centred in the row
     let by = top + (row_h - btn) / 2.0;
@@ -187,7 +227,7 @@ pub fn render_header(
     }
 
     // Status block, right aligned before the buttons
-    let right = leftmost - 24.0;
+    let right = leftmost - pad;
     let mut sx = right;
     if let Some(up) = status.wifi_up {
         sx -= 30.0;
@@ -244,4 +284,81 @@ pub fn render_header(
     }
 
     y
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Widest of `key`'s list entries in the current language
+    fn widest(key: &str, n: usize, canvas: &Canvas, size: f32, bold: bool) -> String {
+        (0..n)
+            .map(|i| i18n::nth(key, i))
+            .max_by(|a, b| canvas.measure_text(a, size, bold).0.total_cmp(&canvas.measure_text(b, size, bold).0))
+            .unwrap()
+    }
+
+    /// The header fit for every language, live and offline, with the widest
+    /// weekday and the given month (None: the widest month).
+    fn fits_for(width: u32, n_buttons: f32, month: Option<usize>) -> Vec<(String, HeaderFit, bool)> {
+        let _guard = i18n::TEST_LANGUAGE_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let canvas = Canvas::new(width, 200);
+        let mut out = Vec::new();
+        for (code, _) in i18n::BUILTIN {
+            i18n::set_language(code);
+            let weekday = widest("date.weekdays", 7, &canvas, 28.0, true);
+            let month = month.map(|m| i18n::nth("date.months", m)).unwrap_or_else(|| widest("date.months", 12, &canvas, 24.0, false));
+            let date = i18n::tf("date.long", &[("day", "28"), ("month", &month)]);
+            let battery = i18n::tf("meta.percent", &[("value", "100")]);
+            let live = i18n::tf("header.live", &[("time", "00:00")]);
+            let offline = i18n::t("header.offline");
+            let short = i18n::t("header.live_short");
+            for (label, status, status_short) in [("live", &live, Some(short.as_str())), ("offline", &offline, None)] {
+                let texts = HeaderTexts {
+                    time: "00:00",
+                    weekday: &weekday,
+                    date: &date,
+                    wifi: true,
+                    battery: Some(&battery),
+                    status,
+                    status_short,
+                };
+                let (fit, fits) = choose_fit(&canvas, width as f32, n_buttons, &texts);
+                out.push((format!("{} {} at {} px", code, label, width), fit, fits));
+            }
+        }
+        i18n::set_language("en");
+        out
+    }
+
+    #[test]
+    fn wide_screens_keep_the_full_header() {
+        // Clara/Libra/Sage widths and landscape, with the light button
+        for width in [1072, 1264, 1448] {
+            for (case, fit, fits) in fits_for(width, 3.0, None) {
+                assert!(fits, "{}", case);
+                assert_eq!(fit, HEADER_FITS[0], "{}", case);
+            }
+        }
+    }
+
+    #[test]
+    fn glo_header_fits_a_typical_date() {
+        // Kobo Glo (758 px) with the light button: "Wednesday, 28 May" must
+        // fit in every language without shortening (issue #1).
+        for (case, fit, fits) in fits_for(758, 3.0, Some(4)) {
+            assert!(fits, "{}: {:?}", case, fit);
+        }
+    }
+
+    #[test]
+    fn longest_dates_fall_back_to_the_compact_header() {
+        // The widest names don't always fit on the Glo; the date is then
+        // shortened in the most compact layout, never drawn over the status.
+        for (case, fit, fits) in fits_for(758, 3.0, None) {
+            if !fits {
+                assert_eq!(fit, HEADER_FITS[HEADER_FITS.len() - 1], "{}", case);
+            }
+        }
+    }
 }

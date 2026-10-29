@@ -21,7 +21,11 @@ fn battery_dir() -> Option<PathBuf> {
 /// `operstate` of the Wi-Fi interface (`INTERFACE` from Nickel: eth0 on
 /// older Kobos such as the Glo, wlan0 on newer ones).
 pub fn wifi_operstate_path() -> PathBuf {
-    let iface = std::env::var("INTERFACE").ok().filter(|i| !i.is_empty()).unwrap_or_else(|| "wlan0".into());
+    operstate_path(std::env::var("INTERFACE").ok().as_deref())
+}
+
+fn operstate_path(interface: Option<&str>) -> PathBuf {
+    let iface = interface.filter(|i| !i.is_empty()).unwrap_or("wlan0");
     PathBuf::from(format!("/sys/class/net/{}/operstate", iface))
 }
 
@@ -293,4 +297,88 @@ pub fn suspend() -> Result<(), String> {
         std::thread::sleep(Duration::from_millis(100));
     }
     result
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn wifi_interface_comes_from_nickel() {
+        // eth0 on the Glo and Aura (issue #1), wlan0 on newer models
+        assert_eq!(operstate_path(Some("eth0")), Path::new("/sys/class/net/eth0/operstate"));
+        assert_eq!(operstate_path(None), Path::new("/sys/class/net/wlan0/operstate"));
+        assert_eq!(operstate_path(Some("")), Path::new("/sys/class/net/wlan0/operstate"));
+    }
+
+    /// Run deploy/wifi.sh with stub commands that log their arguments; returns
+    /// the log and the run directory (marker, lock).
+    #[cfg(unix)]
+    fn run_wifi_sh(name: &str, arg: &str, module: &str) -> (String, PathBuf) {
+        use std::os::unix::fs::PermissionsExt;
+        let dir = std::env::temp_dir().join(format!("kobo-ha-wifi-{}-{}", name, std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let bin = dir.join("bin");
+        std::fs::create_dir_all(&bin).unwrap();
+        let log = dir.join("calls.log");
+        for cmd in ["wpa_cli", "ifconfig", "wlarm_le", "killall", "rmmod", "insmod", "usleep"] {
+            let stub = bin.join(cmd);
+            std::fs::write(&stub, format!("#!/bin/sh\necho \"{} $*\" >> \"{}\"\n", cmd, log.display())).unwrap();
+            std::fs::set_permissions(&stub, std::fs::Permissions::from_mode(0o755)).unwrap();
+        }
+        // No wpa_supplicant running
+        let pidof = bin.join("pidof");
+        std::fs::write(&pidof, "#!/bin/sh\nexit 1\n").unwrap();
+        std::fs::set_permissions(&pidof, std::fs::Permissions::from_mode(0o755)).unwrap();
+
+        let script = Path::new(env!("CARGO_MANIFEST_DIR")).join("deploy/wifi.sh");
+        let out = std::process::Command::new("/bin/sh")
+            .arg(&script)
+            .arg(arg)
+            .env("PATH", format!("{}:/usr/bin:/bin", bin.display()))
+            .env("KOBO_HA_RUN_DIR", &dir)
+            .env("WIFI_MODULE", module)
+            .env("INTERFACE", "eth0")
+            .env("PLATFORM", "test")
+            .output()
+            .unwrap();
+        assert!(out.status.success(), "wifi.sh {} failed: {}", arg, String::from_utf8_lossy(&out.stderr));
+        (std::fs::read_to_string(&log).unwrap_or_default(), dir)
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn wifi_off_leaves_the_marker_for_launch_sh() {
+        // launch.sh only turns Wi-Fi back on when this marker exists: with Wi-Fi
+        // already off in Nickel, loading the driver froze the Glo (issue #1).
+        let (calls, dir) = run_wifi_sh("marker", "off", "8189fs");
+        assert!(dir.join("kobo-ha-wifi-off").exists(), "marker missing; calls:\n{}", calls);
+        assert!(!dir.join("kobo-ha-wifi.lock").exists(), "lock left behind");
+        assert!(calls.contains("wpa_cli -i eth0 terminate"), "{}", calls);
+        assert!(!calls.contains("wlarm_le"), "wlarm_le is for Broadcom only:\n{}", calls);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn launch_sh_turns_wifi_on_only_after_the_dashboard_turned_it_off() {
+        let launch = include_str!("../deploy/launch.sh");
+        let wifi = include_str!("../deploy/wifi.sh");
+        assert!(launch.contains(r#"WIFI_MARKER="/tmp/kobo-ha-wifi-off""#));
+        assert!(wifi.contains(r#"RUN_DIR="${KOBO_HA_RUN_DIR:-/tmp}""#) && wifi.contains(r#"MARKER="$RUN_DIR/kobo-ha-wifi-off""#));
+        let on = launch.lines().find(|l| l.contains("wifi.sh\" on")).expect("launch.sh runs wifi.sh on");
+        let pos = launch.find(on).unwrap();
+        let condition = launch[..pos].lines().last().unwrap();
+        assert!(condition.contains(r#"[ -e "$WIFI_MARKER" ]"#), "wifi.sh on without the marker check: {}", condition);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn wifi_off_switches_broadcom_off_with_wlarm_le() {
+        // Broadcom (dhd) chips: wlarm_le down before the interface goes down (issue #2)
+        let (calls, dir) = run_wifi_sh("dhd", "off", "dhd");
+        let wl = calls.find("wlarm_le -i eth0 down").unwrap_or_else(|| panic!("no wlarm_le down:\n{}", calls));
+        let down = calls.find("ifconfig eth0 down").unwrap_or_else(|| panic!("no ifconfig down:\n{}", calls));
+        assert!(wl < down, "{}", calls);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
 }

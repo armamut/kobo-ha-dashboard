@@ -251,6 +251,16 @@ mod linux {
     const WAVEFORM_MODE_AUTO: u32 = 257;
     const TEMP_USE_AMBIENT: i32 = 0x1000;
 
+    #[cfg(test)]
+    #[test]
+    fn eink_request_numbers_match_the_kernels() {
+        // Same on every architecture (no pointers): FBInk's values
+        assert_eq!(SEND_UPDATE_HWTCON, 0x4024_462E);
+        assert_eq!(SEND_UPDATE_MXCFB_V2, 0x4048_462E);
+        assert_eq!(SEND_UPDATE_MXCFB_V1, 0x4040_462E);
+        // The NTX variant holds a pointer; it is checked for the 32-bit Kobo build above.
+    }
+
     #[derive(Debug, Clone, Copy, PartialEq)]
     enum EinkBackend {
         Unknown,

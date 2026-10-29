@@ -70,21 +70,22 @@ fn read_u32(path: &Path) -> Option<u32> {
 
 impl Frontlight {
     pub fn detect() -> Option<Self> {
-        Self::detect_in(Path::new("/sys/class/backlight"), Path::new(NICKEL_CONF)).or_else(Self::detect_ntx_io)
+        Self::detect_in(Path::new("/sys/class/backlight"), Path::new(NICKEL_CONF)).or_else(|| {
+            Self::detect_ntx_io(&std::env::var("PRODUCT").unwrap_or_default(), Path::new(NTX_IO), Path::new(NICKEL_CONF))
+        })
     }
 
-    fn detect_ntx_io() -> Option<Self> {
-        let product = std::env::var("PRODUCT").unwrap_or_default();
-        if !NTX_IO_PRODUCTS.contains(&product.as_str()) || !Path::new(NTX_IO).exists() {
+    fn detect_ntx_io(product: &str, device: &Path, nickel_conf: &Path) -> Option<Self> {
+        if !NTX_IO_PRODUCTS.contains(&product) || !device.exists() {
             return None;
         }
         // No readback: Nickel's settings are the only source for the level.
-        let nickel = nickel_light(Path::new(NICKEL_CONF));
+        let nickel = nickel_light(nickel_conf);
         let (current, remembered) = match nickel {
             Some((level, state)) => (if state.unwrap_or(level > 0) { level } else { 0 }, level),
             None => (0, 0),
         };
-        tracing::info!("Frontlight via {} ({}): Nickel settings {:?} -> currently {}", NTX_IO, product, nickel, current);
+        tracing::info!("Frontlight via {:?} ({}): Nickel settings {:?} -> currently {}", device, product, nickel, current);
         Some(Self {
             control: Control::NtxIo,
             max: 100,
@@ -244,6 +245,31 @@ fn set_ntx_io_light(_value: u32) -> std::io::Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn ntx_io_light_on_older_kobos_only() {
+        // Kobo Glo (issue #1): no sysfs knob, light through /dev/ntx_io
+        let base = std::env::temp_dir().join(format!("kobo-ha-light-ntx-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&base);
+        std::fs::create_dir_all(&base).unwrap();
+        let device = base.join("ntx_io");
+        std::fs::write(&device, "").unwrap();
+        let conf = base.join("Kobo eReader.conf");
+        std::fs::write(&conf, "[PowerOptions]\nFrontLightLevel=1\nFrontLightState=false\n").unwrap();
+
+        let light = Frontlight::detect_ntx_io("kraken", &device, &conf).expect("Glo has a light");
+        assert!(!light.is_on());
+        assert_eq!(light.level, 1, "switching on uses Nickel's level");
+        std::fs::write(&conf, "[PowerOptions]\nFrontLightLevel=40\nFrontLightState=true\n").unwrap();
+        assert!(Frontlight::detect_ntx_io("kraken", &device, &conf).unwrap().is_on());
+
+        // Newer models (sysfs) and the Touch (no light) never use it
+        assert!(Frontlight::detect_ntx_io("spaColour", &device, &conf).is_none());
+        assert!(Frontlight::detect_ntx_io("trilogy", &device, &conf).is_none());
+        assert!(Frontlight::detect_ntx_io("", &device, &conf).is_none());
+        assert!(Frontlight::detect_ntx_io("kraken", &base.join("missing"), &conf).is_none());
+        let _ = std::fs::remove_dir_all(&base);
+    }
 
     #[test]
     fn toggles_remembers_and_restores() {

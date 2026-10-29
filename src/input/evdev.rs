@@ -52,6 +52,43 @@ impl TouchMapping {
     }
 }
 
+type AxisRange = (i32, i32);
+
+/// Which ranges raw touch coordinates are normalised by.
+///
+/// zForce panels (Touch, Glo, Aura...) report screen pixels but advertise a
+/// bigger range (1200x1600 on the 758x1024 Glo), and scaling by it squeezes
+/// every tap towards one corner (issue #1). KOReader never scales Kobo touch
+/// input; do the same for zForce, and go back to the advertised range for
+/// good if a coordinate lands clearly past the screen.
+pub struct TouchRanges {
+    advertised: (AxisRange, AxisRange),
+    screen: (AxisRange, AxisRange),
+    pixels: bool,
+}
+
+impl TouchRanges {
+    pub fn new(device_name: &str, advertised: (AxisRange, AxisRange), screen: (AxisRange, AxisRange)) -> Self {
+        let pixels = device_name.to_ascii_lowercase().contains("zforce") && advertised != screen;
+        Self { advertised, screen, pixels }
+    }
+
+    pub fn uses_pixels(&self) -> bool {
+        self.pixels
+    }
+
+    /// Ranges for a raw point.
+    pub fn for_point(&mut self, rx: i32, ry: i32) -> (AxisRange, AxisRange) {
+        let ((_, max_x), (_, max_y)) = self.screen;
+        // More than 10% beyond the screen size on either axis
+        if self.pixels && (rx > max_x + max_x / 10 || ry > max_y + max_y / 10) {
+            tracing::info!("Touch at ({}, {}) is past the screen; using the advertised ranges", rx, ry);
+            self.pixels = false;
+        }
+        if self.pixels { self.screen } else { self.advertised }
+    }
+}
+
 pub struct TouchDriver {
     rx: Receiver<InputEvent>,
 }
@@ -363,11 +400,6 @@ mod linux {
         }
     }
 
-    /// More than 10% beyond the screen size on either axis.
-    fn past_screen(rx: i32, ry: i32, (_, max_x): (i32, i32), (_, max_y): (i32, i32)) -> bool {
-        rx > max_x + max_x / 10 || ry > max_y + max_y / 10
-    }
-
     fn run_touch_listener(path: &str, mapping: TouchMapping, tx: Sender<InputEvent>) {
         tracing::info!("Starting touch listener on {} ({:?})", path, mapping);
         let Some(mut file) = open_with_retry(path) else { return };
@@ -380,13 +412,8 @@ mod linux {
         let range_y = abs_range(fd, ABS_MT_POSITION_Y).or_else(|| abs_range(fd, ABS_Y)).unwrap_or(screen_y);
         tracing::info!("Touch axis ranges: x={:?} y={:?}", range_x, range_y);
 
-        // zForce panels (Touch, Glo, Aura...) report screen pixels but
-        // advertise a bigger range (1200x1600 on the 758x1024 Glo), and
-        // scaling by it squeezes every tap towards one corner. KOReader never
-        // scales Kobo touch input; do the same here, and go back to the
-        // advertised range if a coordinate lands clearly past the screen.
-        let mut pixels = device_name(fd).to_ascii_lowercase().contains("zforce") && (range_x, range_y) != (screen_x, screen_y);
-        if pixels {
+        let mut ranges = TouchRanges::new(&device_name(fd), (range_x, range_y), (screen_x, screen_y));
+        if ranges.uses_pixels() {
             tracing::info!("Touch panel reports screen pixels; using x={:?} y={:?}", screen_x, screen_y);
         }
         let mut logged_taps = 0;
@@ -433,11 +460,7 @@ mod linux {
                     // Fire once per touch, as soon as we know where the finger went down.
                     if !emitted && moved {
                         if let (Some(rx), Some(ry)) = (cur_x, cur_y) {
-                            if pixels && past_screen(rx, ry, screen_x, screen_y) {
-                                tracing::info!("Touch at ({}, {}) is past the screen; using the advertised ranges", rx, ry);
-                                pixels = false;
-                            }
-                            let (ax, ay) = if pixels { (screen_x, screen_y) } else { (range_x, range_y) };
+                            let (ax, ay) = ranges.for_point(rx, ry);
                             let (x, y) = mapping.to_canvas(norm(rx, ax), norm(ry, ay));
                             // The first few go to the log to check the mapping on new models.
                             if logged_taps < 5 {
@@ -490,6 +513,36 @@ mod tests {
         assert_eq!((x.round(), y.round()), (0.0, 1447.0));
         let (x, y) = m.to_canvas(0.5, 0.25);
         assert_eq!((x.round(), y.round()), (804.0, 724.0));
+    }
+
+    const GLO_ADVERTISED: (AxisRange, AxisRange) = ((0, 1200), (0, 1600));
+    const GLO_SCREEN: (AxisRange, AxisRange) = ((0, 1023), (0, 757));
+
+    #[test]
+    fn zforce_uses_screen_pixels() {
+        let mut r = TouchRanges::new("zForce-ir-touch", GLO_ADVERTISED, GLO_SCREEN);
+        assert!(r.uses_pixels());
+        assert_eq!(r.for_point(150, 567), GLO_SCREEN);
+        assert_eq!(r.for_point(1023, 757), GLO_SCREEN, "the screen edge is still pixels");
+    }
+
+    #[test]
+    fn other_panels_keep_the_advertised_range() {
+        // Clara Colour and other newer Kobos: scaling worked before issue #1, keep it
+        let advertised = ((0, 4095), (0, 4095));
+        let mut r = TouchRanges::new("cyttsp5_mt", advertised, ((0, 1447), (0, 1071)));
+        assert!(!r.uses_pixels());
+        assert_eq!(r.for_point(2000, 3000), advertised);
+        // A zForce panel whose range is the screen needs nothing special
+        assert!(!TouchRanges::new("zForce-ir-touch", GLO_SCREEN, GLO_SCREEN).uses_pixels());
+    }
+
+    #[test]
+    fn coordinates_past_the_screen_switch_back_for_good() {
+        let mut r = TouchRanges::new("zForce-ir-touch", GLO_ADVERTISED, GLO_SCREEN);
+        assert_eq!(r.for_point(1190, 100), GLO_ADVERTISED);
+        assert!(!r.uses_pixels());
+        assert_eq!(r.for_point(10, 10), GLO_ADVERTISED);
     }
 
     #[test]

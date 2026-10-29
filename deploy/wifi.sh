@@ -12,8 +12,10 @@
 # ==============================================================================
 
 IFACE="${INTERFACE:-wlan0}"
+# KOBO_HA_RUN_DIR is only set by the tests.
+RUN_DIR="${KOBO_HA_RUN_DIR:-/tmp}"
 # Left behind by "off" so launch.sh only turns Wi-Fi back on if we turned it off
-MARKER="/tmp/kobo-ha-wifi-off"
+MARKER="$RUN_DIR/kobo-ha-wifi-off"
 MODULE="${WIFI_MODULE:-}"
 KMOD_DIR="/drivers/${PLATFORM}/wifi"
 
@@ -39,6 +41,13 @@ wifi_off() {
     fi
     killall -q udhcpc 2>/dev/null
     wpa_cli -i "$IFACE" terminate >/dev/null 2>&1
+    # A supplicant that outlives the driver can't join anything after the
+    # next "on"; make sure it is gone.
+    n=0
+    while pidof wpa_supplicant >/dev/null && [ $n -lt 10 ]; do usleep 200000; n=$((n + 1)); done
+    pidof wpa_supplicant >/dev/null && killall wpa_supplicant 2>/dev/null
+    # Broadcom (dhd) chips are switched off with wlarm_le before the interface
+    [ "$MODULE" = "dhd" ] && command -v wlarm_le >/dev/null 2>&1 && wlarm_le -i "$IFACE" down
     ifconfig "$IFACE" down 2>/dev/null
     if [ "$KIND" = "wmt" ]; then
         echo 0 >/dev/wmtWifi
@@ -76,6 +85,7 @@ wifi_on() {
             insmod "$KMOD_DIR/sdio_wifi_pwr.ko"
         fi
         if ! loaded "$MODULE"; then
+            RELOADED=1
             if [ -e "$KMOD_DIR/$MODULE.ko" ]; then
                 insmod "$KMOD_DIR/$MODULE.ko"
             else
@@ -87,8 +97,22 @@ wifi_on() {
     # Wait for the interface to appear
     n=0
     while [ ! -e "/sys/class/net/$IFACE" ] && [ $n -lt 20 ]; do usleep 500000; n=$((n + 1)); done
+    # The driver needs a moment after the interface appears (KOReader: "race-y
+    # as hell, don't try to optimize this").
+    sleep 1
     ifconfig "$IFACE" up || { echo "interface $IFACE did not come up"; exit 1; }
+    # Broadcom (dhd) chips can't scan until they are switched on with wlarm_le
+    # (as Nickel and KOReader do).
+    [ "$MODULE" = "dhd" ] && command -v wlarm_le >/dev/null 2>&1 && wlarm_le -i "$IFACE" up
 
+    # A supplicant left from before the driver was reloaded can't use the new
+    # interface: start a fresh one.
+    if [ -n "$RELOADED" ] && pidof wpa_supplicant >/dev/null; then
+        echo "restarting wpa_supplicant left from before"
+        killall wpa_supplicant 2>/dev/null
+        n=0
+        while pidof wpa_supplicant >/dev/null && [ $n -lt 10 ]; do usleep 200000; n=$((n + 1)); done
+    fi
     if ! pidof wpa_supplicant >/dev/null; then
         wpa_supplicant -D "$DRIVER" -s -i "$IFACE" -c /etc/wpa_supplicant/wpa_supplicant.conf \
             -C /var/run/wpa_supplicant -B
@@ -100,8 +124,10 @@ wifi_on() {
     n=0
     until wpa_cli -i "$IFACE" status 2>/dev/null | grep -q "wpa_state=COMPLETED"; do
         n=$((n + 1))
+        # Nudge a supplicant that is still idle after 10 s.
+        [ $n -eq 20 ] && wpa_cli -i "$IFACE" reassociate >/dev/null 2>&1
         if [ $n -ge 60 ]; then
-            echo "could not join a saved network"
+            echo "could not join a saved network ($(wpa_cli -i "$IFACE" status 2>/dev/null | grep '^wpa_state='), $(wpa_cli -i "$IFACE" scan_results 2>/dev/null | tail -n +2 | wc -l) networks in range)"
             exit 1
         fi
         usleep 500000
@@ -135,7 +161,7 @@ trap '' PIPE
 # One at a time: the dashboard may still be bringing Wi-Fi up in the
 # background when launch.sh does the same on exit. A lock whose owner is
 # gone is taken over.
-LOCK="/tmp/kobo-ha-wifi.lock"
+LOCK="$RUN_DIR/kobo-ha-wifi.lock"
 n=0
 while ! mkdir "$LOCK" 2>/dev/null; do
     owner="$(cat "$LOCK/pid" 2>/dev/null)"
