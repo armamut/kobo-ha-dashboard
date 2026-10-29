@@ -278,7 +278,8 @@ impl ScreenRenderer {
         let title = format!("{} · {}", i18n::t("sleep.title"), i18n::tf("sleep.next", &[("time", next)]));
         if bar.h < 80.0 {
             // One line: "Sleep mode · Next update 22:56" then the hint, muted
-            let tw = canvas.draw_text_fit(&title, tx, bar.y + bar.h / 2.0 - 12.0, 24.0, true, theme.surface, TextAlign::Left, max_w);
+            let (line, size) = sleep_line(canvas, next, max_w);
+            let tw = canvas.draw_text_fit(&line, tx, bar.y + bar.h / 2.0 - size / 2.0, size, true, theme.surface, TextAlign::Left, max_w);
             let hint_x = tx + tw + 18.0;
             if hint_x + 120.0 < tx + max_w {
                 let muted = theme.surface.mix(theme.text, 0.35);
@@ -373,9 +374,45 @@ impl ScreenRenderer {
     }
 }
 
+/// The one-line sleep note: "Sleep mode · Next update 22:56", smaller if
+/// needed, and on narrow screens (Kobo Aura, Glo) just "Next update 22:56";
+/// the moon icon already says it's sleeping. The time is never cut off.
+fn sleep_line(canvas: &Canvas, next: &str, max_w: f32) -> (String, f32) {
+    use crate::i18n;
+    let next = i18n::tf("sleep.next", &[("time", next)]);
+    let full = format!("{} · {}", i18n::t("sleep.title"), next);
+    for (text, size) in [(&full, 24.0), (&full, 21.0), (&next, 24.0), (&next, 21.0)] {
+        if canvas.measure_text(text, size, true).0 <= max_w {
+            return (text.clone(), size);
+        }
+    }
+    (next, 21.0)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn sleep_note_shows_the_next_update_time_on_narrow_screens() {
+        // Glo/Aura width with page tabs: "Modalità sospensione · Prossimo
+        // aggiorname…" lost the time (issue #2).
+        let _guard = crate::i18n::TEST_LANGUAGE_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let canvas = Canvas::new(758, 200);
+        // Same geometry as render_sleep_note's one-line bar
+        let (bar_w, bar_h) = (758.0 - 2.0 * SIDE_PAD, 64.0);
+        let icon = (bar_h * 0.5f32).min(40.0);
+        let max_w = bar_w - bar_h * 0.4 - (bar_h * 0.4 + icon + 18.0);
+        for (code, _) in crate::i18n::BUILTIN {
+            crate::i18n::set_language(code);
+            let (line, size) = sleep_line(&canvas, "22:56", max_w);
+            assert!(line.ends_with("22:56"), "{}: {}", code, line);
+            assert!(canvas.measure_text(&line, size, true).0 <= max_w, "{}: {}", code, line);
+        }
+        crate::i18n::set_language("en");
+        // Wide screens keep the full line
+        assert_eq!(sleep_line(&canvas, "22:56", 1000.0), ("Sleep mode · Next update 22:56".to_string(), 24.0));
+    }
 
     fn overlaps(a: &Rect, b: &Rect) -> bool {
         a.x < b.x + b.w - 0.5 && b.x < a.x + a.w - 0.5 && a.y < b.y + b.h - 0.5 && b.y < a.y + a.h - 0.5
