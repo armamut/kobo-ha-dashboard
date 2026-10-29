@@ -34,6 +34,15 @@ esac
 loaded() { grep -q "^$1 " /proc/modules; }
 address() { ifconfig "$IFACE" 2>/dev/null | sed -n 's/.*inet \(addr:\)\{0,1\}\([0-9.]*\).*/\2/p'; }
 has_route() { { ip route 2>/dev/null || route -n 2>/dev/null; } | grep -q '^default\|^0\.0\.0\.0'; }
+# Wait up to $1 half-seconds for an address and a default route.
+wait_network() {
+    w=0
+    while [ -z "$(address)" ] || ! has_route; do
+        w=$((w + 1))
+        [ $w -ge "$1" ] && return 1
+        usleep 500000
+    done
+}
 
 wifi_off() {
     if command -v dhcpcd >/dev/null 2>&1; then
@@ -136,19 +145,25 @@ wifi_on() {
     echo "joined $(wpa_cli -i "$IFACE" status 2>/dev/null | sed -n 's/^ssid=//p') after $((n / 2)) s"
     if command -v dhcpcd >/dev/null 2>&1; then
         dhcpcd -t 30 -w "$IFACE" >/dev/null 2>&1 || echo "dhcpcd failed"
+        # With Nickel's dhcpcd still running as a daemon, the call above only
+        # hands the interface over and returns; after a driver reload the
+        # daemon may not ask for an address again (Kobo Aura, issue #2).
+        if ! wait_network 10 && pidof dhcpcd >/dev/null; then
+            echo "no address from dhcpcd yet, asking it to rebind"
+            dhcpcd -n "$IFACE" >/dev/null 2>&1
+        fi
+        if ! wait_network 20 && command -v udhcpc >/dev/null 2>&1; then
+            echo "still no address, trying udhcpc"
+            udhcpc -i "$IFACE" -s /etc/udhcpc.d/default.script -q -n -t 5 >/dev/null 2>&1 || echo "udhcpc failed"
+        fi
     else
         udhcpc -i "$IFACE" -s /etc/udhcpc.d/default.script -q -n -t 10 >/dev/null 2>&1 || echo "udhcpc failed"
     fi
     # Wait until the address and default route are really there.
-    n=0
-    while [ -z "$(address)" ] || ! has_route; do
-        n=$((n + 1))
-        if [ $n -ge 30 ]; then
-            echo "no address or route: '$(address)'"
-            exit 1
-        fi
-        usleep 500000
-    done
+    if ! wait_network 30; then
+        echo "no address or route: '$(address)' ($(has_route && echo "route ok" || echo "no default route"))"
+        exit 1
+    fi
     rm -f "$MARKER"
     echo "on: $(address)"
 }

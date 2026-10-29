@@ -24,6 +24,16 @@ use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 use ui::layout::UiAction;
 use ui::ScreenRenderer;
 
+/// Log timestamps in local time (the Kobo's TZ, as the clock on screen),
+/// with the offset, so they line up with launch.sh's `date` line.
+struct LocalTime;
+
+impl tracing_subscriber::fmt::time::FormatTime for LocalTime {
+    fn format_time(&self, w: &mut tracing_subscriber::fmt::format::Writer<'_>) -> std::fmt::Result {
+        write!(w, "{}", chrono::Local::now().format("%Y-%m-%dT%H:%M:%S%.6f%:z"))
+    }
+}
+
 #[derive(Parser, Debug)]
 #[command(
     name = "kobo-ha-dashboard",
@@ -88,7 +98,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             tracing_subscriber::EnvFilter::try_from_default_env()
                 .unwrap_or_else(|_| "kobo_ha_dashboard=info".into()),
         )
-        .with(tracing_subscriber::fmt::layer().with_ansi(false))
+        .with(tracing_subscriber::fmt::layer().with_ansi(false).with_timer(LocalTime))
         .init();
 
     let args = Args::parse();
