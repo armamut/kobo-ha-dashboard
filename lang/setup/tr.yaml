@@ -170,6 +170,7 @@ design:
   step: "Adım (°)"
   show_brightness: "Parlaklık çubuğunu göster"
   show_graph: "24 saatlik grafiği göster"
+  large_value: "Büyük değerler (küçük ikon)"
   sensors: "Sensörler"
   buttons: "Butonlar"
   add: "+ Ekle"

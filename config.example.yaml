@@ -126,6 +126,8 @@ pages:
       # Up to 4 sensors per row
       - type: "sensor_grid"
         title: "Climate"
+        # Bigger values with smaller icons (also for "sensor" cards)
+        # large_value: true
         sensors:
           - entity_id: "sensor.living_room_temperature"
             title: "Temperature"

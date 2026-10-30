@@ -170,6 +170,7 @@ design:
   step: "Pas (°)"
   show_brightness: "Afficher la barre de luminosité"
   show_graph: "Afficher le graphique sur 24 h"
+  large_value: "Grandes valeurs (icône plus petite)"
   sensors: "Capteurs"
   buttons: "Boutons"
   add: "+ Ajouter"

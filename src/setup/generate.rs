@@ -350,7 +350,7 @@ pub fn generate(entities: &[EntityInfo], screen: (u32, u32)) -> Vec<PageConfig> 
                 })
                 .collect();
             if !sensors.is_empty() && !cards.is_empty() {
-                cards.push(CardConfig::SensorGrid { title: None, sensors });
+                cards.push(CardConfig::SensorGrid { title: None, sensors, large_value: false });
             }
             (!cards.is_empty()).then_some((area, cards))
         })

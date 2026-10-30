@@ -70,7 +70,7 @@ fn heights(card: &CardConfig, w: f32) -> (f32, f32) {
                 (176.0, 150.0)
             }
         }
-        CardConfig::SensorGrid { title, sensors } => {
+        CardConfig::SensorGrid { title, sensors, .. } => {
             let nat = sensor_grid_height(w, sensors.len(), title.is_some());
             let rows = sensors.len().div_ceil(sensor_grid_columns(w, sensors.len())).max(1);
             (nat, nat - rows as f32 * 10.0)
@@ -299,8 +299,8 @@ impl ScreenRenderer {
                 render_weather_card(canvas, theme, rect, entity_id, states.get(entity_id), title.as_deref(), *forecast_days, targets)
             }
             CardConfig::ScenesRow { title, scenes } => render_scenes_row(canvas, theme, rect, title.as_deref(), scenes, targets),
-            CardConfig::SensorGrid { title, sensors } => {
-                render_sensor_grid(canvas, theme, rect, title.as_deref(), sensors, states, targets)
+            CardConfig::SensorGrid { title, sensors, large_value } => {
+                render_sensor_grid(canvas, theme, rect, title.as_deref(), sensors, *large_value, states, targets)
             }
             CardConfig::MediaPlayer { entity_id, title } => {
                 render_media_card(canvas, theme, rect, entity_id, states.get(entity_id), title.as_deref(), targets)
@@ -331,7 +331,7 @@ impl ScreenRenderer {
                 icon.as_deref(),
                 targets,
             ),
-            CardConfig::Sensor { entity_id, title, unit, icon, show_graph } => render_sensor_card(
+            CardConfig::Sensor { entity_id, title, unit, icon, show_graph, large_value } => render_sensor_card(
                 canvas,
                 theme,
                 rect,
@@ -341,6 +341,7 @@ impl ScreenRenderer {
                 unit.as_deref(),
                 icon.as_deref(),
                 *show_graph,
+                *large_value,
                 targets,
             ),
             CardConfig::Scene { entity_id, title, icon } => {

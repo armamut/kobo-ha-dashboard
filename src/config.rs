@@ -348,12 +348,17 @@ pub enum CardConfig {
         icon: Option<String>,
         #[serde(default)]
         show_graph: bool,
+        /// Bigger value with a smaller icon, for reading from a distance
+        #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+        large_value: bool,
     },
     #[serde(rename = "sensor_grid")]
     SensorGrid {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         title: Option<String>,
         sensors: Vec<SensorItemConfig>,
+        #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+        large_value: bool,
     },
     #[serde(rename = "media_player")]
     MediaPlayer {
@@ -510,6 +515,7 @@ pub fn default_demo_pages() -> Vec<PageConfig> {
                             unit: Some("W".to_string()),
                         },
                     ],
+                    large_value: false,
                 },
                 CardConfig::MediaPlayer {
                     entity_id: "media_player.speaker".to_string(),
@@ -538,6 +544,7 @@ pub fn default_demo_pages() -> Vec<PageConfig> {
                     unit: Some("kWh".to_string()),
                     icon: Some("zap".to_string()),
                     show_graph: true,
+                    large_value: false,
                 },
                 CardConfig::Switch {
                     entity_id: "switch.air_purifier".to_string(),

@@ -170,6 +170,7 @@ design:
   step: "Paso (°)"
   show_brightness: "Mostrar barra de brillo"
   show_graph: "Mostrar gráfico de 24 horas"
+  large_value: "Valores grandes (icono más pequeño)"
   sensors: "Sensores"
   buttons: "Botones"
   add: "+ Añadir"

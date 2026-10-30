@@ -170,6 +170,7 @@ design:
   step: "Schritt (°)"
   show_brightness: "Helligkeitsbalken anzeigen"
   show_graph: "24-Stunden-Diagramm anzeigen"
+  large_value: "Große Werte (kleineres Symbol)"
   sensors: "Sensoren"
   buttons: "Tasten"
   add: "+ Hinzufügen"

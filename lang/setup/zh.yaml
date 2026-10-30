@@ -170,6 +170,7 @@ design:
   step: "步长（°）"
   show_brightness: "显示亮度条"
   show_graph: "显示 24 小时图表"
+  large_value: "大号数值（较小图标）"
   sensors: "传感器"
   buttons: "按钮"
   add: "+ 添加"

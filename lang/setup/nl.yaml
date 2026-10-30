@@ -170,6 +170,7 @@ design:
   step: "Stap (°)"
   show_brightness: "Helderheidsbalk tonen"
   show_graph: "Grafiek van 24 uur tonen"
+  large_value: "Grote waarden (kleiner pictogram)"
   sensors: "Sensoren"
   buttons: "Knoppen"
   add: "+ Toevoegen"

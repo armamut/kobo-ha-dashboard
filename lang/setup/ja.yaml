@@ -170,6 +170,7 @@ design:
   step: "刻み（°）"
   show_brightness: "明るさバーを表示"
   show_graph: "24 時間のグラフを表示"
+  large_value: "値を大きく表示（アイコンは小さく）"
   sensors: "センサー"
   buttons: "ボタン"
   add: "+ 追加"

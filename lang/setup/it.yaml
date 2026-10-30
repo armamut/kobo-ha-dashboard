@@ -170,6 +170,7 @@ design:
   step: "Passo (°)"
   show_brightness: "Mostra barra luminosità"
   show_graph: "Mostra grafico 24 ore"
+  large_value: "Valori grandi (icona più piccola)"
   sensors: "Sensori"
   buttons: "Pulsanti"
   add: "+ Aggiungi"

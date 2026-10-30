@@ -29,6 +29,21 @@ fn history(state: Option<&EntityState>) -> Vec<f32> {
         .unwrap_or_default()
 }
 
+/// The largest size up to `max` at which value and unit fit in `max_w`, so a
+/// large value shrinks instead of being cut off.
+fn fit_value_size(canvas: &Canvas, value: &str, unit: &str, max: f32, max_w: f32) -> f32 {
+    let mut size = max;
+    while size > type_scale::VALUE {
+        let unit_size = (size * 0.5).max(20.0);
+        let unit_w = if unit.is_empty() { 0.0 } else { canvas.measure_text(unit, unit_size, false).0 + 6.0 };
+        if canvas.measure_text(value, size, true).0 + unit_w <= max_w {
+            break;
+        }
+        size -= 4.0;
+    }
+    size.max(type_scale::VALUE)
+}
+
 pub fn sensor_grid_columns(width: f32, count: usize) -> usize {
     if width >= 900.0 {
         count.clamp(1, 4)
@@ -53,6 +68,7 @@ pub fn render_sensor_card(
     custom_unit: Option<&str>,
     custom_icon: Option<&str>,
     show_graph: bool,
+    large_value: bool,
     targets: &mut Vec<InteractiveTarget>,
 ) {
     let title = custom_title
@@ -69,7 +85,7 @@ pub fn render_sensor_card(
 
     draw_card(canvas, theme, rect, None);
 
-    let badge = 60.0;
+    let badge = if large_value { 40.0 } else { 60.0 };
     let bx = rect.x + PAD;
     let by = rect.y + PAD;
     draw_icon_badge(canvas, theme, bx, by, badge, icon, tone, true);
@@ -87,7 +103,7 @@ pub fn render_sensor_card(
 
     let values = history(state);
     let graph = show_graph && values.len() >= 2;
-    let value_size = 56.0;
+    let value_size = if large_value { fit_value_size(canvas, &value, &unit, 84.0, rect.w - 2.0 * PAD) } else { 56.0 };
     let value_y = if graph { by + badge + 12.0 } else { rect.y + rect.h - PAD - value_size };
     draw_value_unit(canvas, theme, bx, value_y, &value, &unit, value_size, rect.w - 2.0 * PAD);
 
@@ -109,6 +125,7 @@ pub fn render_sensor_grid(
     rect: Rect,
     custom_title: Option<&str>,
     sensors: &[SensorItemConfig],
+    large_value: bool,
     all_states: &HashMap<String, EntityState>,
     targets: &mut Vec<InteractiveTarget>,
 ) {
@@ -141,7 +158,7 @@ pub fn render_sensor_grid(
             && state.and_then(|s| s.state.parse::<f32>().ok()).map(|v| v < 20.0).unwrap_or(false);
         let tone = if low_battery { theme.heat } else { tone_for_icon(theme, icon) };
         let ip = 16.0;
-        let badge = 48.0;
+        let badge = if large_value { 36.0 } else { 48.0 };
         draw_icon_badge(canvas, theme, cell.x + ip, cell.y + ip, badge, icon, tone, true);
         canvas.draw_text_fit(
             &item.title,
@@ -160,7 +177,11 @@ pub fn render_sensor_grid(
             .clone()
             .or_else(|| state.and_then(|s| s.unit_of_measurement()))
             .unwrap_or_default();
-        let value_size = type_scale::VALUE;
+        let value_size = if large_value {
+            fit_value_size(canvas, &value, &unit, 60.0, cell.w - 2.0 * ip)
+        } else {
+            type_scale::VALUE
+        };
         draw_value_unit(
             canvas,
             theme,
@@ -177,4 +198,20 @@ pub fn render_sensor_grid(
         rect,
         action: UiAction::Refresh,
     });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn large_values_shrink_to_fit() {
+        let canvas = Canvas::new(400, 200);
+        // A short value gets the full size
+        assert_eq!(fit_value_size(&canvas, "21,6", "°C", 84.0, 290.0), 84.0);
+        // A long one shrinks until it fits, but never below the normal size
+        let size = fit_value_size(&canvas, "12.345", "kWh", 84.0, 290.0);
+        assert!(size < 84.0 && size >= type_scale::VALUE);
+        assert_eq!(fit_value_size(&canvas, "123456789", "kWh", 84.0, 100.0), type_scale::VALUE);
+    }
 }

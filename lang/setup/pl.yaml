@@ -170,6 +170,7 @@ design:
   step: "Krok (°)"
   show_brightness: "Pokaż pasek jasności"
   show_graph: "Pokaż wykres z 24 godzin"
+  large_value: "Duże wartości (mniejsza ikona)"
   sensors: "Czujniki"
   buttons: "Przyciski"
   add: "+ Dodaj"
