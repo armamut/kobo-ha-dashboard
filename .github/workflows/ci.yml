@@ -14,7 +14,7 @@ jobs:
         os: [ubuntu-latest, macos-latest, windows-latest]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       # Unit tests, including: every language file has every key, the setup
@@ -26,8 +26,8 @@ jobs:
     name: Setup tool script
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
       # Parse the embedded editor JavaScript to catch syntax errors.
@@ -45,14 +45,18 @@ jobs:
     name: Kobo build (ARMv7)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: armv7-unknown-linux-musleabihf
       - uses: Swatinem/rust-cache@v2
-      - uses: mlugg/setup-zig@v2
-        with:
-          version: 0.17.0
+      # Zig for cargo-zigbuild, checksum-verified (mlugg/setup-zig still runs on Node 20)
+      - name: Install Zig
+        run: |
+          curl -sSfL https://ziglang.org/download/0.17.0/zig-x86_64-linux-0.17.0.tar.xz -o "$RUNNER_TEMP/zig.tar.xz"
+          echo "1cbe9df9f27e6b78d14ccbca43b6703a404ef79ef1c463de901d7f088d4e2026  $RUNNER_TEMP/zig.tar.xz" | sha256sum -c -
+          tar -xf "$RUNNER_TEMP/zig.tar.xz" -C "$RUNNER_TEMP"
+          echo "$RUNNER_TEMP/zig-x86_64-linux-0.17.0" >> "$GITHUB_PATH"
       - run: cargo install cargo-zigbuild --locked
       - run: cargo zigbuild --locked --release --target armv7-unknown-linux-musleabihf
       - run: file target/armv7-unknown-linux-musleabihf/release/kobo-ha-dashboard
