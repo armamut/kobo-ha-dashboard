@@ -17,6 +17,9 @@ const BOTTOM_PAD: f32 = 28.0;
 const SLEEP_NOTE_H: f32 = 124.0;
 /// Width of the left column in landscape (weather + sensor grid)
 const LANDSCAPE_LEFT_W: f32 = 440.0;
+/// Narrowest half-width card the right column may hold before the landscape
+/// layout falls back to a single full-width column
+const LANDSCAPE_MIN_HALF_W: f32 = 300.0;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 enum Span {
@@ -154,9 +157,12 @@ fn zones_for<'a>(cards: &'a [CardConfig], cw: f32, ch: f32, top: f32) -> Vec<(&'
     if cw > ch {
         let (left, right): (Vec<&CardConfig>, Vec<&CardConfig>) =
             cards.iter().partition(|c| matches!(c, CardConfig::Weather { .. } | CardConfig::SensorGrid { .. }));
-        if !left.is_empty() && !right.is_empty() {
+        let right_w = content_w - LANDSCAPE_LEFT_W - GAP;
+        // On small landscape screens (Nia, Glo, Aura: 1024 px) the right
+        // column would squeeze two cards per row into ~240 px; use the full
+        // width instead (issue #4).
+        if !left.is_empty() && !right.is_empty() && (right_w - GAP) / 2.0 >= LANDSCAPE_MIN_HALF_W {
             let right_x = SIDE_PAD + LANDSCAPE_LEFT_W + GAP;
-            let right_w = content_w - LANDSCAPE_LEFT_W - GAP;
             let mut v: Vec<(&CardConfig, Rect)> = layout_zone(&left, SIDE_PAD, top, LANDSCAPE_LEFT_W, avail_h)
                 .into_iter()
                 .map(|(i, r)| (left[i], r))
@@ -431,6 +437,18 @@ mod tests {
         // Very narrow: the words are shortened, the time stays
         let (line, _) = sleep_line(&canvas, "22:56", 150.0, 24.0);
         assert!(line.ends_with("… 22:56"), "{}", line);
+    }
+
+    #[test]
+    fn small_landscape_uses_one_column() {
+        // Nia/Glo/Aura in landscape: two columns left ~240 px cards (issue #4)
+        let cards = AppConfig::default().pages[0].cards.clone();
+        for (_, r) in zones_for(&cards, 1024.0, 758.0, HEADER_WITH_TABS) {
+            assert!(r.w >= LANDSCAPE_MIN_HALF_W, "{:?}", r);
+        }
+        // Larger screens keep the weather column
+        let placed = zones_for(&cards, 1448.0, 1072.0, HEADER_WITH_TABS);
+        assert!(placed.iter().any(|(_, r)| r.w == LANDSCAPE_LEFT_W));
     }
 
     fn overlaps(a: &Rect, b: &Rect) -> bool {

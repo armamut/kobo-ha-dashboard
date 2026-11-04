@@ -42,6 +42,7 @@ pub const MODELS: &[KoboModel] = &[
     m("glo", "Kobo Glo", Some("330"), 758, 1024, false, true),
     m("aura", "Kobo Aura", Some("360"), 758, 1024, false, true),
     m("aura_2", "Kobo Aura (2nd edition)", Some("375"), 758, 1024, false, false),
+    m("nia", "Kobo Nia", Some("382"), 758, 1024, false, true),
     m("glo_hd", "Kobo Glo HD", Some("371"), 1072, 1448, false, false),
     m("aura_hd", "Kobo Aura HD", Some("350"), 1080, 1440, false, false),
     m("aura_h2o", "Kobo Aura H2O", Some("370"), 1080, 1430, false, false),

@@ -278,9 +278,11 @@ mod linux {
         total
     }
 
-    fn is_power_key_line(line: &str) -> bool {
+    pub(super) fn is_power_key_line(line: &str) -> bool {
         let l = line.to_ascii_lowercase();
         ["pwrkey", "pwr-key", "pwr_key", "powerkey", "power-key", "power_key"].iter().any(|k| l.contains(k))
+            // Kobo Nia: "165:  4  gpio-mxc   4 Edge      Power" (issue #4)
+            || (l.contains("gpio") && l.split_whitespace().last() == Some("power"))
     }
 
     /// Once a second: power-key presses (by interrupt count) and the USB cable
@@ -501,6 +503,16 @@ mod tests {
             invert_y: false,
             canvas_rotation: Rotation::R0,
         }
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn power_key_interrupt_lines() {
+        use super::linux::is_power_key_line;
+        assert!(is_power_key_line("234:          0           -  power_key"));
+        assert!(is_power_key_line("165:          4  gpio-mxc   4 Edge      Power"));
+        assert!(!is_power_key_line("220:         77           -  tps65185_PWRGOOD"));
+        assert!(!is_power_key_line(" 52:          0  gpio-mxc  12 Edge      usb_power_detect"));
     }
 
     #[test]

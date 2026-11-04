@@ -10,12 +10,16 @@
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
+/// The battery, preferring one whose charge level can be read (as the header
+/// does).
 fn battery_dir() -> Option<PathBuf> {
-    std::fs::read_dir("/sys/class/power_supply")
+    let batteries: Vec<PathBuf> = std::fs::read_dir("/sys/class/power_supply")
         .ok()?
         .flatten()
         .map(|e| e.path())
-        .find(|p| std::fs::read_to_string(p.join("type")).map(|t| t.trim() == "Battery").unwrap_or(false))
+        .filter(|p| std::fs::read_to_string(p.join("type")).map(|t| t.trim() == "Battery").unwrap_or(false))
+        .collect();
+    batteries.iter().find(|p| read_trim(&p.join("capacity")).is_some()).or(batteries.first()).cloned()
 }
 
 /// `operstate` of the Wi-Fi interface (`INTERFACE` from Nickel: eth0 on
@@ -40,8 +44,15 @@ fn read_trim(path: &Path) -> Option<String> {
 
 /// One line in the log with charge level, charging state and current draw.
 pub fn log_battery() {
-    let Some(dir) = battery_dir() else { return };
-    let capacity = read_trim(&dir.join("capacity")).unwrap_or_else(|| "?".into());
+    let Some(dir) = battery_dir() else {
+        tracing::info!("No battery found in /sys/class/power_supply");
+        return;
+    };
+    // Unreadable on the Kobo Nia's log (issue #4): say why.
+    let capacity = match std::fs::read_to_string(dir.join("capacity")) {
+        Ok(c) => c.trim().to_string(),
+        Err(e) => format!("? ({}: {})", dir.join("capacity").display(), e),
+    };
     let status = read_trim(&dir.join("status")).unwrap_or_else(|| "?".into());
     // current_now is in µA on most kernels; the sign convention varies.
     let current = read_trim(&dir.join("current_now"))

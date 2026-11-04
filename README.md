@@ -34,10 +34,11 @@ A touch-friendly [Home Assistant](https://www.home-assistant.io/) dashboard for 
 | Older Kobos (NXP i.MX: Clara HD, Clara 2E, Libra 2, Libra H2O, Sage, Forma, Elipsa) | 🟡 Experimental |
 | Kobo Glo | ✅ Tested by [@dikkechill](https://github.com/dikkechill) ([#1](https://github.com/armamut/kobo-ha-dashboard/issues/1)) |
 | Kobo Aura | ✅ Tested by [@digt100](https://github.com/digt100) ([#2](https://github.com/armamut/kobo-ha-dashboard/issues/2)) |
+| Kobo Nia | ✅ Tested by [@qpeten](https://github.com/qpeten) ([#4](https://github.com/armamut/kobo-ha-dashboard/issues/4)) |
 | Other oldest Kobos (Touch, Mini, Aura HD, Glo HD) | 🟡 Experimental, untested |
 | Tolino Shine 5, Shine Color, Vision Color (Kobo-based) | 🟡 Experimental |
 
-The setup tool recognises newer models automatically when they are connected (Clara Colour, Clara BW, Libra Colour and the Tolino models); others can be picked from the **Kobo model** list. The model sets the preview size. On the device itself, the dashboard always uses the real screen resolution, so a wrong choice doesn't break anything.
+The setup tool recognises these models automatically when they are connected: Clara Colour, Clara BW, Libra Colour, the Tolino models, and the older Glo, Aura, Nia, Glo HD, Aura HD, Aura H2O, Touch and Mini. Others can be picked from the **Kobo model** list. The model sets the preview size. On the device itself, the dashboard always uses the real screen resolution, so a wrong choice doesn't break anything.
 
 If you try it on another model, please open an issue with your `dashboard.log` (see [Troubleshooting](#troubleshooting)).
 
