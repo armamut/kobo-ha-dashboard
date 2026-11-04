@@ -56,11 +56,12 @@ type AxisRange = (i32, i32);
 
 /// Which ranges raw touch coordinates are normalised by.
 ///
-/// zForce panels (Touch, Glo, Aura...) report screen pixels but advertise a
-/// bigger range (1200x1600 on the 758x1024 Glo), and scaling by it squeezes
-/// every tap towards one corner (issue #1). KOReader never scales Kobo touch
-/// input; do the same for zForce, and go back to the advertised range for
-/// good if a coordinate lands clearly past the screen.
+/// zForce panels (Touch, Glo...) and the Aura's elan-touch report screen
+/// pixels but advertise a bigger range (1200x1600 on the 758x1024 Glo,
+/// 3000x2000 on the Aura), and scaling by it squeezes every tap towards one
+/// corner (issues #1, #5). KOReader never scales Kobo touch input; do the
+/// same for these panels, and go back to the advertised range for good if a
+/// coordinate lands clearly past the screen.
 pub struct TouchRanges {
     advertised: (AxisRange, AxisRange),
     screen: (AxisRange, AxisRange),
@@ -69,7 +70,10 @@ pub struct TouchRanges {
 
 impl TouchRanges {
     pub fn new(device_name: &str, advertised: (AxisRange, AxisRange), screen: (AxisRange, AxisRange)) -> Self {
-        let pixels = device_name.to_ascii_lowercase().contains("zforce") && advertised != screen;
+        let name = device_name.to_ascii_lowercase();
+        // Only the Aura's exact "elan-touch": Elan panels on newer Kobos may use their real range
+        let pixel_panel = name.contains("zforce") || name == "elan-touch";
+        let pixels = pixel_panel && advertised != screen;
         Self { advertised, screen, pixels }
     }
 
@@ -566,6 +570,18 @@ mod tests {
         let norm = |v: f32, max: f32| v / max;
         let (x, y) = m.to_canvas(norm(150.0, 1023.0), norm(757.0 - 190.0, 757.0));
         assert_eq!((x.round(), y.round()), (190.0, 150.0));
+    }
+
+    #[test]
+    fn aura_elan_pixels_land_where_touched() {
+        // Kobo Aura (issue #5): elan-touch advertises 3000x2000 but reports
+        // pixels; a tap on the top-left card must stay there, not hit Exit.
+        let mut r = TouchRanges::new("elan-touch", ((0, 3000), (0, 2000)), GLO_SCREEN);
+        assert!(r.uses_pixels());
+        let ((_, max_x), (_, max_y)) = r.for_point(226, 455);
+        let m = TouchMapping { portrait_w: 758, portrait_h: 1024, ..kobo() };
+        let (x, y) = m.to_canvas(226.0 / max_x as f32, 455.0 / max_y as f32);
+        assert_eq!((x.round(), y.round()), (302.0, 226.0));
     }
 
     #[test]

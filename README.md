@@ -33,7 +33,7 @@ A touch-friendly [Home Assistant](https://www.home-assistant.io/) dashboard for 
 | Kobo Clara BW, Libra Colour, Elipsa 2E (MediaTek) | 🟡 Should work, untested |
 | Older Kobos (NXP i.MX: Clara HD, Clara 2E, Libra 2, Libra H2O, Sage, Forma, Elipsa) | 🟡 Experimental |
 | Kobo Glo | ✅ Tested by [@dikkechill](https://github.com/dikkechill) ([#1](https://github.com/armamut/kobo-ha-dashboard/issues/1)) |
-| Kobo Aura | ✅ Tested by [@digt100](https://github.com/digt100) ([#2](https://github.com/armamut/kobo-ha-dashboard/issues/2)) |
+| Kobo Aura | ✅ Tested by [@digt100](https://github.com/digt100) ([#2](https://github.com/armamut/kobo-ha-dashboard/issues/2)), touch by [@suzakuprod](https://github.com/suzakuprod) ([#5](https://github.com/armamut/kobo-ha-dashboard/issues/5)) |
 | Kobo Nia | ✅ Tested by [@qpeten](https://github.com/qpeten) ([#4](https://github.com/armamut/kobo-ha-dashboard/issues/4)) |
 | Other oldest Kobos (Touch, Mini, Aura HD, Glo HD) | 🟡 Experimental, untested |
 | Tolino Shine 5, Shine Color, Vision Color (Kobo-based) | 🟡 Experimental |
