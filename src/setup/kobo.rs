@@ -244,6 +244,14 @@ mod tests {
     use super::*;
 
     #[test]
+    fn kobo_scripts_have_unix_line_endings() {
+        // CRLF is a syntax error for the Kobo's shell, before anything is
+        // logged (issue #6). This test runs in CI on Windows too.
+        assert!(!LAUNCH_SH.contains('\r'), "launch.sh has CRLF line endings");
+        assert!(!WIFI_SH.contains('\r'), "wifi.sh has CRLF line endings");
+    }
+
+    #[test]
     fn install_writes_everything_and_backs_up() {
         let root = std::env::temp_dir().join(format!("kobo-ha-test-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&root);

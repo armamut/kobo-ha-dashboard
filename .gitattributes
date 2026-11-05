@@ -1,0 +1,3 @@
+# Keep LF everywhere: the Windows build embeds deploy/*.sh, and a checkout with
+# CRLF puts scripts on the Kobo that its shell can't run (issue #6).
+* text=auto eol=lf
