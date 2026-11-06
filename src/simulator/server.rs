@@ -81,7 +81,7 @@ async fn render_canvas_internal(state: &SimulatorState) -> Canvas {
     let mut config = state.config.read().await.clone();
     config.device.orientation = if is_landscape { "landscape".to_string() } else { "portrait".to_string() };
     let (w, h) = config.device.get_dimensions();
-    let mut canvas = Canvas::new(w, h);
+    let mut canvas = Canvas::for_screen(w, h);
 
     let active_page = *state.active_page.read().await;
     let states = state.ha_client.get_all_states().await;

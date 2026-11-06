@@ -364,7 +364,7 @@ async fn preview(State(s): State<Shared>, Query(q): Query<PreviewQuery>) -> Resp
     let _guard = s.render_lock.lock().await;
     i18n::set_language(&config.theme.language);
     prepare_font(&s, &config.theme.language).await;
-    let mut canvas = Canvas::new(w, h);
+    let mut canvas = Canvas::for_screen(w, h);
     let mut renderer = ScreenRenderer::new(&config);
     renderer.last_update = ha.last_update().await;
     // Most Kobos have a frontlight; show its button as on the device.

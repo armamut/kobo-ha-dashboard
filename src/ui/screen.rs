@@ -1,4 +1,5 @@
 use crate::config::{AppConfig, CardConfig, SceneItemConfig};
+use crate::display::canvas::ui_size;
 use crate::display::Canvas;
 use crate::ha::models::EntityState;
 use crate::ui::layout::{InteractiveTarget, Rect, UiAction};
@@ -180,7 +181,8 @@ fn zones_for<'a>(cards: &'a [CardConfig], cw: f32, ch: f32, top: f32) -> Vec<(&'
 /// How many of `cards` would not fit on a `w`x`h` screen.
 pub fn hidden_card_count(cards: &[CardConfig], w: u32, h: u32, with_tabs: bool) -> usize {
     let top = if with_tabs { HEADER_WITH_TABS } else { HEADER_WITHOUT_TABS };
-    cards.len() - zones_for(cards, w as f32, h as f32, top).len()
+    let (w, h) = ui_size(w, h);
+    cards.len() - zones_for(cards, w, h, top).len()
 }
 
 pub struct ScreenRenderer {
@@ -195,6 +197,8 @@ pub struct ScreenRenderer {
     /// While in sleep mode: the time of the next timed refresh, shown in a
     /// note at the bottom of the screen
     pub sleep_until: Option<String>,
+    /// Pixels per UI unit on the last rendered canvas
+    scale: f32,
 }
 
 impl ScreenRenderer {
@@ -206,6 +210,7 @@ impl ScreenRenderer {
             last_update: None,
             frontlight: None,
             sleep_until: None,
+            scale: 1.0,
         }
     }
 
@@ -219,6 +224,7 @@ impl ScreenRenderer {
     ) {
         self.targets.clear();
         self.hidden_cards = 0;
+        self.scale = canvas.scale;
         canvas.clear(self.theme.bg);
 
         let (battery, charging, wifi_up) = read_device_status();
@@ -249,7 +255,8 @@ impl ScreenRenderer {
         // single page there are no tabs, so room is made at the bottom instead.
         let has_tabs = config.pages.len() > 1;
         let reserve = if self.sleep_until.is_some() && !has_tabs { SLEEP_NOTE_H } else { 0.0 };
-        let placements = zones_for(&page.cards, canvas.width as f32, canvas.height as f32 - reserve, header_bottom);
+        let (w, h) = canvas.ui_size();
+        let placements = zones_for(&page.cards, w, h - reserve, header_bottom);
         self.hidden_cards = page.cards.len() - placements.len();
 
         for (card, rect) in placements {
@@ -257,12 +264,10 @@ impl ScreenRenderer {
         }
 
         if let Some(next) = self.sleep_until.clone() {
-            let w = canvas.width as f32;
             let bar = if has_tabs {
                 // Same place and size as the tab row drawn by the header
                 Rect::new(SIDE_PAD, HEADER_WITH_TABS - 84.0, w - 2.0 * SIDE_PAD, 64.0)
             } else {
-                let h = canvas.height as f32;
                 Rect::new(SIDE_PAD, h - SLEEP_NOTE_H + 4.0, w - 2.0 * SIDE_PAD, SLEEP_NOTE_H - 28.0)
             };
             self.render_sleep_note(canvas, bar, &next);
@@ -361,7 +366,9 @@ impl ScreenRenderer {
         }
     }
 
+    /// `x`, `y` in screen pixels.
     pub fn handle_touch(&self, x: f32, y: f32) -> Option<UiAction> {
+        let (x, y) = (x / self.scale, y / self.scale);
         // Exact hit first (topmost wins), then the nearest target within a
         // small radius to forgive slightly-off finger taps.
         if let Some(t) = self.targets.iter().rev().find(|t| t.rect.contains(x, y)) {
@@ -437,6 +444,37 @@ mod tests {
         // Very narrow: the words are shortened, the time stays
         let (line, _) = sleep_line(&canvas, "22:56", 150.0, 24.0);
         assert!(line.ends_with("… 22:56"), "{}", line);
+    }
+
+    #[test]
+    fn smallest_screens_scale_the_layout_down() {
+        // Kobo Touch (issue #7): 6" like the Glo, the same page has to fit
+        let cards = AppConfig::default().pages[0].cards.clone();
+        for ((w, h), (glo_w, glo_h)) in [((600, 800), (758, 1024)), ((800, 600), (1024, 758))] {
+            assert_eq!(hidden_card_count(&cards, w, h, true), hidden_card_count(&cards, glo_w, glo_h, true));
+            assert_eq!(ui_size(w, h).0.max(ui_size(w, h).1), 1024.0);
+        }
+        // Larger screens stay at one pixel per unit
+        assert_eq!(ui_size(758, 1024), (758.0, 1024.0));
+        assert_eq!(ui_size(1072, 1448), (1072.0, 1448.0));
+    }
+
+    #[test]
+    fn taps_land_on_scaled_targets() {
+        let _guard = crate::i18n::TEST_LANGUAGE_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let config = AppConfig::default();
+        let mut canvas = Canvas::for_screen(600, 800);
+        let mut renderer = ScreenRenderer::new(&config);
+        renderer.render(&mut canvas, &config, 0, &HashMap::new(), false);
+        let (w, h) = canvas.ui_size();
+        // Everything tappable is on screen, and a tap in the middle of a
+        // target's pixels hits that target rather than a neighbour.
+        let s = canvas.scale;
+        for t in &renderer.targets {
+            assert!(t.rect.x + t.rect.w <= w + 0.5 && t.rect.y + t.rect.h <= h + 0.5, "{:?}", t.rect);
+            let hit = renderer.handle_touch((t.rect.x + t.rect.w / 2.0) * s, (t.rect.y + t.rect.h / 2.0) * s);
+            assert_eq!(format!("{:?}", hit), format!("{:?}", Some(t.action.clone())));
+        }
     }
 
     #[test]

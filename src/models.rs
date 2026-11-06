@@ -47,6 +47,7 @@ pub const MODELS: &[KoboModel] = &[
     m("aura_hd", "Kobo Aura HD", Some("350"), 1080, 1440, false, false),
     m("aura_h2o", "Kobo Aura H2O", Some("370"), 1080, 1430, false, false),
     m("touch", "Kobo Touch", Some("310"), 600, 800, false, false),
+    m("touch_c", "Kobo Touch (N905C)", Some("320"), 600, 800, false, true),
     m("mini", "Kobo Mini", Some("340"), 600, 800, false, false),
 ];
 
@@ -72,5 +73,7 @@ mod tests {
         assert!(by_key("sage").is_some());
         // Glo (issue #1): previews at its real size instead of the Clara's
         assert_eq!(by_model_id("00000000-0000-0000-0000-000000000330").map(|m| (m.key, m.width, m.height)), Some(("glo", 758, 1024)));
+        // Touch N905C (issue #7)
+        assert_eq!(by_model_id("00000000-0000-0000-0000-000000000320").map(|m| (m.key, m.width, m.height)), Some(("touch_c", 600, 800)));
     }
 }

@@ -195,7 +195,7 @@ async fn run_device(
         config.device.fb_rotation(),
         config.device.color_panel,
     );
-    let mut canvas = Canvas::new(width, height);
+    let mut canvas = Canvas::for_screen(width, height);
     let mut renderer = ScreenRenderer::new(&config);
     let mut active_page = 0;
 

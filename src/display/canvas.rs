@@ -99,9 +99,29 @@ pub enum TextAlign {
     Right,
 }
 
+/// Layouts and text sizes are in UI units, tuned down to this screen (Glo,
+/// Aura, Nia). Smaller screens draw the same layout scaled down: at the same
+/// physical size (6") the Touch and Mini just have fewer pixels.
+const MIN_UI_SIZE: (f32, f32) = (758.0, 1024.0);
+
+/// Pixels per UI unit on a `w`x`h` screen.
+pub fn ui_scale(w: u32, h: u32) -> f32 {
+    let (short, long) = (w.min(h) as f32, w.max(h) as f32);
+    (short / MIN_UI_SIZE.0).min(long / MIN_UI_SIZE.1).min(1.0)
+}
+
+/// Size of a `w`x`h` screen in UI units.
+pub fn ui_size(w: u32, h: u32) -> (f32, f32) {
+    let s = ui_scale(w, h);
+    (w as f32 / s, h as f32 / s)
+}
+
 pub struct Canvas {
+    /// Size in pixels; drawing calls take UI units, see `ui_size`.
     pub width: u32,
     pub height: u32,
+    /// Pixels per UI unit
+    pub scale: f32,
     pixmap: Pixmap,
 }
 
@@ -111,8 +131,23 @@ impl Canvas {
         Self {
             width,
             height,
+            scale: 1.0,
             pixmap,
         }
+    }
+
+    /// A whole device screen, scaled down if it is a small one.
+    pub fn for_screen(width: u32, height: u32) -> Self {
+        Self { scale: ui_scale(width, height), ..Self::new(width, height) }
+    }
+
+    /// Canvas size in UI units.
+    pub fn ui_size(&self) -> (f32, f32) {
+        (self.width as f32 / self.scale, self.height as f32 / self.scale)
+    }
+
+    fn transform(&self) -> Transform {
+        Transform::from_scale(self.scale, self.scale)
     }
 
     pub fn clear(&mut self, color: Color) {
@@ -124,7 +159,7 @@ impl Canvas {
             let mut paint = Paint::default();
             paint.set_color(color.to_skia());
             paint.anti_alias = true;
-            self.pixmap.fill_rect(rect, &paint, Transform::identity(), None);
+            self.pixmap.fill_rect(rect, &paint, self.transform(), None);
         }
     }
 
@@ -148,7 +183,7 @@ impl Canvas {
             paint.set_color(color.to_skia());
             paint.anti_alias = true;
             self.pixmap
-                .fill_path(&path, &paint, FillRule::Winding, Transform::identity(), None);
+                .fill_path(&path, &paint, FillRule::Winding, self.transform(), None);
         }
     }
 
@@ -184,7 +219,7 @@ impl Canvas {
                 ..Default::default()
             };
             self.pixmap
-                .stroke_path(&path, &paint, &stroke, Transform::identity(), None);
+                .stroke_path(&path, &paint, &stroke, self.transform(), None);
         }
     }
 
@@ -202,7 +237,7 @@ impl Canvas {
                 ..Default::default()
             };
             self.pixmap
-                .stroke_path(&path, &paint, &stroke, Transform::identity(), None);
+                .stroke_path(&path, &paint, &stroke, self.transform(), None);
         }
     }
 
@@ -215,11 +250,18 @@ impl Canvas {
         color: Color,
         stroke_width: f32,
     ) {
+        // The icon's stroke scales with its size
+        let s = self.scale;
         let mut pm_mut = self.pixmap.as_mut();
-        draw_icon(&mut pm_mut, name, x, y, size, color, stroke_width);
+        draw_icon(&mut pm_mut, name, x * s, y * s, size * s, color, stroke_width);
     }
 
     pub fn measure_text(&self, text: &str, font_size: f32, bold: bool) -> (f32, f32) {
+        (self.text_width_px(text, font_size * self.scale, bold) / self.scale, font_size)
+    }
+
+    /// Text width in pixels at a size in pixels.
+    fn text_width_px(&self, text: &str, font_size: f32, bold: bool) -> f32 {
         let (regular, bold_font) = get_fonts();
         let font = if bold { bold_font } else { regular };
         let fb = fallback();
@@ -243,7 +285,7 @@ impl Canvas {
                 }
             }
         }
-        (total_width, font_size)
+        total_width
     }
 
     /// Shorten `text` with an ellipsis so it fits in `max_width`.
@@ -287,7 +329,7 @@ impl Canvas {
             let mut paint = Paint::default();
             paint.set_color(color.to_skia());
             paint.anti_alias = true;
-            self.pixmap.fill_path(&path, &paint, FillRule::Winding, Transform::identity(), None);
+            self.pixmap.fill_path(&path, &paint, FillRule::Winding, self.transform(), None);
         }
     }
 
@@ -299,13 +341,14 @@ impl Canvas {
             paint.set_color(color.to_skia());
             paint.anti_alias = true;
             let stroke = Stroke { width: stroke_width, ..Default::default() };
-            self.pixmap.stroke_path(&path, &paint, &stroke, Transform::identity(), None);
+            self.pixmap.stroke_path(&path, &paint, &stroke, self.transform(), None);
         }
     }
 
     pub fn draw_weather_art(&mut self, condition: &str, x: f32, y: f32, size: f32, ink: WeatherInk) {
+        let s = self.scale;
         let mut pm_mut = self.pixmap.as_mut();
-        draw_weather_art(&mut pm_mut, condition, x, y, size, ink);
+        draw_weather_art(&mut pm_mut, condition, x * s, y * s, size * s, ink);
     }
 
     pub fn draw_text(
@@ -321,7 +364,9 @@ impl Canvas {
         let (regular, bold_font) = get_fonts();
         let font = if bold { bold_font } else { regular };
 
-        let (text_width, _) = self.measure_text(text, font_size, bold);
+        // Glyphs are rasterized at their final size, so they stay sharp.
+        let (x, y, font_size) = (x * self.scale, y * self.scale, font_size * self.scale);
+        let text_width = self.text_width_px(text, font_size, bold);
 
         let start_x = match align {
             TextAlign::Left => x,
@@ -493,7 +538,7 @@ impl Canvas {
             pb.close();
             if let Some(path) = pb.finish() {
                 paint.set_color(area_color.to_skia());
-                self.pixmap.fill_path(&path, &paint, FillRule::Winding, Transform::identity(), None);
+                self.pixmap.fill_path(&path, &paint, FillRule::Winding, self.transform(), None);
             }
         }
 
@@ -505,7 +550,7 @@ impl Canvas {
                 line_join: LineJoin::Round,
                 ..Default::default()
             };
-            self.pixmap.stroke_path(&path, &paint, &stroke, Transform::identity(), None);
+            self.pixmap.stroke_path(&path, &paint, &stroke, self.transform(), None);
         }
     }
 

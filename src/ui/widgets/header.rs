@@ -187,7 +187,7 @@ pub fn render_header(
         &[("day", &now.day().to_string()), ("month", &i18n::nth("date.months", now.month0() as usize))],
     );
 
-    let w = canvas.width as f32;
+    let (w, _) = canvas.ui_size();
     let top = 26.0;
     let row_h = 76.0;
 
