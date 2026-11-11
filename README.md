@@ -89,6 +89,8 @@ The Kobo itself normally sleeps whenever you aren't reading; while the dashboard
 
 Sleep mode switches Wi-Fi off before suspending (suspending with Wi-Fi on can crash Kobo kernels) and reconnects with the networks you saved in the Kobo's settings when it wakes. It never suspends while the Kobo is plugged in, because that hangs MediaTek-based Kobos. Wi-Fi chips that need special handling (NXP "moal", used in some newer models) are not supported yet; the dashboard then simply stays awake.
 
+When the battery reaches 3% without a charger (`battery_critical_percent` in `config.yaml`, 0 turns this off), the dashboard replaces the screen with "Battery empty" and suspends, even if sleep mode is off. E-ink keeps the message without power. It checks for a charger every 5 minutes and whenever the power button is pressed, and comes back by itself once the Kobo is plugged in.
+
 ## Languages
 
 The language is set in the setup tool, or with `theme.language` in `config.yaml`. Dates, weather conditions, device states and number formats follow the chosen language.

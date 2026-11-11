@@ -485,6 +485,11 @@ fn icon_shapes(name: &str) -> Vec<(Mode, Option<Path>)> {
             pb.move_to(10.0, 10.5);
             pb.line_to(10.0, 13.5);
         }))],
+        "battery_empty" => vec![(Stroke, build(|pb| {
+            round_rect(pb, 2.0, 7.0, 17.0, 10.0, 2.0);
+            pb.move_to(22.0, 11.0);
+            pb.line_to(22.0, 13.0);
+        }))],
         "clock" | "timer" => vec![(Stroke, build(|pb| {
             pb.push_circle(12.0, 12.0, 9.5);
             pb.move_to(12.0, 6.5);

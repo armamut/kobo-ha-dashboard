@@ -72,3 +72,5 @@ sleep:
   title: "Uyku modu"
   next: "Sonraki güncelleme {time}"
   wake_hint: "Paneli uyandırmak için güç tuşuna basın"
+  battery_empty: "Pil bitti"
+  charge_hint: "Devam etmek için Kobo'yu şarja takın"

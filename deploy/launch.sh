@@ -69,7 +69,8 @@ resume() {
     for entry in $CORES_SAVED; do
         echo "${entry#*=}" >"${entry%=*}" 2>/dev/null
     done
-    [ -n "$WIFI_PM_SAVED" ] && echo "$WIFI_PM_SAVED" >"$WIFI_PM" 2>/dev/null
+    # Gone while Wi-Fi is off (the error would come from the shell, not echo).
+    [ -n "$WIFI_PM_SAVED" ] && [ -w "$WIFI_PM" ] && echo "$WIFI_PM_SAVED" >"$WIFI_PM"
     # Get the log onto the disk before anything that could hang the kernel.
     sync
     # Sleep mode powers Wi-Fi down between refreshes; make sure Nickel gets it

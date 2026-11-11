@@ -50,6 +50,9 @@ device:
   sleep_after_secs: 0
   # While asleep, wake up this often (seconds) to refresh the screen
   sleep_wake_secs: 900
+  # At or below this battery level (without a charger) show "Battery empty" and
+  # sleep until the Kobo is charged. Works without sleep mode too. 0 = never
+  battery_critical_percent: 3
 
 home_assistant:
   # An address the Kobo can reach on your Wi-Fi. ".local" (mDNS) names do NOT

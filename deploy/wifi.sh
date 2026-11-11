@@ -45,10 +45,21 @@ wait_network() {
 }
 
 wifi_off() {
+    echo "step: dhcpcd -k"
     if command -v dhcpcd >/dev/null 2>&1; then
-        dhcpcd -k "$IFACE" >/dev/null 2>&1
+        # Normally instant, but nothing else guards it: a hung release kept a
+        # Kobo awake until the battery ran out. Go on without it after 10 s.
+        dhcpcd -k "$IFACE" >/dev/null 2>&1 &
+        pid=$!
+        (usleep 10000000; kill -9 "$pid" 2>/dev/null) >/dev/null 2>&1 &
+        guard=$!
+        wait "$pid"
+        [ $? -eq 137 ] && echo "dhcpcd -k did not return, killed it"
+        kill "$guard" 2>/dev/null
     fi
+    echo "step: udhcpc"
     killall -q udhcpc 2>/dev/null
+    echo "step: wpa_cli terminate"
     wpa_cli -i "$IFACE" terminate >/dev/null 2>&1
     # A supplicant that outlives the driver can't join anything after the
     # next "on"; make sure it is gone.
@@ -57,7 +68,9 @@ wifi_off() {
     pidof wpa_supplicant >/dev/null && killall wpa_supplicant 2>/dev/null
     # Broadcom (dhd) chips are switched off with wlarm_le before the interface
     [ "$MODULE" = "dhd" ] && command -v wlarm_le >/dev/null 2>&1 && wlarm_le -i "$IFACE" down
+    echo "step: interface down"
     ifconfig "$IFACE" down 2>/dev/null
+    echo "step: chip off"
     if [ "$KIND" = "wmt" ]; then
         echo 0 >/dev/wmtWifi
     else
@@ -177,15 +190,20 @@ trap '' PIPE
 # background when launch.sh does the same on exit. A lock whose owner is
 # gone is taken over.
 LOCK="$RUN_DIR/kobo-ha-wifi.lock"
+# Every round counts and waits, also the ones taking over a stale lock: if
+# mkdir keeps failing (say /tmp is full) this must not spin forever.
+echo "step: lock"
 n=0
 while ! mkdir "$LOCK" 2>/dev/null; do
     owner="$(cat "$LOCK/pid" 2>/dev/null)"
     if [ -z "$owner" ] || ! kill -0 "$owner" 2>/dev/null; then
         rm -rf "$LOCK"
-        continue
     fi
     n=$((n + 1))
-    [ $n -ge 120 ] && break
+    if [ $n -ge 120 ]; then
+        echo "could not take the lock, going on without it: $(mkdir "$LOCK" 2>&1)"
+        break
+    fi
     usleep 500000
 done
 echo $$ >"$LOCK/pid" 2>/dev/null

@@ -72,3 +72,5 @@ sleep:
   title: "睡眠模式"
   next: "下次更新 {time}"
   wake_hint: "按电源键唤醒仪表板"
+  battery_empty: "电池电量已耗尽"
+  charge_hint: "请为 Kobo 充电以继续使用"

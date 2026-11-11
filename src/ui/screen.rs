@@ -197,6 +197,8 @@ pub struct ScreenRenderer {
     /// While in sleep mode: the time of the next timed refresh, shown in a
     /// note at the bottom of the screen
     pub sleep_until: Option<String>,
+    /// Draw the "battery empty" screen instead of the dashboard
+    pub battery_empty: bool,
     /// Pixels per UI unit on the last rendered canvas
     scale: f32,
 }
@@ -210,6 +212,7 @@ impl ScreenRenderer {
             last_update: None,
             frontlight: None,
             sleep_until: None,
+            battery_empty: false,
             scale: 1.0,
         }
     }
@@ -226,6 +229,11 @@ impl ScreenRenderer {
         self.hidden_cards = 0;
         self.scale = canvas.scale;
         canvas.clear(self.theme.bg);
+
+        if self.battery_empty {
+            self.render_battery_empty(canvas);
+            return;
+        }
 
         let (battery, charging, wifi_up) = read_device_status();
         let wifi_up = crate::ui::widgets::header::shown_wifi(wifi_up, self.sleep_until.is_some(), crate::power::wifi_switched_off());
@@ -274,6 +282,21 @@ impl ScreenRenderer {
             // Nothing is tappable while the device sleeps.
             self.targets.clear();
         }
+    }
+
+    /// The whole screen, not a note on the dashboard: it can stay up for days
+    /// and old values shouldn't look current. E-ink keeps it without power.
+    fn render_battery_empty(&self, canvas: &mut Canvas) {
+        use crate::display::TextAlign;
+        use crate::i18n;
+        let theme = &self.theme;
+        let (w, h) = canvas.ui_size();
+        let icon = 220.0;
+        let top = h / 2.0 - icon / 2.0 - 90.0;
+        let max_w = w - 2.0 * SIDE_PAD;
+        canvas.draw_icon("battery_empty", w / 2.0 - icon / 2.0, top, icon, theme.text, 3.0);
+        canvas.draw_text_fit(&i18n::t("sleep.battery_empty"), w / 2.0, top + icon + 24.0, 60.0, true, theme.text, TextAlign::Center, max_w);
+        canvas.draw_text_fit(&i18n::t("sleep.charge_hint"), w / 2.0, top + icon + 108.0, 32.0, false, theme.text, TextAlign::Center, max_w);
     }
 
     fn render_sleep_note(&self, canvas: &mut Canvas, bar: Rect, next: &str) {
@@ -444,6 +467,27 @@ mod tests {
         // Very narrow: the words are shortened, the time stays
         let (line, _) = sleep_line(&canvas, "22:56", 150.0, 24.0);
         assert!(line.ends_with("… 22:56"), "{}", line);
+    }
+
+    #[test]
+    fn battery_empty_screen_replaces_the_dashboard() {
+        let _guard = crate::i18n::TEST_LANGUAGE_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let config = AppConfig::default();
+        let mut canvas = Canvas::new(758, 1024);
+        let mut renderer = ScreenRenderer::new(&config);
+        renderer.battery_empty = true;
+        renderer.render(&mut canvas, &config, 0, &HashMap::new(), false);
+        assert!(renderer.targets.is_empty(), "nothing is tappable");
+        // The narrowest screen fits both lines whole in every language
+        for (code, _) in crate::i18n::BUILTIN {
+            crate::i18n::set_language(code);
+            let max_w = 758.0 - 2.0 * SIDE_PAD;
+            for (key, size, bold) in [("sleep.battery_empty", 60.0, true), ("sleep.charge_hint", 32.0, false)] {
+                let text = crate::i18n::t(key);
+                assert!(canvas.measure_text(&text, size, bold).0 <= max_w, "{}: {}", code, text);
+            }
+        }
+        crate::i18n::set_language("en");
     }
 
     #[test]

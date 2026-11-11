@@ -8,7 +8,19 @@
 //! devices (the kernel hangs).
 
 use std::path::{Path, PathBuf};
-use std::time::Duration;
+use std::process::{Command, ExitStatus, Stdio};
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::time::{Duration, Instant};
+
+/// How long `wifi.sh` may take. Normally 0.3 s to switch off and 7 s to switch
+/// on; these limits also cover its 60 s wait for the lock and, for "on", its
+/// own timeouts for joining a network and getting an address.
+const WIFI_OFF_TIMEOUT: Duration = Duration::from_secs(90);
+const WIFI_ON_TIMEOUT: Duration = Duration::from_secs(180);
+
+/// Battery level to leave the "battery empty" state at without a charger, a
+/// little above the critical level so the gauge's jitter doesn't flip it.
+const BATTERY_RECOVERED_MARGIN: u32 = 3;
 
 /// The battery, preferring one whose charge level can be read (as the header
 /// does).
@@ -40,6 +52,31 @@ pub fn wifi_switched_off() -> bool {
 
 fn read_trim(path: &Path) -> Option<String> {
     std::fs::read_to_string(path).ok().map(|s| s.trim().to_string())
+}
+
+/// Charge level, if the kernel reports one.
+fn battery_percent() -> Option<u32> {
+    read_trim(&battery_dir()?.join("capacity"))?.parse().ok()
+}
+
+fn is_critical(percent: Option<u32>, plugged: bool, critical: u32) -> bool {
+    !plugged && matches!(percent, Some(p) if p <= critical)
+}
+
+fn is_recovered(percent: Option<u32>, plugged: bool, critical: u32) -> bool {
+    plugged || !matches!(percent, Some(p) if p < critical + BATTERY_RECOVERED_MARGIN)
+}
+
+/// On battery and at or below `critical` percent (0 = never). The gauge can
+/// jump, 5% to 0% between two readings, so this is checked against a level
+/// with some reserve; "0%" still ran for hours in sleep mode.
+pub fn battery_critical(critical: u32) -> bool {
+    critical > 0 && is_critical(battery_percent(), is_plugged(), critical)
+}
+
+/// Plugged in again, or (a false alarm) well above the critical level.
+pub fn battery_recovered(critical: u32) -> bool {
+    is_recovered(battery_percent(), is_plugged(), critical)
 }
 
 /// One line in the log with charge level, charging state and current draw.
@@ -133,26 +170,145 @@ pub fn sleep_unsupported_reason(wifi_script: &Path) -> Option<String> {
     }
 }
 
-/// Run `wifi.sh on|off`; true on success.
-pub fn wifi(script: &Path, on: bool) -> bool {
-    let arg = if on { "on" } else { "off" };
-    tracing::info!("Wi-Fi {}…", arg);
-    match std::process::Command::new("/bin/sh").arg(script).arg(arg).output() {
-        Ok(out) => {
-            for line in String::from_utf8_lossy(&out.stdout).lines().chain(String::from_utf8_lossy(&out.stderr).lines()) {
-                tracing::info!("  wifi.sh: {}", line);
+/// Output of a finished command; `status` is None if it ran out of time.
+struct Finished {
+    status: Option<ExitStatus>,
+    lines: Vec<String>,
+}
+
+/// Run a command for at most `timeout`, then kill it with everything it
+/// started (except daemons, which leave its process group). `before_kill` can
+/// look at the stuck command while it still exists. Unlike
+/// `Command::output`, this returns as soon as the command itself exits, even
+/// if a daemon it started still holds the pipes, and even if the command can't
+/// be killed.
+fn run_with_timeout(mut command: Command, timeout: Duration, before_kill: fn()) -> std::io::Result<Finished> {
+    use std::io::BufRead;
+
+    command.stdin(Stdio::null()).stdout(Stdio::piped()).stderr(Stdio::piped());
+    #[cfg(unix)]
+    std::os::unix::process::CommandExt::process_group(&mut command, 0);
+    let mut child = command.spawn()?;
+
+    let (tx, rx) = std::sync::mpsc::channel::<String>();
+    fn forward(pipe: impl std::io::Read + Send + 'static, tx: std::sync::mpsc::Sender<String>) {
+        std::thread::spawn(move || {
+            for line in std::io::BufReader::new(pipe).split(b'\n').map_while(Result::ok) {
+                let _ = tx.send(String::from_utf8_lossy(&line).trim_end().to_string());
             }
-            let ok = out.status.success();
-            if !ok {
-                tracing::warn!("wifi.sh {} failed ({})", arg, out.status);
-            }
-            ok
+        });
+    }
+    if let Some(pipe) = child.stdout.take() {
+        forward(pipe, tx.clone());
+    }
+    if let Some(pipe) = child.stderr.take() {
+        forward(pipe, tx.clone());
+    }
+    drop(tx);
+
+    let poll = Duration::from_millis(50);
+    let deadline = Instant::now() + timeout;
+    let mut lines = Vec::new();
+    let status = loop {
+        match rx.recv_timeout(poll) {
+            Ok(line) => lines.push(line),
+            Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {}
+            // Both pipes closed: nothing to wait on but the process.
+            Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => std::thread::sleep(poll),
         }
-        Err(e) => {
-            tracing::warn!("Could not run {}: {}", script.display(), e);
-            false
+        if let Some(status) = child.try_wait()? {
+            break Some(status);
+        }
+        if Instant::now() >= deadline {
+            before_kill();
+            #[cfg(unix)]
+            unsafe {
+                libc::kill(-(child.id() as libc::pid_t), libc::SIGKILL);
+            }
+            let _ = child.kill();
+            // Stuck in the kernel it can't die: don't get stuck with it.
+            let give_up = Instant::now() + Duration::from_secs(2);
+            while Instant::now() < give_up && !matches!(child.try_wait(), Ok(Some(_))) {
+                std::thread::sleep(poll);
+            }
+            break None;
+        }
+    };
+    while let Ok(line) = rx.recv_timeout(poll) {
+        lines.push(line);
+    }
+    Ok(Finished { status, lines })
+}
+
+/// What the Kobo is doing while `wifi.sh` is stuck, into our log.
+fn log_wifi_hang() {
+    let mut command = Command::new("/bin/sh");
+    command.arg("-c").arg("ps; df /tmp; ls -la /tmp | head -40; dmesg | tail -30");
+    if let Ok(out) = run_with_timeout(command, Duration::from_secs(10), || {}) {
+        for line in out.lines {
+            tracing::info!("  {}", line);
         }
     }
+}
+
+/// `wifi.sh` runs in progress, including ones in the background.
+static WIFI_RUNS: AtomicUsize = AtomicUsize::new(0);
+
+/// Whether `wifi.sh` is running. The dashboard waits for it before exiting:
+/// launch.sh starts its own `wifi.sh on` then, and the two got in each other's
+/// way ("could not join a saved network").
+pub fn wifi_busy() -> bool {
+    WIFI_RUNS.load(Ordering::SeqCst) > 0
+}
+
+struct WifiRun;
+
+impl WifiRun {
+    fn start() -> Self {
+        WIFI_RUNS.fetch_add(1, Ordering::SeqCst);
+        WifiRun
+    }
+}
+
+impl Drop for WifiRun {
+    fn drop(&mut self) {
+        WIFI_RUNS.fetch_sub(1, Ordering::SeqCst);
+    }
+}
+
+/// Run `wifi.sh on|off`; true on success. Returns in bounded time: a stuck
+/// `wifi.sh off` once left the dashboard frozen and the Kobo awake until the
+/// battery was empty.
+pub fn wifi(script: &Path, on: bool) -> bool {
+    let arg = if on { "on" } else { "off" };
+    let _running = WifiRun::start();
+    tracing::info!("Wi-Fi {}…", arg);
+    let mut command = Command::new("/bin/sh");
+    command.arg(script).arg(arg);
+    let timeout = if on { WIFI_ON_TIMEOUT } else { WIFI_OFF_TIMEOUT };
+    let out = match run_with_timeout(command, timeout, log_wifi_hang) {
+        Ok(out) => out,
+        Err(e) => {
+            tracing::warn!("Could not run {}: {}", script.display(), e);
+            return false;
+        }
+    };
+    // "step:" lines say how far the script got; only of interest if it failed.
+    let (steps, lines): (Vec<&String>, Vec<&String>) = out.lines.iter().partition(|l| l.starts_with("step: "));
+    for line in lines {
+        tracing::info!("  wifi.sh: {}", line);
+    }
+    let ok = out.status.is_some_and(|s| s.success());
+    if !ok {
+        match out.status {
+            Some(status) => tracing::warn!("wifi.sh {} failed ({})", arg, status),
+            None => tracing::warn!("wifi.sh {} did not finish in {:?}, killed it", arg, timeout),
+        }
+        for line in steps {
+            tracing::warn!("  wifi.sh: {}", line);
+        }
+    }
+    ok
 }
 
 #[cfg(target_os = "linux")]
@@ -301,13 +457,15 @@ pub fn suspend() -> Result<(), String> {
         // Nickel and KOReader both wait between the two writes.
         std::thread::sleep(Duration::from_secs(2));
     }
-    tracing::info!("Suspending…");
-    // Flush the log (and anything else) to the FAT partition before sleeping.
-    #[cfg(unix)]
-    unsafe {
-        libc::sync();
-    }
-    let result = std::fs::write("/sys/power/state", "mem").map_err(|e| format!("suspend refused: {}", e));
+    // The caller checked, but a cable can go in during the wait above.
+    let result = if is_plugged() {
+        Err("plugged in, not suspending".to_string())
+    } else {
+        tracing::info!("Suspending…");
+        // Flush the log (and anything else) to the FAT partition before sleeping.
+        sync();
+        std::fs::write("/sys/power/state", "mem").map_err(|e| format!("suspend refused: {}", e))
+    };
     if has_extended {
         let _ = std::fs::write(extended, "0");
         std::thread::sleep(Duration::from_millis(100));
@@ -327,10 +485,73 @@ mod tests {
         assert_eq!(operstate_path(Some("")), Path::new("/sys/class/net/wlan0/operstate"));
     }
 
+    #[test]
+    fn critical_battery_needs_a_low_reading_and_no_charger() {
+        assert!(is_critical(Some(3), false, 3));
+        assert!(is_critical(Some(0), false, 3));
+        assert!(!is_critical(Some(4), false, 3));
+        assert!(!is_critical(Some(0), true, 3), "charging");
+        assert!(!is_critical(None, false, 3), "unreadable, as on the Nia's log (issue #4)");
+    }
+
+    #[test]
+    fn battery_empty_ends_with_a_charger_or_a_clearly_higher_level() {
+        assert!(is_recovered(Some(0), true, 3));
+        assert!(!is_recovered(Some(3), false, 3));
+        assert!(!is_recovered(Some(5), false, 3), "gauge jitter must not wake it");
+        assert!(is_recovered(Some(6), false, 3));
+        assert!(is_recovered(None, false, 3), "never stuck on a level it can't read");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn wifi_busy_while_wifi_sh_runs() {
+        assert!(!wifi_busy());
+        let runner = std::thread::spawn(|| wifi(Path::new("/nonexistent/wifi.sh"), true));
+        assert!(!runner.join().unwrap(), "a missing script fails");
+        assert!(!wifi_busy(), "done, also after a failure");
+        let _run = WifiRun::start();
+        assert!(wifi_busy());
+    }
+
+    #[cfg(unix)]
+    fn sh(script: &str) -> Command {
+        let mut command = Command::new("/bin/sh");
+        command.arg("-c").arg(script);
+        command
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn stuck_commands_are_killed_at_the_timeout() {
+        let start = Instant::now();
+        let out = run_with_timeout(sh("echo started; sleep 30; echo never"), Duration::from_millis(300), || {}).unwrap();
+        assert!(out.status.is_none());
+        assert_eq!(out.lines, ["started"]);
+        assert!(start.elapsed() < Duration::from_secs(5), "{:?}", start.elapsed());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_daemon_holding_the_pipes_does_not_block() {
+        // wpa_supplicant -B and dhcpcd stay behind after wifi.sh on
+        let start = Instant::now();
+        let out = run_with_timeout(sh("sleep 5 & echo done"), Duration::from_secs(20), || {}).unwrap();
+        assert!(out.status.unwrap().success());
+        assert_eq!(out.lines, ["done"]);
+        assert!(start.elapsed() < Duration::from_secs(3), "{:?}", start.elapsed());
+    }
+
     /// Run deploy/wifi.sh with stub commands that log their arguments; returns
     /// the log and the run directory (marker, lock).
     #[cfg(unix)]
     fn run_wifi_sh(name: &str, arg: &str, module: &str) -> (String, PathBuf) {
+        run_wifi_sh_with(name, arg, module, &[])
+    }
+
+    /// Same, with extra stubs: (command, script body).
+    #[cfg(unix)]
+    fn run_wifi_sh_with(name: &str, arg: &str, module: &str, stubs: &[(&str, &str)]) -> (String, PathBuf) {
         use std::os::unix::fs::PermissionsExt;
         let dir = std::env::temp_dir().join(format!("kobo-ha-wifi-{}-{}", name, std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
@@ -346,20 +567,46 @@ mod tests {
         let pidof = bin.join("pidof");
         std::fs::write(&pidof, "#!/bin/sh\nexit 1\n").unwrap();
         std::fs::set_permissions(&pidof, std::fs::Permissions::from_mode(0o755)).unwrap();
+        for (cmd, body) in stubs {
+            let stub = bin.join(cmd);
+            std::fs::write(&stub, format!("#!/bin/sh\n{}\n", body)).unwrap();
+            std::fs::set_permissions(&stub, std::fs::Permissions::from_mode(0o755)).unwrap();
+        }
 
         let script = Path::new(env!("CARGO_MANIFEST_DIR")).join("deploy/wifi.sh");
-        let out = std::process::Command::new("/bin/sh")
+        let mut command = Command::new("/bin/sh");
+        command
             .arg(&script)
             .arg(arg)
             .env("PATH", format!("{}:/usr/bin:/bin", bin.display()))
             .env("KOBO_HA_RUN_DIR", &dir)
             .env("WIFI_MODULE", module)
             .env("INTERFACE", "eth0")
-            .env("PLATFORM", "test")
-            .output()
-            .unwrap();
-        assert!(out.status.success(), "wifi.sh {} failed: {}", arg, String::from_utf8_lossy(&out.stderr));
+            .env("PLATFORM", "test");
+        let out = run_with_timeout(command, Duration::from_secs(20), || {}).unwrap();
+        let status = out.status.unwrap_or_else(|| panic!("wifi.sh {} hung: {:?}", arg, out.lines));
+        assert!(status.success(), "wifi.sh {} failed: {:?}", arg, out.lines);
         (std::fs::read_to_string(&log).unwrap_or_default(), dir)
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn wifi_sh_does_not_spin_when_the_lock_cant_be_created() {
+        // A stale-lock round used to skip the counter and the wait: with mkdir
+        // failing every time the script span forever at full CPU.
+        let (calls, dir) = run_wifi_sh_with("nolock", "off", "wlan_drv_gen4m", &[("mkdir", "exit 1")]);
+        assert_eq!(calls.matches("usleep 500000").count(), 119, "{}", calls);
+        assert!(calls.contains("wpa_cli -i eth0 terminate"), "{}", calls);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn wifi_off_goes_on_when_dhcpcd_hangs() {
+        let (calls, dir) = run_wifi_sh_with("dhcpcd", "off", "wlan_drv_gen4m", &[("dhcpcd", "exec sleep 30")]);
+        assert!(calls.contains("usleep 10000000"), "no guard for dhcpcd -k:\n{}", calls);
+        assert!(calls.contains("wpa_cli -i eth0 terminate"), "{}", calls);
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[cfg(unix)]

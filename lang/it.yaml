@@ -72,3 +72,5 @@ sleep:
   title: "Modalità sospensione"
   next: "Prossimo aggiornamento {time}"
   wake_hint: "Premi il tasto di accensione per riattivare la dashboard"
+  battery_empty: "Batteria scarica"
+  charge_hint: "Collega il Kobo per continuare"

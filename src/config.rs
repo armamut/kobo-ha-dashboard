@@ -88,10 +88,18 @@ pub struct DeviceConfig {
     /// While asleep, wake up this often to refresh the screen.
     #[serde(default = "default_sleep_wake_secs")]
     pub sleep_wake_secs: u32,
+
+    /// At or below this battery level (without a charger) show "battery
+    /// empty" and sleep until the Kobo is charged (0 = never).
+    #[serde(default = "default_battery_critical_percent")]
+    pub battery_critical_percent: u32,
 }
 
 fn default_sleep_wake_secs() -> u32 {
     900
+}
+fn default_battery_critical_percent() -> u32 {
+    3
 }
 
 fn default_orientation() -> String {
@@ -132,6 +140,7 @@ impl Default for DeviceConfig {
             frontlight_timeout_secs: 0,
             sleep_after_secs: 0,
             sleep_wake_secs: default_sleep_wake_secs(),
+            battery_critical_percent: default_battery_critical_percent(),
         }
     }
 }

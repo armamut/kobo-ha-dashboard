@@ -72,3 +72,5 @@ sleep:
   title: "Mode veille"
   next: "Prochaine mise à jour {time}"
   wake_hint: "Appuyez sur le bouton d'alimentation pour réveiller le tableau de bord"
+  battery_empty: "Batterie vide"
+  charge_hint: "Branchez la Kobo pour continuer"

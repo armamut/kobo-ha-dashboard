@@ -72,3 +72,5 @@ sleep:
   title: "スリープモード"
   next: "次回の更新 {time}"
   wake_hint: "電源ボタンを押すとダッシュボードが復帰します"
+  battery_empty: "バッテリー切れ"
+  charge_hint: "続けるには Kobo を充電してください"

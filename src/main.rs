@@ -90,6 +90,14 @@ const TAP_DEBOUNCE: Duration = Duration::from_millis(350);
 /// minute tick: a busy sensor can push every few seconds, and redrawing for
 /// each one keeps the CPU and the panel busy all the time.
 const LIVE_REDRAW_WINDOW: Duration = Duration::from_secs(30);
+/// With an empty battery, wake this often to see if a charger was connected.
+const BATTERY_EMPTY_WAKE: Duration = Duration::from_secs(300);
+/// After a press wakes it, stay up this long before suspending again. A cable
+/// that just went in takes a few seconds to show up, and suspending while
+/// plugged in hangs MediaTek Kobos.
+const BATTERY_EMPTY_PRESS_WAIT: Duration = Duration::from_secs(15);
+/// When it can't suspend, try again after this long.
+const BATTERY_EMPTY_RETRY: Duration = Duration::from_secs(60);
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
@@ -318,6 +326,7 @@ async fn run_device(
     // The power button asks for sleep right away, like it does in Nickel.
     let mut sleep_requested = false;
     let mut last_power_press = Instant::now() - Duration::from_secs(10);
+    let battery_critical = config.device.battery_critical_percent;
 
     {
         redraw(&mut renderer, &mut canvas, &config, active_page, &ha_client).await;
@@ -455,6 +464,14 @@ async fn run_device(
                         break;
                     }
 
+                    // No Wi-Fi for this wake-up if the battery is out: stay down
+                    // until it's charged, then the dashboard first, Wi-Fi after.
+                    if power::battery_critical(battery_critical) {
+                        battery_empty_sleep(&mut fb, &mut canvas, &mut renderer, &mut light, &config, active_page, &ha_client, &mut touch_driver, &wifi_script, false).await;
+                        wifi_down = true;
+                        break;
+                    }
+
                     let script = wifi_script.clone();
                     let wifi_ok = tokio::task::spawn_blocking(move || power::wifi(&script, true)).await.unwrap_or(false);
                     ha_client.reconnect_now();
@@ -490,16 +507,7 @@ async fn run_device(
                 tracing::info!("Left sleep mode");
                 power::sync();
                 if wifi_down {
-                    let script = wifi_script.clone();
-                    let ha = ha_client.clone();
-                    let tx = wake_tx.clone();
-                    tokio::spawn(async move {
-                        if tokio::task::spawn_blocking(move || power::wifi(&script, true)).await.unwrap_or(false) {
-                            ha.reconnect_now();
-                            let _ = tokio::time::timeout(Duration::from_secs(20), ha.refresh_states()).await;
-                            let _ = tx.send(()).await;
-                        }
-                    });
+                    wifi_on_in_background(wifi_script.clone(), ha_client.clone(), wake_tx.clone());
                 }
             }
 
@@ -645,6 +653,17 @@ async fn run_device(
             }
 
             _ = clock.tick() => {
+                if power::battery_critical(battery_critical) {
+                    let light_was_on = light.as_ref().map(|l| l.is_on()).unwrap_or(false) || light_dimmed;
+                    battery_empty_sleep(&mut fb, &mut canvas, &mut renderer, &mut light, &config, active_page, &ha_client, &mut touch_driver, &wifi_script, true).await;
+                    // As after sleep mode: the next tap brings the light back.
+                    light_dimmed = light_was_on;
+                    last_activity = Instant::now();
+                    redraw(&mut renderer, &mut canvas, &config, active_page, &ha_client).await;
+                    flush(&mut fb, &canvas, true);
+                    wifi_on_in_background(wifi_script.clone(), ha_client.clone(), wake_tx.clone());
+                    continue;
+                }
                 redraw(&mut renderer, &mut canvas, &config, active_page, &ha_client).await;
                 flush(&mut fb, &canvas, false);
             }
@@ -652,6 +671,16 @@ async fn run_device(
             _ = recv_signal(&mut sigterm) => { tracing::info!("SIGTERM received"); break; }
             _ = recv_signal(&mut sigint) => { tracing::info!("SIGINT received"); break; }
             _ = recv_signal(&mut sighup) => { tracing::info!("SIGHUP received"); break; }
+        }
+    }
+
+    // Let a Wi-Fi switch-on started after sleep finish, so it doesn't run into
+    // the one launch.sh starts after we exit. Normally a few seconds.
+    if power::wifi_busy() {
+        tracing::info!("Waiting for Wi-Fi to finish switching before exiting…");
+        let until = Instant::now() + Duration::from_secs(30);
+        while power::wifi_busy() && Instant::now() < until {
+            tokio::time::sleep(Duration::from_millis(200)).await;
         }
     }
 
@@ -666,6 +695,95 @@ async fn run_device(
     tracing::info!("Dashboard exited cleanly");
     // Don't wait for in-flight HTTP requests or blocked input threads.
     std::process::exit(0);
+}
+
+/// Bring Wi-Fi back without holding up the screen, then fetch fresh states.
+#[cfg(unix)]
+fn wifi_on_in_background(script: PathBuf, ha: HaClient, tx: tokio::sync::mpsc::Sender<()>) {
+    tokio::spawn(async move {
+        if tokio::task::spawn_blocking(move || power::wifi(&script, true)).await.unwrap_or(false) {
+            ha.reconnect_now();
+            let _ = tokio::time::timeout(Duration::from_secs(20), ha.refresh_states()).await;
+            let _ = tx.send(()).await;
+        }
+    });
+}
+
+/// The battery is out: say so on the screen (e-ink keeps it without power) and
+/// suspend until the Kobo is charged. Nickel is paused and can't do this for
+/// us. Wakes on a timer to look for a charger, because suspending while plugged
+/// in hangs MediaTek Kobos; the power button wakes it for the same check. Where
+/// suspending isn't possible, it just idles with the message up.
+#[cfg(unix)]
+#[allow(clippy::too_many_arguments)]
+async fn battery_empty_sleep(
+    fb: &mut Box<dyn display::FramebufferDriver>,
+    canvas: &mut Canvas,
+    renderer: &mut ScreenRenderer,
+    light: &mut Option<frontlight::Frontlight>,
+    config: &AppConfig,
+    page: usize,
+    ha: &HaClient,
+    touch_driver: &mut TouchDriver,
+    wifi_script: &Path,
+    mut wifi_up: bool,
+) {
+    let critical = config.device.battery_critical_percent;
+    tracing::warn!("Battery at or below {}%: sleeping until the Kobo is charged", critical);
+    power::log_battery();
+    if let Some(l) = light.as_mut() {
+        l.set_on(false);
+        renderer.frontlight = Some(false);
+    }
+    renderer.battery_empty = true;
+    redraw(renderer, canvas, config, page, ha).await;
+    renderer.battery_empty = false;
+    if let Err(e) = fb.flush(canvas, Refresh::Full) {
+        tracing::error!("Framebuffer flush failed: {}", e);
+    }
+    power::sync();
+
+    let unsupported = power::sleep_unsupported_reason(wifi_script);
+    if let Some(reason) = &unsupported {
+        tracing::warn!("Battery empty: can't suspend, {}", reason);
+    }
+    // The display controller refuses to suspend right after an update.
+    tokio::time::sleep(Duration::from_secs(7)).await;
+
+    while !power::battery_recovered(critical) {
+        if wifi_up && unsupported.is_none() {
+            let script = wifi_script.to_path_buf();
+            wifi_up = !tokio::task::spawn_blocking(move || power::wifi(&script, false)).await.unwrap_or(false);
+        }
+        let mut wait = BATTERY_EMPTY_RETRY;
+        if !wifi_up && unsupported.is_none() {
+            match power::set_alarm(BATTERY_EMPTY_WAKE.as_secs()) {
+                Ok(()) => {
+                    // Wall-clock time: monotonic clocks stop while suspended.
+                    let alarm_at = chrono::Utc::now() + chrono::Duration::from_std(BATTERY_EMPTY_WAKE).unwrap_or_default();
+                    let result = tokio::task::spawn_blocking(power::suspend).await.unwrap_or_else(|e| Err(e.to_string()));
+                    power::clear_alarm();
+                    match result {
+                        Ok(()) if chrono::Utc::now() < alarm_at - chrono::Duration::seconds(20) => wait = BATTERY_EMPTY_PRESS_WAIT,
+                        Ok(()) => wait = Duration::ZERO,
+                        Err(e) => tracing::warn!("Battery empty: {}", e),
+                    }
+                }
+                Err(e) => tracing::warn!("Could not set the wakeup alarm ({}); not suspending", e),
+            }
+        }
+        power::sync();
+        // Keep looking for the charger meanwhile: the dashboard should be back
+        // within a moment of it going in.
+        let until = Instant::now() + wait;
+        while Instant::now() < until && !power::battery_recovered(critical) {
+            tokio::time::sleep(Duration::from_secs(1)).await;
+        }
+    }
+    touch_driver.drain();
+    tracing::info!("Battery empty mode over");
+    power::log_battery();
+    power::sync();
 }
 
 /// During the run-up to sleep: does this event mean the user wants the

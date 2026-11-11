@@ -81,3 +81,5 @@ sleep:
   title: "Sleep mode"
   next: "Next update {time}"
   wake_hint: "Press the power button to wake the dashboard"
+  battery_empty: "Battery empty"
+  charge_hint: "Plug in the Kobo to continue"

@@ -72,3 +72,5 @@ sleep:
   title: "Slaapstand"
   next: "Volgende update {time}"
   wake_hint: "Druk op de aan/uit-knop om het dashboard te wekken"
+  battery_empty: "Batterij leeg"
+  charge_hint: "Sluit de Kobo aan om verder te gaan"

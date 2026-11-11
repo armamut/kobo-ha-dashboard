@@ -72,3 +72,5 @@ sleep:
   title: "Ruhemodus"
   next: "Nächste Aktualisierung {time}"
   wake_hint: "Ein-/Aus-Taste drücken, um das Dashboard aufzuwecken"
+  battery_empty: "Akku leer"
+  charge_hint: "Kobo zum Fortfahren ans Ladegerät anschließen"

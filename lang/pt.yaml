@@ -72,3 +72,5 @@ sleep:
   title: "Modo de suspensão"
   next: "Próxima atualização {time}"
   wake_hint: "Pressione o botão liga/desliga para despertar o painel"
+  battery_empty: "Bateria esgotada"
+  charge_hint: "Ligue o Kobo à energia para continuar"

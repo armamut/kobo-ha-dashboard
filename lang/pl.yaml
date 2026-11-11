@@ -72,3 +72,5 @@ sleep:
   title: "Tryb uśpienia"
   next: "Następna aktualizacja {time}"
   wake_hint: "Naciśnij przycisk zasilania, aby wybudzić panel"
+  battery_empty: "Bateria rozładowana"
+  charge_hint: "Podłącz Kobo, aby kontynuować"
