@@ -98,6 +98,9 @@ const BATTERY_EMPTY_WAKE: Duration = Duration::from_secs(300);
 const BATTERY_EMPTY_PRESS_WAIT: Duration = Duration::from_secs(15);
 /// When it can't suspend, try again after this long.
 const BATTERY_EMPTY_RETRY: Duration = Duration::from_secs(60);
+/// Wake-ups by something else than the user or the timer (the Wi-Fi/Bluetooth
+/// chip while Bluetooth is on) before the sleep period is waited out awake.
+const OTHER_WAKES_MAX: u32 = 3;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
@@ -425,37 +428,76 @@ async fn run_device(
                     }
                     // Wall-clock time: monotonic clocks stop while suspended.
                     let alarm_at = chrono::Utc::now() + chrono::Duration::from_std(sleep_wake).unwrap_or_default();
-                    // A refused suspend fails at once (usually the display still
-                    // busy); a few seconds later the kernel takes it.
-                    let mut suspended = Err(String::new());
-                    for attempt in 1..=3 {
-                        suspended = tokio::task::spawn_blocking(power::suspend).await.unwrap_or_else(|e| Err(e.to_string()));
-                        let Err(e) = &suspended else { break };
-                        tracing::warn!("Suspend attempt {} failed: {}", attempt, e);
-                        if attempt < 3 {
-                            tokio::time::sleep(Duration::from_secs(3)).await;
+                    let mut suspended;
+                    let mut woke_early;
+                    let mut other_wakes = 0;
+                    loop {
+                        // A refused suspend fails at once (usually the display still
+                        // busy); a few seconds later the kernel takes it.
+                        suspended = Err(String::new());
+                        for attempt in 1..=3 {
+                            suspended = tokio::task::spawn_blocking(power::suspend).await.unwrap_or_else(|e| Err(e.to_string()));
+                            let Err(e) = &suspended else { break };
+                            tracing::warn!("Suspend attempt {} failed: {}", attempt, e);
+                            if attempt < 3 {
+                                tokio::time::sleep(Duration::from_secs(3)).await;
+                            }
                         }
+                        if suspended.is_err() && sleep_failures == 0 {
+                            power::log_suspend_diagnostics();
+                        }
+                        power::clear_alarm();
+                        sleep_failures = if suspended.is_ok() { 0 } else { sleep_failures + 1 };
+                        woke_early = chrono::Utc::now() < alarm_at - chrono::Duration::seconds(20);
+                        let source = if suspended.is_ok() { power::log_wakeup_reason() } else { None };
+                        let other = match &source {
+                            Some(s) if suspended.is_ok() && woke_early && !power::is_power_button_source(s) => s.clone(),
+                            _ => {
+                                woke_by_button = suspended.is_ok() && woke_early;
+                                break;
+                            }
+                        };
+                        // Woken by something else than the user (the Wi-Fi/Bluetooth
+                        // chip while Bluetooth is on): no light, no Wi-Fi, back to sleep.
+                        other_wakes += 1;
+                        let left = (alarm_at - chrono::Utc::now()).num_seconds().max(0) as u64;
+                        if other_wakes <= OTHER_WAKES_MAX {
+                            tracing::info!("Woke up: {}, not the power button; back to sleep", other);
+                            match power::set_alarm(left) {
+                                Ok(()) => continue,
+                                Err(e) => tracing::warn!("Could not set the wakeup alarm ({}); not suspending", e),
+                            }
+                        } else {
+                            tracing::info!("Woke up: {} again, {} times; staying awake until the wake-up time", other, other_wakes);
+                        }
+                        // Can't stay suspended: wait awake (light and Wi-Fi off)
+                        // for the wake-up time or the user.
+                        let deadline = tokio::time::Instant::now() + Duration::from_secs(left);
+                        woke_by_button = false;
+                        loop {
+                            tokio::select! {
+                                _ = tokio::time::sleep_until(deadline) => break,
+                                Some(ev) = touch_driver.recv() => {
+                                    if wants_awake(&ev, last_power_press, ignore_power_until) {
+                                        woke_by_button = true;
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                        woke_early = woke_by_button;
+                        break;
                     }
-                    if suspended.is_err() && sleep_failures == 0 {
-                        power::log_suspend_diagnostics();
-                    }
-                    power::clear_alarm();
-                    sleep_failures = if suspended.is_ok() { 0 } else { sleep_failures + 1 };
-                    let woke_early = chrono::Utc::now() < alarm_at - chrono::Duration::seconds(20);
-                    if woke_early {
+                    if woke_by_button && suspended.is_ok() && other_wakes == 0 {
                         // The press that woke us shows up in the power-key watcher a moment later.
                         ignore_power_until = Instant::now() + Duration::from_secs(5);
                     }
                     match &suspended {
-                        Ok(()) if woke_early => tracing::info!("Woke up: power button"),
+                        Ok(()) if woke_by_button => tracing::info!("Woke up: power button"),
                         Ok(()) => tracing::info!("Woke up: timer"),
                         Err(_) => tracing::warn!("The kernel refused to suspend"),
                     }
-                    if suspended.is_ok() {
-                        power::log_wakeup_reason();
-                    }
                     power::sync();
-                    woke_by_button = suspended.is_ok() && woke_early;
                     // Give the display controller a moment after resume before drawing.
                     tokio::time::sleep(Duration::from_millis(1500)).await;
                     touch_driver.drain();

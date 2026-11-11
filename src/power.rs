@@ -405,17 +405,33 @@ pub fn sync() {
 }
 
 /// What woke the device, from the kernel log.
-pub fn log_wakeup_reason() {
-    if let Ok(out) = std::process::Command::new("dmesg").output() {
-        let text = String::from_utf8_lossy(&out.stdout);
-        let lines: Vec<&str> = text.lines().collect();
-        for line in lines[lines.len().saturating_sub(150)..]
-            .iter()
-            .filter(|l| l.contains("wake") || l.contains("Wake") || l.contains("PM: suspend") || l.contains("pwrkey") || l.contains("rtc"))
-        {
-            tracing::info!("  dmesg: {}", line);
-        }
+pub fn log_wakeup_reason() -> Option<String> {
+    let out = std::process::Command::new("dmesg").output().ok()?;
+    let text = String::from_utf8_lossy(&out.stdout);
+    let lines: Vec<&str> = text.lines().collect();
+    let tail = &lines[lines.len().saturating_sub(150)..];
+    for line in tail
+        .iter()
+        .filter(|l| l.contains("wake") || l.contains("Wake") || l.contains("PM: suspend") || l.contains("pwrkey") || l.contains("rtc"))
+    {
+        tracing::info!("  dmesg: {}", line);
     }
+    wake_source(tail)
+}
+
+/// What the MediaTek sleep manager says woke the last suspend ("wake up by
+/// R12_EINT_EVENT_B, timeout = ..."), if it says.
+fn wake_source(lines: &[&str]) -> Option<String> {
+    let line = lines.iter().rev().take_while(|l| !l.contains("PM: suspend entry")).find(|l| l.contains("wake up by "))?;
+    let source = line.split("wake up by ").nth(1)?.split(',').next()?.trim();
+    (!source.is_empty() && source != "(null)").then(|| source.to_string())
+}
+
+/// The power button and the timer both come through the PMIC interrupt
+/// (EINT). Anything else, like the Wi-Fi/Bluetooth chip (CONN2AP, which
+/// keeps waking the Kobo while Bluetooth is on), is not the user.
+pub fn is_power_button_source(source: &str) -> bool {
+    source.contains("EINT")
 }
 
 /// Kernel messages around a failed suspend, into our log: the kernel names
@@ -483,6 +499,25 @@ mod tests {
         assert_eq!(operstate_path(Some("eth0")), Path::new("/sys/class/net/eth0/operstate"));
         assert_eq!(operstate_path(None), Path::new("/sys/class/net/wlan0/operstate"));
         assert_eq!(operstate_path(Some("")), Path::new("/sys/class/net/wlan0/operstate"));
+    }
+
+    #[test]
+    fn wake_source_comes_from_the_last_suspend() {
+        let log = [
+            "PM: suspend entry 2026-11-11 16:00:00 UTC",
+            "-(0)[1:x]wake up by R12_EINT_EVENT_B, timeout = 0, r13 = 0x6060200",
+            "PM: suspend exit 2026-11-11 16:05:00 UTC",
+            "PM: suspend entry 2026-11-11 16:31:34 UTC",
+            "-(0)[560:tokio-rt-worker]wake up by R12_CONN2AP_WAKEUP_B, timeout = 0, r13 = 0x8606e210",
+            "PM: Finishing wakeup.",
+        ];
+        assert_eq!(wake_source(&log).as_deref(), Some("R12_CONN2AP_WAKEUP_B"));
+        assert!(!is_power_button_source("R12_CONN2AP_WAKEUP_B"));
+        assert_eq!(wake_source(&log[..3]).as_deref(), Some("R12_EINT_EVENT_B"));
+        assert!(is_power_button_source("R12_EINT_EVENT_B"));
+        // Nothing reported for the last suspend, or "(null)": unknown
+        assert_eq!(wake_source(&log[..4]), None);
+        assert_eq!(wake_source(&["PM: suspend entry", "wake up by (null), timeout = 2990"]), None);
     }
 
     #[test]
