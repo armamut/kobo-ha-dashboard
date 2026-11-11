@@ -182,13 +182,23 @@ struct Finished {
 /// `Command::output`, this returns as soon as the command itself exits, even
 /// if a daemon it started still holds the pipes, and even if the command can't
 /// be killed.
-fn run_with_timeout(mut command: Command, timeout: Duration, before_kill: fn()) -> std::io::Result<Finished> {
+fn run_with_timeout(command: Command, timeout: Duration, before_kill: fn()) -> std::io::Result<Finished> {
+    run_tracked(command, timeout, before_kill, None)
+}
+
+/// `run_with_timeout`, with the command's process group listed in `groups`
+/// while it runs, so it can be stopped from elsewhere.
+fn run_tracked(mut command: Command, timeout: Duration, before_kill: fn(), groups: Option<&std::sync::Mutex<Vec<u32>>>) -> std::io::Result<Finished> {
     use std::io::BufRead;
 
     command.stdin(Stdio::null()).stdout(Stdio::piped()).stderr(Stdio::piped());
     #[cfg(unix)]
     std::os::unix::process::CommandExt::process_group(&mut command, 0);
     let mut child = command.spawn()?;
+    let pid = child.id();
+    if let Some(groups) = groups {
+        groups.lock().unwrap_or_else(|e| e.into_inner()).push(pid);
+    }
 
     let (tx, rx) = std::sync::mpsc::channel::<String>();
     fn forward(pipe: impl std::io::Read + Send + 'static, tx: std::sync::mpsc::Sender<String>) {
@@ -237,6 +247,9 @@ fn run_with_timeout(mut command: Command, timeout: Duration, before_kill: fn()) 
     while let Ok(line) = rx.recv_timeout(poll) {
         lines.push(line);
     }
+    if let Some(groups) = groups {
+        groups.lock().unwrap_or_else(|e| e.into_inner()).retain(|p| *p != pid);
+    }
     Ok(Finished { status, lines })
 }
 
@@ -253,12 +266,28 @@ fn log_wifi_hang() {
 
 /// `wifi.sh` runs in progress, including ones in the background.
 static WIFI_RUNS: AtomicUsize = AtomicUsize::new(0);
+/// Their process groups, to stop them on exit.
+static WIFI_GROUPS: std::sync::Mutex<Vec<u32>> = std::sync::Mutex::new(Vec::new());
 
-/// Whether `wifi.sh` is running. The dashboard waits for it before exiting:
-/// launch.sh starts its own `wifi.sh on` then, and the two got in each other's
-/// way ("could not join a saved network").
+/// Whether `wifi.sh` is running.
 pub fn wifi_busy() -> bool {
     WIFI_RUNS.load(Ordering::SeqCst) > 0
+}
+
+/// Stop `wifi.sh` runs still going (on exit: launch.sh switches Wi-Fi off for
+/// Nickel anyway, and a "wifi.sh on" can take minutes without a network).
+/// Waits up to `wait` for them to be gone.
+pub fn stop_wifi(wait: Duration) {
+    #[cfg(unix)]
+    for pid in WIFI_GROUPS.lock().unwrap_or_else(|e| e.into_inner()).iter() {
+        unsafe {
+            libc::kill(-(*pid as libc::pid_t), libc::SIGKILL);
+        }
+    }
+    let until = Instant::now() + wait;
+    while wifi_busy() && Instant::now() < until {
+        std::thread::sleep(Duration::from_millis(50));
+    }
 }
 
 struct WifiRun;
@@ -286,7 +315,7 @@ pub fn wifi(script: &Path, on: bool) -> bool {
     let mut command = Command::new("/bin/sh");
     command.arg(script).arg(arg);
     let timeout = if on { WIFI_ON_TIMEOUT } else { WIFI_OFF_TIMEOUT };
-    let out = match run_with_timeout(command, timeout, log_wifi_hang) {
+    let out = match run_tracked(command, timeout, log_wifi_hang, Some(&WIFI_GROUPS)) {
         Ok(out) => out,
         Err(e) => {
             tracing::warn!("Could not run {}: {}", script.display(), e);
@@ -416,7 +445,8 @@ pub fn log_wakeup_reason() -> Option<String> {
     {
         tracing::info!("  dmesg: {}", line);
     }
-    wake_source(tail)
+    // From the whole log: Wi-Fi and display drivers can push the line out of the tail.
+    wake_source(&lines)
 }
 
 /// What the MediaTek sleep manager says woke the last suspend ("wake up by
@@ -425,6 +455,49 @@ fn wake_source(lines: &[&str]) -> Option<String> {
     let line = lines.iter().rev().take_while(|l| !l.contains("PM: suspend entry")).find(|l| l.contains("wake up by "))?;
     let source = line.split("wake up by ").nth(1)?.split(',').next()?.trim();
     (!source.is_empty() && source != "(null)").then(|| source.to_string())
+}
+
+/// Bluetooth is switched on in Nickel: an `hci` device exists (it is gone
+/// when Bluetooth is off), and its rfkill switch, if any, isn't blocking it.
+/// On firmware 6.0 a suspend attempt with Bluetooth on crashes the
+/// Wi-Fi/Bluetooth chip, so sleep mode must not even try.
+pub fn bluetooth_on() -> bool {
+    bluetooth_on_in(Path::new("/sys/class/bluetooth"))
+}
+
+fn bluetooth_on_in(dir: &Path) -> bool {
+    let Ok(entries) = std::fs::read_dir(dir) else { return false };
+    entries.flatten().any(|e| {
+        let name = e.file_name().to_string_lossy().into_owned();
+        if !name.starts_with("hci") || name.contains(':') {
+            return false;
+        }
+        // hci0/rfkillN/state: 1 = on, 0 = blocked
+        let rfkill_state = std::fs::read_dir(e.path())
+            .into_iter()
+            .flatten()
+            .flatten()
+            .find(|r| r.file_name().to_string_lossy().starts_with("rfkill"))
+            .and_then(|r| read_trim(&r.path().join("state")));
+        rfkill_state.as_deref() != Some("0")
+    })
+}
+
+/// Did the last suspend fail because Bluetooth is on? On firmware 6.0 the
+/// Bluetooth interface refuses ("PM: Device 1100c000.btif failed to suspend"),
+/// and trying again soon after crashed the Wi-Fi/Bluetooth chip's firmware,
+/// leaving Wi-Fi dead until Nickel reset it.
+pub fn suspend_blocked_by_bluetooth() -> bool {
+    std::process::Command::new("dmesg")
+        .output()
+        .map(|out| blocked_by_bluetooth(&String::from_utf8_lossy(&out.stdout)))
+        .unwrap_or(false)
+}
+
+fn blocked_by_bluetooth(dmesg: &str) -> bool {
+    let lines: Vec<&str> = dmesg.lines().collect();
+    let last = lines.iter().rposition(|l| l.contains("PM: suspend entry")).unwrap_or(0);
+    lines[last..].iter().any(|l| l.contains("btif") && l.contains("failed to suspend"))
 }
 
 /// The power button and the timer both come through the PMIC interrupt
@@ -502,6 +575,39 @@ mod tests {
     }
 
     #[test]
+    fn bluetooth_is_on_while_an_hci_device_exists() {
+        let dir = std::env::temp_dir().join(format!("kobo-ha-bt-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        // Off on the Clara Colour (firmware 6.0): no hci0 at all
+        assert!(!bluetooth_on_in(&dir));
+        std::fs::create_dir_all(&dir).unwrap();
+        assert!(!bluetooth_on_in(&dir));
+        // On: hci0 with rfkill1/state = 1
+        std::fs::create_dir_all(dir.join("hci0/rfkill1")).unwrap();
+        std::fs::write(dir.join("hci0/rfkill1/state"), "1\n").unwrap();
+        assert!(bluetooth_on_in(&dir));
+        // Blocked by rfkill
+        std::fs::write(dir.join("hci0/rfkill1/state"), "0\n").unwrap();
+        assert!(!bluetooth_on_in(&dir));
+        // Without rfkill information: the device is enough
+        std::fs::remove_dir_all(dir.join("hci0/rfkill1")).unwrap();
+        assert!(bluetooth_on_in(&dir));
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn bluetooth_blocking_suspend_is_recognised() {
+        let refused = "PM: suspend entry 2026-11-11 21:32:28 UTC\n\
+            dpm_run_callback(): platform_pm_suspend+0x0/0x50 returns -1\n\
+            PM: Device 1100c000.btif failed to suspend: error -1\n\
+            PM: Some devices failed to suspend, or early wake event detected\n";
+        assert!(blocked_by_bluetooth(refused));
+        // An older refusal followed by a good suspend doesn't count
+        assert!(!blocked_by_bluetooth(&format!("{}PM: suspend entry 2026-11-11 21:40:00 UTC\nPM: suspend exit\n", refused)));
+        assert!(!blocked_by_bluetooth("PM: suspend entry\nPM: Device 11230000.mmc failed to suspend: error -16\n"));
+    }
+
+    #[test]
     fn wake_source_comes_from_the_last_suspend() {
         let log = [
             "PM: suspend entry 2026-11-11 16:00:00 UTC",
@@ -541,12 +647,42 @@ mod tests {
     #[cfg(unix)]
     #[test]
     fn wifi_busy_while_wifi_sh_runs() {
+        let _one_at_a_time = WIFI_TESTS.lock().unwrap_or_else(|e| e.into_inner());
         assert!(!wifi_busy());
         let runner = std::thread::spawn(|| wifi(Path::new("/nonexistent/wifi.sh"), true));
         assert!(!runner.join().unwrap(), "a missing script fails");
         assert!(!wifi_busy(), "done, also after a failure");
         let _run = WifiRun::start();
         assert!(wifi_busy());
+    }
+
+    /// Tests that look at the global count of wifi.sh runs.
+    static WIFI_TESTS: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+    #[cfg(unix)]
+    #[test]
+    fn a_wifi_switch_still_running_is_stopped_on_exit() {
+        let _one_at_a_time = WIFI_TESTS.lock().unwrap_or_else(|e| e.into_inner());
+        let dir = std::env::temp_dir().join(format!("kobo-ha-stop-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        // "on" with no known network: waits a long time, child included
+        let script = dir.join("wifi.sh");
+        std::fs::write(&script, "sleep 60 &\nsleep 60\n").unwrap();
+        let runner = std::thread::spawn({
+            let script = script.clone();
+            move || wifi(&script, true)
+        });
+        let until = Instant::now() + Duration::from_secs(5);
+        while WIFI_GROUPS.lock().unwrap().is_empty() && Instant::now() < until {
+            std::thread::sleep(Duration::from_millis(20));
+        }
+        assert!(wifi_busy());
+        let start = Instant::now();
+        stop_wifi(Duration::from_secs(5));
+        assert!(!wifi_busy(), "still running after stop_wifi");
+        assert!(start.elapsed() < Duration::from_secs(3), "{:?}", start.elapsed());
+        assert!(!runner.join().unwrap(), "a stopped switch is not a success");
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[cfg(unix)]
@@ -617,11 +753,41 @@ mod tests {
             .env("KOBO_HA_RUN_DIR", &dir)
             .env("WIFI_MODULE", module)
             .env("INTERFACE", "eth0")
-            .env("PLATFORM", "test");
+            .env("PLATFORM", "test")
+            .env("KOBO_HA_ONBOARD", dir.join("onboard"));
         let out = run_with_timeout(command, Duration::from_secs(20), || {}).unwrap();
         let status = out.status.unwrap_or_else(|| panic!("wifi.sh {} hung: {:?}", arg, out.lines));
         assert!(status.success(), "wifi.sh {} failed: {:?}", arg, out.lines);
         (std::fs::read_to_string(&log).unwrap_or_default(), dir)
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn wifi_sh_uses_nickels_networks_from_the_user_partition_on_firmware_6() {
+        let conf = |name: &str, onboard: Option<&str>| {
+            let dir = std::env::temp_dir().join(format!("kobo-ha-wifi-{}-{}", name, std::process::id()));
+            let _ = std::fs::remove_dir_all(&dir);
+            if let Some(text) = onboard {
+                std::fs::create_dir_all(dir.join("onboard/.kobo")).unwrap();
+                std::fs::write(dir.join("onboard/.kobo/wpa_supplicant.conf"), text).unwrap();
+            }
+            let script = Path::new(env!("CARGO_MANIFEST_DIR")).join("deploy/wifi.sh");
+            let out = Command::new("/bin/sh")
+                .arg(&script)
+                .arg("conf")
+                .env("KOBO_HA_RUN_DIR", &dir)
+                .env("KOBO_HA_ONBOARD", dir.join("onboard"))
+                .env("WIFI_MODULE", "wlan_drv_gen4m")
+                .output()
+                .unwrap();
+            let _ = std::fs::remove_dir_all(&dir);
+            String::from_utf8_lossy(&out.stdout).lines().last().unwrap_or_default().to_string()
+        };
+        // Firmware 6.0: Nickel keeps them on the user partition
+        assert!(conf("conf6", Some("ctrl_interface=/var/run/wpa_supplicant\nnetwork={\n}\n")).ends_with("onboard/.kobo/wpa_supplicant.conf"));
+        // Firmware 4.x: in /etc; an empty file on the user partition doesn't count
+        assert_eq!(conf("conf4", None), "/etc/wpa_supplicant/wpa_supplicant.conf");
+        assert_eq!(conf("conf4empty", Some("ctrl_interface=/var/run/wpa_supplicant\n")), "/etc/wpa_supplicant/wpa_supplicant.conf");
     }
 
     #[cfg(unix)]
@@ -651,6 +817,7 @@ mod tests {
         // already off in Nickel, loading the driver froze the Glo (issue #1).
         let (calls, dir) = run_wifi_sh("marker", "off", "8189fs");
         assert!(dir.join("kobo-ha-wifi-off").exists(), "marker missing; calls:\n{}", calls);
+        assert!(dir.join("kobo-ha-wifi-used").exists(), "used flag missing");
         assert!(!dir.join("kobo-ha-wifi.lock").exists(), "lock left behind");
         assert!(calls.contains("wpa_cli -i eth0 terminate"), "{}", calls);
         assert!(!calls.contains("wlarm_le"), "wlarm_le is for Broadcom only:\n{}", calls);
@@ -658,15 +825,17 @@ mod tests {
     }
 
     #[test]
-    fn launch_sh_turns_wifi_on_only_after_the_dashboard_turned_it_off() {
+    fn launch_sh_hands_wifi_back_off_only_after_the_dashboard_used_it() {
         let launch = include_str!("../deploy/launch.sh");
         let wifi = include_str!("../deploy/wifi.sh");
-        assert!(launch.contains(r#"WIFI_MARKER="/tmp/kobo-ha-wifi-off""#));
-        assert!(wifi.contains(r#"RUN_DIR="${KOBO_HA_RUN_DIR:-/tmp}""#) && wifi.contains(r#"MARKER="$RUN_DIR/kobo-ha-wifi-off""#));
-        let on = launch.lines().find(|l| l.contains("wifi.sh\" on")).expect("launch.sh runs wifi.sh on");
-        let pos = launch.find(on).unwrap();
+        assert!(launch.contains(r#"WIFI_USED="/tmp/kobo-ha-wifi-used""#));
+        assert!(wifi.contains(r#"USED="$RUN_DIR/kobo-ha-wifi-used""#));
+        // Nickel brings Wi-Fi up itself; launch.sh never does.
+        assert!(!launch.contains("wifi.sh\" on"), "launch.sh must not switch Wi-Fi on");
+        let off = launch.lines().find(|l| l.contains("wifi.sh\" off")).expect("launch.sh runs wifi.sh off");
+        let pos = launch.find(off).unwrap();
         let condition = launch[..pos].lines().last().unwrap();
-        assert!(condition.contains(r#"[ -e "$WIFI_MARKER" ]"#), "wifi.sh on without the marker check: {}", condition);
+        assert!(condition.contains(r#"[ -e "$WIFI_USED" ]"#), "wifi.sh off without the used check: {}", condition);
     }
 
     #[cfg(unix)]

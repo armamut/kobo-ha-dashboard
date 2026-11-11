@@ -14,6 +14,7 @@ date:
 header:
   live: "在线 · {time}"
   live_short: "在线"
+  updated: "已更新 · {time}"
   offline: "离线"
   demo: "演示模式"
 

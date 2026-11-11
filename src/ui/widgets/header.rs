@@ -15,6 +15,9 @@ pub struct HeaderStatus {
     pub battery: Option<u8>,
     pub charging: bool,
     pub wifi_up: Option<bool>,
+    /// In sleep mode: Wi-Fi goes off, so the connection isn't live; say when
+    /// the data was last updated instead.
+    pub asleep: bool,
     /// Frontlight state, when the device has one we can control
     pub frontlight: Option<bool>,
 }
@@ -193,6 +196,9 @@ pub fn render_header(
 
     let (dot, status_text, status_short) = if status.is_demo {
         (theme.warm.solid, i18n::t("header.demo"), None)
+    } else if status.asleep && status.last_update.is_some() {
+        let t = status.last_update.map(|t| format_time(&to_local(t, theme_cfg), theme_cfg)).unwrap_or_default();
+        (theme.text_muted, i18n::tf("header.updated", &[("time", &t)]), Some(t))
     } else if status.is_live {
         let t = status
             .last_update

@@ -116,6 +116,7 @@ impl HaClient {
                         _ => {}
                     }
                 }
+                _ = self.ws_drop.notified() => return Err("closed, Wi-Fi is going off".into()),
                 _ = ping.tick() => {
                     if waiting_since.map(|t| t.elapsed() > PONG_TIMEOUT).unwrap_or(false) {
                         return Err("no answer to ping".into());
@@ -232,6 +233,45 @@ mod tests {
         assert_eq!(desk.attributes["brightness"], json!(200));
         assert!(!desk.attributes.contains_key("friendly_name"));
         assert!(!states.contains_key("sensor.t"));
+    }
+
+    #[tokio::test]
+    async fn wifi_going_off_ends_the_live_session() {
+        // A minimal Home Assistant: log in, subscribe, one event, then wait.
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let port = listener.local_addr().unwrap().port();
+        let (closed_tx, closed_rx) = tokio::sync::oneshot::channel();
+        tokio::spawn(async move {
+            let (tcp, _) = listener.accept().await.unwrap();
+            let mut ws = tokio_tungstenite::accept_async(tcp).await.unwrap();
+            ws.send(Message::Text(json!({"type": "auth_required"}).to_string())).await.unwrap();
+            ws.next().await;
+            ws.send(Message::Text(json!({"type": "auth_ok"}).to_string())).await.unwrap();
+            ws.next().await;
+            ws.send(Message::Text(json!({"id": 1, "type": "result", "success": true}).to_string())).await.unwrap();
+            let event = json!({"id": 1, "type": "event", "event": {"a": {"light.desk": {"s": "on", "a": {}}}}});
+            ws.send(Message::Text(event.to_string())).await.unwrap();
+            // Runs until the dashboard drops the connection
+            while let Some(Ok(_)) = ws.next().await {}
+            let _ = closed_tx.send(());
+        });
+
+        let mut client = HaClient::new(HomeAssistantConfig {
+            url: format!("http://127.0.0.1:{}", port),
+            token: "t".into(),
+            demo_mode_fallback: false,
+            ..Default::default()
+        });
+        client.entity_ids = std::sync::Arc::new(vec!["light.desk".to_string()]);
+        let (tx, mut rx) = mpsc::channel(8);
+        client.spawn_live_updates(tx);
+        tokio::time::timeout(Duration::from_secs(5), rx.recv()).await.expect("no event");
+        assert!(client.is_live_push() && client.is_connected().await);
+
+        client.network_down().await;
+        assert!(!client.is_live_push(), "polling must resume");
+        assert!(!client.is_connected().await, "the header must not say live");
+        tokio::time::timeout(Duration::from_secs(5), closed_rx).await.expect("the session was not closed").unwrap();
     }
 
     /// Manual check against a real Home Assistant:

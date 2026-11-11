@@ -41,13 +41,13 @@ Kobo e-okuyucular için dokunmatik bir [Home Assistant](https://www.home-assista
 
 - Bir karta dokunmak onu açıp kapatır; termostatlarda **−** / **+**, medya oynatıcıda oynatma butonları vardır.
 - Üst çubuktaki **ışık** butonu Kobo'nun ön ışığını açıp kapatır. Kurulum aracında ışığın, belirli bir süre dokunulmayınca (30 saniye – 10 dakika) otomatik kapanmasını da seçebilirsiniz; masaüstünde pilden çok tasarruf sağlar. Bir dokunuş ışığı geri açar. Panelden çıkınca ışık eski parlaklığına döner.
-- **Çıkış** butonu (sağ üst) okuma ekranına geri döndürür. **Güç tuşu**, uyku modu açıksa paneli uyutur; şarjdayken ya da uyku modu kapalıyken ışığı kapatıp açar.
+- **Çıkış** butonu (sağ üst) okuma ekranına geri döndürür. **Güç tuşu**, uyku modu açıksa paneli uyutur; şarjdayken, Bluetooth açıkken ya da uyku modu kapalıyken ışığı kapatıp açar.
 
 ## Pil ömrü
 
 - **Her zaman açık tasarruf:** Home Assistant değişiklikleri WebSocket üzerinden anında bildirir; panel her dakika tüm entity'leri indirmez ve ekranı sadece görünen bir şey değişince yeniler. Wi-Fi çipi paketler arasında güç tasarrufu yapar, tek işlemci çekirdeği kullanılır. Hava tahmini ve grafik geçmişi 30 dakikada bir alınır.
 - **Uyku modu (isteğe bağlı):** belirli bir süre dokunulmazsa (kurulum aracında 5 dakika – 1 saat) Kobo, kitabı kapattığınızdaki gibi uykuya geçer. Ekran paneli göstermeye devam eder; sekmelerin yerinde "Uyku modu · Sonraki güncelleme 22:57 · Paneli uyandırmak için güç tuşuna basın" yazar. Belirlediğiniz aralıkla (5 dakika – 1 saat) kendiliğinden uyanıp verileri tazeler ve tekrar uyur. Tekrar kullanmak için güç tuşuna basın.
-- Uyku modu uyumadan önce Wi-Fi'yi kapatır (Wi-Fi açıkken uyumak Kobo çekirdeğini çökertebilir), uyanınca Kobo ayarlarında kayıtlı ağlara yeniden bağlanır. Şarja takılıyken asla uyumaz, çünkü bu MediaTek tabanlı Kobo'ları kilitler.
+- Uyku modu uyumadan önce Wi-Fi'yi kapatır (Wi-Fi açıkken uyumak Kobo çekirdeğini çökertebilir), uyanınca Kobo ayarlarında kayıtlı ağlara yeniden bağlanır. Şarja takılıyken asla uyumaz, çünkü bu MediaTek tabanlı Kobo'ları kilitler. Kobo ayarlarında **Bluetooth** açıkken de uyumaz: yazılım 6.0'da bu Wi-Fi/Bluetooth yongasını çökertiyor ve Wi-Fi yeniden başlatana kadar gelmiyor. Işık yine bir süre sonra söner ve güç tuşu ışığı açıp kapatır, ama pil daha çabuk biter. Uyku modunu kullanmak için Bluetooth'u kapatın.
 - Şarj kablosu takılı değilken pil %3'e inince (`config.yaml` içinde `battery_critical_percent`, 0 kapatır) panel, uyku modu kapalı olsa bile ekrana "Pil bitti" yazar ve uykuya geçer. E-ink yazıyı güç harcamadan korur. 5 dakikada bir ve güç tuşuna her basıldığında şarja takılıp takılmadığına bakar, takılınca kendiliğinden geri gelir.
 - **Uyku modu çalışmıyorsa:** `dashboard.log` nedenini yazar. Uykudayken takılırsa güç tuşuna yaklaşık 15 saniye basılı tutarak yeniden başlatın, uyku modunu **Hiçbir zaman** yapın ve `dashboard.log.old` ile bir sorun bildirin.
 

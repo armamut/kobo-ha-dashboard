@@ -6,6 +6,7 @@
 #                 suspend-to-RAM: suspending with Wi-Fi up can crash the kernel)
 #   wifi.sh on    power it up, start wpa_supplicant with Nickel's saved
 #                 networks and get an address
+#   wifi.sh conf  print which file of saved networks "on" uses
 #
 # Uses WIFI_MODULE, INTERFACE and PLATFORM, which the dashboard inherits from
 # Nickel when it is started from NickelMenu.
@@ -16,7 +17,15 @@ IFACE="${INTERFACE:-wlan0}"
 RUN_DIR="${KOBO_HA_RUN_DIR:-/tmp}"
 # Left behind by "off" so launch.sh only turns Wi-Fi back on if we turned it off
 MARKER="$RUN_DIR/kobo-ha-wifi-off"
+# Left by every run, so launch.sh knows the dashboard took Wi-Fi over from Nickel
+USED="$RUN_DIR/kobo-ha-wifi-used"
 MODULE="${WIFI_MODULE:-}"
+# Nickel's saved networks: on the user partition since firmware 5/6 (Nickel
+# runs wpa_supplicant with -c /mnt/onboard/.kobo/wpa_supplicant.conf), in
+# /etc before. KOBO_HA_ONBOARD is only set by the tests.
+ONBOARD="${KOBO_HA_ONBOARD:-/mnt/onboard}"
+WPA_CONF="/etc/wpa_supplicant/wpa_supplicant.conf"
+grep -q 'network=' "$ONBOARD/.kobo/wpa_supplicant.conf" 2>/dev/null && WPA_CONF="$ONBOARD/.kobo/wpa_supplicant.conf"
 KMOD_DIR="/drivers/${PLATFORM}/wifi"
 
 if [ -z "$MODULE" ]; then
@@ -101,7 +110,19 @@ wifi_on() {
             echo "0xDB9DB9" >/proc/driver/wmt_dbg
             echo "7 9 1" >/proc/driver/wmt_dbg
         fi
-        echo 1 >/dev/wmtWifi
+        # After a crash of the chip's firmware (a suspend attempt with
+        # Bluetooth on, firmware 6.0) it refuses for a while ("Input/output
+        # error"), and Nickel got it back after a minute or two: keep trying.
+        n=0
+        until echo 1 2>/dev/null >/dev/wmtWifi; do
+            n=$((n + 1))
+            if [ $n -ge 20 ]; then
+                echo "the Wi-Fi chip did not power on"
+                exit 1
+            fi
+            [ $n -eq 1 ] && echo "the Wi-Fi chip refused to power on, trying again"
+            sleep 3
+        done
     else
         if ! loaded sdio_wifi_pwr && [ -e "$KMOD_DIR/sdio_wifi_pwr.ko" ]; then
             insmod "$KMOD_DIR/sdio_wifi_pwr.ko"
@@ -136,7 +157,7 @@ wifi_on() {
         while pidof wpa_supplicant >/dev/null && [ $n -lt 10 ]; do usleep 200000; n=$((n + 1)); done
     fi
     if ! pidof wpa_supplicant >/dev/null; then
-        wpa_supplicant -D "$DRIVER" -s -i "$IFACE" -c /etc/wpa_supplicant/wpa_supplicant.conf \
+        wpa_supplicant -D "$DRIVER" -s -i "$IFACE" -c "$WPA_CONF" \
             -C /var/run/wpa_supplicant -B
     else
         wpa_cli -i "$IFACE" reconnect >/dev/null 2>&1
@@ -207,11 +228,13 @@ while ! mkdir "$LOCK" 2>/dev/null; do
     usleep 500000
 done
 echo $$ >"$LOCK/pid" 2>/dev/null
+touch "$USED"
 trap 'rm -rf "$LOCK"' EXIT
 trap 'exit 1' INT TERM HUP
 
 case "$1" in
     off) wifi_off ;;
     on) wifi_on ;;
-    *) echo "usage: $0 on|off"; exit 2 ;;
+    conf) echo "$WPA_CONF" ;;
+    *) echo "usage: $0 on|off|conf"; exit 2 ;;
 esac

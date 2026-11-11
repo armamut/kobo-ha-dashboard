@@ -35,6 +35,8 @@ pub struct HaClient {
     pub(crate) ws_live: Arc<AtomicBool>,
     /// Wakes the WebSocket task out of its reconnect backoff
     pub(crate) ws_nudge: Arc<tokio::sync::Notify>,
+    /// Ends the WebSocket session in progress (Wi-Fi is going off)
+    pub(crate) ws_drop: Arc<tokio::sync::Notify>,
 }
 
 #[derive(Default)]
@@ -55,7 +57,10 @@ impl HaClient {
             }
         }
 
+        // No idle connections kept: Wi-Fi goes off between sleep-mode
+        // refreshes, and a pooled connection from before is dead afterwards.
         let client = reqwest::Client::builder()
+            .pool_max_idle_per_host(0)
             .timeout(Duration::from_secs(config.timeout_secs))
             .connect_timeout(Duration::from_secs(config.timeout_secs.min(5)))
             .default_headers(headers)
@@ -80,6 +85,7 @@ impl HaClient {
             entity_ids: Arc::new(Vec::new()),
             ws_live: Arc::new(AtomicBool::new(false)),
             ws_nudge: Arc::new(tokio::sync::Notify::new()),
+            ws_drop: Arc::new(tokio::sync::Notify::new()),
         }
     }
 
@@ -121,6 +127,15 @@ impl HaClient {
     /// Reconnect the live updates now (after Wi-Fi came back).
     pub fn reconnect_now(&self) {
         self.ws_nudge.notify_one();
+    }
+
+    /// Wi-Fi is going off: end the live session instead of keeping a dead
+    /// socket that still counts as "live" (and stops polling) until a ping
+    /// times out minutes later.
+    pub async fn network_down(&self) {
+        self.ws_drop.notify_waiters();
+        self.ws_live.store(false, Ordering::Relaxed);
+        *self.is_live.write().await = false;
     }
 
     pub fn is_live_push(&self) -> bool {

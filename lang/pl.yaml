@@ -14,6 +14,7 @@ date:
 header:
   live: "Na żywo · {time}"
   live_short: "Na żywo"
+  updated: "Zaktualizowano · {time}"
   offline: "Offline"
   demo: "Tryb demo"
 

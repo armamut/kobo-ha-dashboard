@@ -244,6 +244,7 @@ impl ScreenRenderer {
             battery,
             charging,
             wifi_up,
+            asleep: self.sleep_until.is_some(),
             frontlight: self.frontlight,
         };
 

@@ -14,6 +14,7 @@ date:
 header:
   live: "Live · {time}"
   live_short: "Live"
+  updated: "Aktualisiert · {time}"
   offline: "Offline"
   demo: "Demo-Modus"
 

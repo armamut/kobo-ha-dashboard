@@ -116,9 +116,15 @@ impl TouchDriver {
         self.rx.try_recv().ok()
     }
 
-    /// Throw away queued events (e.g. the power-button press that woke the device).
-    pub fn drain(&mut self) {
-        while self.rx.try_recv().is_ok() {}
+    /// Throw away queued events (e.g. the power-button press that woke the
+    /// device), except that a computer was connected meanwhile: true if so,
+    /// since that means "back to the Kobo".
+    pub fn drain(&mut self) -> bool {
+        let mut computer = false;
+        while let Ok(ev) = self.rx.try_recv() {
+            computer |= ev == InputEvent::Plugged;
+        }
+        computer
     }
 }
 

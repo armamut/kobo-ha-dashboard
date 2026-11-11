@@ -326,6 +326,8 @@ async fn run_device(
     let mut ignore_power_until = Instant::now();
     // Sleep rounds in a row where the kernel refused to suspend.
     let mut sleep_failures = 0u32;
+    // "Bluetooth is on, no sleep" said once per session.
+    let mut bluetooth_noted = false;
     // The power button asks for sleep right away, like it does in Nickel.
     let mut sleep_requested = false;
     let mut last_power_press = Instant::now() - Duration::from_secs(10);
@@ -334,6 +336,14 @@ async fn run_device(
     {
         redraw(&mut renderer, &mut canvas, &config, active_page, &ha_client).await;
         flush(&mut fb, &canvas, true);
+    }
+
+    // Wi-Fi is handed back to Nickel switched off after sleep mode used it, and
+    // Nickel may not have switched it on again: bring it up here. Only where
+    // sleep mode works, since that switches Wi-Fi the same way anyway.
+    if sleep_enabled && read_wifi_state().as_deref() != Some("up") {
+        tracing::info!("Wi-Fi is not up; switching it on");
+        wifi_on_in_background(wifi_script.clone(), ha_client.clone(), wake_tx.clone());
     }
 
     let mut clock = tokio::time::interval(Duration::from_secs(60));
@@ -363,20 +373,34 @@ async fn run_device(
                     last_activity = Instant::now();
                     continue;
                 }
+                if power::bluetooth_on() {
+                    // A suspend attempt with Bluetooth on crashed the
+                    // Wi-Fi/Bluetooth chip (firmware 6.0): Wi-Fi was gone
+                    // until a restart. The light still goes off.
+                    if !bluetooth_noted {
+                        tracing::warn!("Bluetooth is on: no sleep mode while it is (switch Bluetooth off in the Kobo's settings to use it)");
+                        bluetooth_noted = true;
+                    }
+                    last_activity = Instant::now();
+                    continue;
+                }
                 tracing::info!("Entering sleep mode");
                 let light_was_on = light.as_ref().map(|l| l.is_on()).unwrap_or(false) || light_dimmed;
                 let mut woke_by_button = false;
                 // Wi-Fi is left off when waking by button, and switched back on
                 // after the dashboard is on screen again.
                 let mut wifi_down = false;
+                // A computer connected while asleep: back to the Kobo afterwards.
+                let mut computer = false;
                 if let Some(l) = light.as_mut() {
                     l.set_on(false);
                     renderer.frontlight = Some(false);
                 }
                 loop {
-                    let next = ui::widgets::header::now_local(&config.theme)
-                        + chrono::Duration::from_std(sleep_wake).unwrap_or_else(|_| chrono::Duration::minutes(15));
-                    renderer.sleep_until = Some(ui::widgets::header::format_time(&next, &config.theme));
+                    // The wake-up time on the screen is the alarm itself, so it
+                    // can't drift from the drawing and Wi-Fi time before suspending.
+                    let alarm_at = wake_time(chrono::Utc::now(), sleep_wake);
+                    renderer.sleep_until = Some(ui::widgets::header::format_time(&ui::widgets::header::to_local(alarm_at, &config.theme), &config.theme));
                     redraw(&mut renderer, &mut canvas, &config, active_page, &ha_client).await;
                     flush(&mut fb, &canvas, true);
                     // The display controller (hwtcon) refuses to suspend while its
@@ -389,7 +413,10 @@ async fn run_device(
                     while !cancelled {
                         tokio::select! {
                             _ = tokio::time::sleep_until(wait_until) => break,
-                            Some(ev) = touch_driver.recv() => cancelled = wants_awake(&ev, last_power_press, ignore_power_until),
+                            Some(ev) = touch_driver.recv() => {
+                                computer |= ev == InputEvent::Plugged;
+                                cancelled = wants_awake(&ev, last_power_press, ignore_power_until);
+                            }
                         }
                     }
                     if cancelled {
@@ -402,6 +429,7 @@ async fn run_device(
                         tracing::info!("Plugged in: staying awake");
                         break;
                     }
+                    ha_client.network_down().await;
                     let script = wifi_script.clone();
                     if !tokio::task::spawn_blocking(move || power::wifi(&script, false)).await.unwrap_or(false) {
                         tracing::warn!("Could not switch Wi-Fi off; not suspending");
@@ -412,6 +440,7 @@ async fn run_device(
                     // Pressed while Wi-Fi was going down?
                     let mut cancelled = false;
                     while let Some(ev) = touch_driver.try_recv() {
+                        computer |= ev == InputEvent::Plugged;
                         cancelled |= wants_awake(&ev, last_power_press, ignore_power_until);
                     }
                     if cancelled {
@@ -420,14 +449,12 @@ async fn run_device(
                         wifi_down = true;
                         break;
                     }
-                    if let Err(e) = power::set_alarm(sleep_wake.as_secs()) {
+                    if let Err(e) = power::set_alarm(seconds_until(alarm_at)) {
                         tracing::warn!("Could not set the wakeup alarm ({}); not suspending", e);
                         let script = wifi_script.clone();
                         let _ = tokio::task::spawn_blocking(move || power::wifi(&script, true)).await;
                         break;
                     }
-                    // Wall-clock time: monotonic clocks stop while suspended.
-                    let alarm_at = chrono::Utc::now() + chrono::Duration::from_std(sleep_wake).unwrap_or_default();
                     let mut suspended;
                     let mut woke_early;
                     let mut other_wakes = 0;
@@ -435,10 +462,17 @@ async fn run_device(
                         // A refused suspend fails at once (usually the display still
                         // busy); a few seconds later the kernel takes it.
                         suspended = Err(String::new());
+                        let mut bluetooth_blocks = false;
                         for attempt in 1..=3 {
                             suspended = tokio::task::spawn_blocking(power::suspend).await.unwrap_or_else(|e| Err(e.to_string()));
                             let Err(e) = &suspended else { break };
                             tracing::warn!("Suspend attempt {} failed: {}", attempt, e);
+                            if power::suspend_blocked_by_bluetooth() {
+                                // Retrying crashed the Wi-Fi/Bluetooth chip on firmware 6.0.
+                                tracing::warn!("Bluetooth is on and the kernel won't suspend with it; sleep mode is off for this session (switch Bluetooth off in the Kobo's settings to use it)");
+                                bluetooth_blocks = true;
+                                break;
+                            }
                             if attempt < 3 {
                                 tokio::time::sleep(Duration::from_secs(3)).await;
                             }
@@ -448,6 +482,9 @@ async fn run_device(
                         }
                         power::clear_alarm();
                         sleep_failures = if suspended.is_ok() { 0 } else { sleep_failures + 1 };
+                        if bluetooth_blocks {
+                            sleep_failures = sleep_failures.max(3);
+                        }
                         woke_early = chrono::Utc::now() < alarm_at - chrono::Duration::seconds(20);
                         let source = if suspended.is_ok() { power::log_wakeup_reason() } else { None };
                         let other = match &source {
@@ -478,6 +515,7 @@ async fn run_device(
                             tokio::select! {
                                 _ = tokio::time::sleep_until(deadline) => break,
                                 Some(ev) = touch_driver.recv() => {
+                                    computer |= ev == InputEvent::Plugged;
                                     if wants_awake(&ev, last_power_press, ignore_power_until) {
                                         woke_by_button = true;
                                         break;
@@ -500,8 +538,8 @@ async fn run_device(
                     power::sync();
                     // Give the display controller a moment after resume before drawing.
                     tokio::time::sleep(Duration::from_millis(1500)).await;
-                    touch_driver.drain();
-                    if suspended.is_err() || woke_early {
+                    computer |= touch_driver.drain();
+                    if suspended.is_err() || woke_early || computer {
                         wifi_down = true;
                         break;
                     }
@@ -509,13 +547,42 @@ async fn run_device(
                     // No Wi-Fi for this wake-up if the battery is out: stay down
                     // until it's charged, then the dashboard first, Wi-Fi after.
                     if power::battery_critical(battery_critical) {
-                        battery_empty_sleep(&mut fb, &mut canvas, &mut renderer, &mut light, &config, active_page, &ha_client, &mut touch_driver, &wifi_script, false).await;
+                        computer |= battery_empty_sleep(&mut fb, &mut canvas, &mut renderer, &mut light, &config, active_page, &ha_client, &mut touch_driver, &wifi_script, false).await;
                         wifi_down = true;
                         break;
                     }
 
+                    // Wi-Fi takes seconds (a minute with no known network): the
+                    // power button or a tap meanwhile gets the dashboard at once.
                     let script = wifi_script.clone();
-                    let wifi_ok = tokio::task::spawn_blocking(move || power::wifi(&script, true)).await.unwrap_or(false);
+                    let mut switching = tokio::task::spawn_blocking(move || power::wifi(&script, true));
+                    let mut pressed = false;
+                    let wifi_ok = loop {
+                        tokio::select! {
+                            done = &mut switching => break done.unwrap_or(false),
+                            Some(ev) = touch_driver.recv() => {
+                                computer |= ev == InputEvent::Plugged;
+                                if wants_awake(&ev, last_power_press, ignore_power_until) {
+                                    pressed = true;
+                                    break false;
+                                }
+                            }
+                        }
+                    };
+                    if pressed {
+                        tracing::info!("Woke up: power button or tap, while Wi-Fi was coming up");
+                        woke_by_button = true;
+                        let ha = ha_client.clone();
+                        let tx = wake_tx.clone();
+                        tokio::spawn(async move {
+                            if switching.await.unwrap_or(false) {
+                                ha.reconnect_now();
+                                let _ = tokio::time::timeout(Duration::from_secs(20), ha.refresh_states()).await;
+                                let _ = tx.send(()).await;
+                            }
+                        });
+                        break;
+                    }
                     ha_client.reconnect_now();
                     if wifi_ok {
                         let _ = tokio::time::timeout(Duration::from_secs(20), ha_client.refresh_states()).await;
@@ -548,6 +615,10 @@ async fn run_device(
                 flush(&mut fb, &canvas, true);
                 tracing::info!("Left sleep mode");
                 power::sync();
+                if computer {
+                    tracing::info!("Connected to a computer while asleep: returning to the Kobo");
+                    break;
+                }
                 if wifi_down {
                     wifi_on_in_background(wifi_script.clone(), ha_client.clone(), wake_tx.clone());
                 }
@@ -577,12 +648,12 @@ async fn run_device(
                     InputEvent::PowerButton if last_power_press.elapsed() < Duration::from_secs(2) => continue,
                     InputEvent::PowerButton => {
                         last_power_press = Instant::now();
-                        if sleep_enabled && !power::is_plugged() {
+                        if sleep_enabled && !power::is_plugged() && !power::bluetooth_on() {
                             tracing::info!("Power button pressed: going to sleep");
                             sleep_requested = true;
                             continue;
                         }
-                        // No suspend while plugged in (or with sleep mode off):
+                        // No suspend while plugged in, with Bluetooth on or sleep mode off:
                         // the button switches the light instead, like a screen sleep.
                         if let Some(l) = light.as_mut() {
                             let on = !l.is_on();
@@ -697,7 +768,11 @@ async fn run_device(
             _ = clock.tick() => {
                 if power::battery_critical(battery_critical) {
                     let light_was_on = light.as_ref().map(|l| l.is_on()).unwrap_or(false) || light_dimmed;
-                    battery_empty_sleep(&mut fb, &mut canvas, &mut renderer, &mut light, &config, active_page, &ha_client, &mut touch_driver, &wifi_script, true).await;
+                    let computer = battery_empty_sleep(&mut fb, &mut canvas, &mut renderer, &mut light, &config, active_page, &ha_client, &mut touch_driver, &wifi_script, true).await;
+                    if computer {
+                        tracing::info!("Connected to a computer: returning to the Kobo");
+                        break;
+                    }
                     // As after sleep mode: the next tap brings the light back.
                     light_dimmed = light_was_on;
                     last_activity = Instant::now();
@@ -716,14 +791,12 @@ async fn run_device(
         }
     }
 
-    // Let a Wi-Fi switch-on started after sleep finish, so it doesn't run into
-    // the one launch.sh starts after we exit. Normally a few seconds.
+    // A Wi-Fi switch still running (say "on" with no known network, which
+    // takes a minute) is stopped rather than waited for: launch.sh switches
+    // Wi-Fi off for Nickel after we exit, and the two must not overlap.
     if power::wifi_busy() {
-        tracing::info!("Waiting for Wi-Fi to finish switching before exiting…");
-        let until = Instant::now() + Duration::from_secs(30);
-        while power::wifi_busy() && Instant::now() < until {
-            tokio::time::sleep(Duration::from_millis(200)).await;
-        }
+        tracing::info!("Stopping a Wi-Fi switch still running before exiting");
+        let _ = tokio::task::spawn_blocking(|| power::stop_wifi(Duration::from_secs(3))).await;
     }
 
     // Presses meant for us must not put Nickel to sleep once it resumes.
@@ -755,7 +828,8 @@ fn wifi_on_in_background(script: PathBuf, ha: HaClient, tx: tokio::sync::mpsc::S
 /// suspend until the Kobo is charged. Nickel is paused and can't do this for
 /// us. Wakes on a timer to look for a charger, because suspending while plugged
 /// in hangs MediaTek Kobos; the power button wakes it for the same check. Where
-/// suspending isn't possible, it just idles with the message up.
+/// suspending isn't possible, it just idles with the message up. True if a
+/// computer was connected meanwhile.
 #[cfg(unix)]
 #[allow(clippy::too_many_arguments)]
 async fn battery_empty_sleep(
@@ -769,7 +843,7 @@ async fn battery_empty_sleep(
     touch_driver: &mut TouchDriver,
     wifi_script: &Path,
     mut wifi_up: bool,
-) {
+) -> bool {
     let critical = config.device.battery_critical_percent;
     tracing::warn!("Battery at or below {}%: sleeping until the Kobo is charged", critical);
     power::log_battery();
@@ -792,13 +866,19 @@ async fn battery_empty_sleep(
     // The display controller refuses to suspend right after an update.
     tokio::time::sleep(Duration::from_secs(7)).await;
 
+    // Suspending with Bluetooth on crashes the Wi-Fi/Bluetooth chip (firmware 6.0).
+    let mut bluetooth_blocks = power::bluetooth_on();
+    if bluetooth_blocks {
+        tracing::warn!("Battery empty: Bluetooth is on, waiting awake instead of suspending");
+    }
     while !power::battery_recovered(critical) {
         if wifi_up && unsupported.is_none() {
+            ha.network_down().await;
             let script = wifi_script.to_path_buf();
             wifi_up = !tokio::task::spawn_blocking(move || power::wifi(&script, false)).await.unwrap_or(false);
         }
         let mut wait = BATTERY_EMPTY_RETRY;
-        if !wifi_up && unsupported.is_none() {
+        if !wifi_up && unsupported.is_none() && !bluetooth_blocks {
             match power::set_alarm(BATTERY_EMPTY_WAKE.as_secs()) {
                 Ok(()) => {
                     // Wall-clock time: monotonic clocks stop while suspended.
@@ -808,7 +888,13 @@ async fn battery_empty_sleep(
                     match result {
                         Ok(()) if chrono::Utc::now() < alarm_at - chrono::Duration::seconds(20) => wait = BATTERY_EMPTY_PRESS_WAIT,
                         Ok(()) => wait = Duration::ZERO,
-                        Err(e) => tracing::warn!("Battery empty: {}", e),
+                        Err(e) => {
+                            tracing::warn!("Battery empty: {}", e);
+                            if power::suspend_blocked_by_bluetooth() {
+                                tracing::warn!("Battery empty: Bluetooth is on and blocks suspending; waiting awake instead");
+                                bluetooth_blocks = true;
+                            }
+                        }
                     }
                 }
                 Err(e) => tracing::warn!("Could not set the wakeup alarm ({}); not suspending", e),
@@ -822,10 +908,30 @@ async fn battery_empty_sleep(
             tokio::time::sleep(Duration::from_secs(1)).await;
         }
     }
-    touch_driver.drain();
+    let computer = touch_driver.drain();
     tracing::info!("Battery empty mode over");
     power::log_battery();
     power::sync();
+    computer
+}
+
+fn read_wifi_state() -> Option<String> {
+    std::fs::read_to_string(power::wifi_operstate_path()).ok().map(|s| s.trim().to_string())
+}
+
+/// When sleep mode wakes up next: `every` from now, rounded up to a whole
+/// minute so the time on the screen is the moment it happens. Wall-clock
+/// time, because monotonic clocks stop while suspended.
+fn wake_time(now: chrono::DateTime<chrono::Utc>, every: Duration) -> chrono::DateTime<chrono::Utc> {
+    let at = now + chrono::Duration::from_std(every).unwrap_or_else(|_| chrono::Duration::minutes(15));
+    let into_minute = at.timestamp().rem_euclid(60);
+    let rounded = at - chrono::Duration::seconds(into_minute) - chrono::Duration::nanoseconds(at.timestamp_subsec_nanos() as i64);
+    if rounded == at { at } else { rounded + chrono::Duration::minutes(1) }
+}
+
+/// Seconds from now until `at` (at least 1, for the RTC alarm).
+fn seconds_until(at: chrono::DateTime<chrono::Utc>) -> u64 {
+    (at - chrono::Utc::now()).num_seconds().max(1) as u64
 }
 
 /// During the run-up to sleep: does this event mean the user wants the
@@ -866,5 +972,23 @@ async fn recv_signal(sig: &mut Option<tokio::signal::unix::Signal>) {
             s.recv().await;
         }
         None => std::future::pending::<()>().await,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use chrono::TimeZone;
+
+    #[test]
+    fn wake_time_is_the_whole_minute_shown_on_screen() {
+        let at = |h, m, s| chrono::Utc.with_ymd_and_hms(2026, 11, 12, h, m, s).unwrap();
+        // 00:14:01 + 5 min = 00:19:01, shown as 00:19 but woke ~a minute later: now 00:20:00
+        assert_eq!(wake_time(at(0, 14, 1), Duration::from_secs(300)), at(0, 20, 0));
+        assert_eq!(wake_time(at(0, 14, 59), Duration::from_secs(300)), at(0, 20, 0));
+        // Already on the minute: stays
+        assert_eq!(wake_time(at(0, 14, 0), Duration::from_secs(300)), at(0, 19, 0));
+        let with_nanos = at(0, 14, 0) + chrono::Duration::milliseconds(300);
+        assert_eq!(wake_time(with_nanos, Duration::from_secs(300)), at(0, 20, 0));
     }
 }
