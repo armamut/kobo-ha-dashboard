@@ -154,6 +154,11 @@ mod linux {
     /// A gap this long between reports means the finger was lifted, even if
     /// the controller never told us (some Kobo "snow" controllers don't).
     const NEW_TOUCH_GAP_US: i64 = 250_000;
+    /// Ignore a new tap this soon after the previous one. Measured on the
+    /// kernel's event times: the Libra 2's Elan panel reports one press as a
+    /// burst of touches, and taps queued while the screen redraws must not
+    /// pass just because they are read late (a light toggled on and off again).
+    const TAP_DEBOUNCE_US: i64 = 400_000;
 
     // struct input_event on the running kernel: timeval is two `long`s.
     #[cfg(target_pointer_width = "32")]
@@ -438,6 +443,7 @@ mod linux {
         let mut moved = false;
         let mut emitted = false;
         let mut last_report_us: i64 = 0;
+        let mut last_tap_us: i64 = i64::MIN / 2;
         let mut buf = [0u8; EVENT_SIZE];
 
         while file.read_exact(&mut buf).is_ok() {
@@ -470,8 +476,13 @@ mod linux {
                     last_report_us = ev.time_us;
 
                     // Fire once per touch, as soon as we know where the finger went down.
+                    if !emitted && moved && ev.time_us - last_tap_us < TAP_DEBOUNCE_US {
+                        // Bounce of the previous tap: wait for a real new touch.
+                        emitted = true;
+                    }
                     if !emitted && moved {
                         if let (Some(rx), Some(ry)) = (cur_x, cur_y) {
+                            last_tap_us = ev.time_us;
                             let (ax, ay) = ranges.for_point(rx, ry);
                             let (x, y) = mapping.to_canvas(norm(rx, ax), norm(ry, ay));
                             // The first few go to the log to check the mapping on new models.
