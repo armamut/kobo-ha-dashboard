@@ -451,15 +451,24 @@ struct NickelMenuRequest {
 }
 
 async fn install_nickelmenu(Json(req): Json<NickelMenuRequest>) -> Response {
-    let version = paths::NICKELMENU_VERSION;
-    let mut log = vec![kobo::Msg::new("nm_download").arg("version", version)];
-    let package = match paths::nickelmenu_package().await {
+    let root = Path::new(&req.path);
+    // .kobo/version: serial,kernel,firmware,...
+    let firmware = std::fs::read_to_string(root.join(".kobo/version"))
+        .ok()
+        .and_then(|v| v.trim().split(',').nth(2).map(|f| f.trim().to_string()))
+        .filter(|f| !f.is_empty());
+    let Some(package) = kobo::nickelmenu_for(firmware.as_deref()) else {
+        let version = firmware.unwrap_or_default();
+        return bad_request_key("firmware_unsupported", "No NickelMenu for this Kobo software", serde_json::json!({ "version": version }));
+    };
+    let mut log = vec![kobo::Msg::new("nm_download").arg("version", package.version)];
+    let bytes = match paths::nickelmenu_package(package).await {
         Ok(p) => p,
         Err(e) => return bad_request_key("nm_failed", "Could not install NickelMenu", serde_json::json!({ "error": e.to_string() })),
     };
-    match kobo::install_nickelmenu(Path::new(&req.path), &package) {
+    match kobo::install_nickelmenu(root, &bytes, package.file_name) {
         Ok(()) => {
-            log.push(kobo::Msg::new("nm_copied").arg("version", version));
+            log.push(kobo::Msg::new("nm_copied").arg("version", package.version));
             Json(serde_json::json!({ "log": log })).into_response()
         }
         Err(e) if e == "other_package_pending" => {

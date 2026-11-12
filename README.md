@@ -64,10 +64,12 @@ If you try it on another model, please open an issue with your `dashboard.log` (
 
 Kobo e-readers can't run third-party apps on their own. The dashboard is started from a menu entry added by [NickelMenu](https://pgaskin.net/NickelMenu/) ([source](https://github.com/pgaskin/NickelMenu)), a small, widely used open-source add-on by Patrick Gaskin. Many people already have it, for example from KOReader or Cobalt.
 
-- **What gets installed:** a single file, `KoboRoot.tgz`, is copied into the Kobo's `.kobo` folder. That is the Kobo's own update mechanism: on the next restart it unpacks the add-on (`libnm.so`) and its documentation (`.adds/nm/doc`). Your books, settings and Kobo account are not touched, and nothing is jailbroken.
-- **The setup tool does it for you:** it downloads NickelMenu **v0.6.0** from the official GitHub release, checks it against the published SHA-256 checksum, and never overwrites a different update package that is already waiting.
-- **Already installed?** The setup tool shows **NickelMenu installed** when it finds `.adds/nm/doc` on the Kobo.
-- **Compatibility:** NickelMenu needs firmware 4.6 or newer and doesn't support firmware 5.x yet; the setup tool warns you about unsupported firmware.
+- **What gets installed:** a single update package (`KoboRoot.tgz`, or `Kobo.tgz` on Kobo software 5.x/6.x) is copied into the Kobo's `.kobo` folder. That is the Kobo's own update mechanism: on the next restart it unpacks the add-on (`libnm.so`). Your books, settings and Kobo account are not touched, and nothing is jailbroken.
+- **The setup tool does it for you:** it picks the release for the Kobo's software, downloads it from GitHub, checks it against a pinned SHA-256 checksum, and never overwrites a different update package that is already waiting.
+  - Kobo software **4.6 to 4.x:** the official NickelMenu **v0.6.0**.
+  - Kobo software **5.x and 6.x:** the official release doesn't support these yet, so the tool installs [Nico Verbruggen's NickelMenu fork](https://github.com/nicoverbruggen/NickelMenu/releases/tag/fork-v1.2) (**fork v1.2**, its Qt6 build). It is unofficial, built from the same source and checked against Kobo software 6.0.279225; the dashboard has been tested with it on a Clara Colour.
+  - Older or newer software: the setup tool says it isn't supported.
+- **Kobo updates remove NickelMenu.** After an update the dashboard's entry is gone from the menu: run the setup tool again and install NickelMenu. The tool notices when the Kobo software changed since the dashboard was last started from the menu and shows **NickelMenu may be gone**; otherwise it shows **NickelMenu installed** when it finds `.adds/nm/doc`.
 - **Removing it:** create an empty file named `uninstall` in `.adds/nm/` on the Kobo and restart it. NickelMenu also removes itself if it ever causes a crash at startup.
 
 If you prefer to install it by hand, follow the [official instructions](https://pgaskin.net/NickelMenu/).

@@ -76,6 +76,7 @@ input[type=color] { width: 48px; height: 38px; padding: 2px; border: 1px solid v
 
 .notice { border-radius: 8px; padding: 10px 12px; font-size: 14px; margin-top: 12px; }
 .notice.ok { background: var(--ok-bg); color: var(--ok); }
+.notice.info { background: var(--surface-2); }
 .notice.warn { background: var(--warn-bg); color: var(--warn); }
 .notice.err { background: var(--err-bg); color: var(--err); }
 .notice ul { margin: 6px 0 0; padding-left: 18px; }
@@ -126,6 +127,7 @@ aside.preview { position: sticky; top: 76px; align-self: start; }
 .status { font-size: 12px; font-weight: 700; padding: 2px 8px; border-radius: 999px; background: var(--surface-2); border: 1px solid var(--border); }
 .status.ok { color: var(--ok); border-color: var(--ok); }
 .status.no { color: var(--err); border-color: var(--err); }
+.status.warn { color: var(--warn); border-color: var(--warn); }
 pre.log { background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; padding: 12px; font-size: 13px; white-space: pre-wrap; margin: 12px 0 0; }
 ol.steps-help { margin: 8px 0 0; padding-left: 20px; color: var(--muted); }
 ol.steps-help li { margin: 4px 0; }
@@ -1169,12 +1171,16 @@ async function scanKobos() {
     list.replaceChildren(...r.devices.map((d) => {
       const configured = modelByKey(cfg.device.model);
       const mismatch = d.model && d.model !== cfg.device.model;
-      const nm = d.nickelmenu; // installed | pending | missing
-      const nmChip = el("span", { class: "status " + (nm === "installed" ? "ok" : nm === "pending" ? "" : "no") },
-        T(nm === "installed" ? "install.nm_found" : nm === "pending" ? "install.nm_pending" : "install.nm_missing"));
+      // installed | pending | check (Kobo updated since the last start from the menu) | missing
+      const nm = d.nickelmenu;
+      const nmChip = el("span", { class: "status " + ({ installed: "ok", pending: "", check: "warn" }[nm] ?? "no") },
+        T({ installed: "install.nm_found", pending: "install.nm_pending", check: "install.nm_check" }[nm] ?? "install.nm_missing"));
+      const needsNm = (nm === "missing" || nm === "check") && d.firmware_supported;
       const explain = el("div", { class: "notice warn" });
-      explain.innerHTML = T("install.nm_explain");
-      const primary = nm === "missing"
+      explain.innerHTML = T(nm === "check" ? "install.nm_check_explain" : "install.nm_explain");
+      const forkNote = el("div", { class: "notice info" });
+      forkNote.innerHTML = T("install.nm_fork_note", { version: d.nickelmenu_version || "" });
+      const primary = needsNm
         ? el("button", { class: "btn primary", disabled: !r.kobo_binary, onclick: () => install(d.path, true) }, T("install.install_with_nm"))
         : el("button", { class: "btn primary", disabled: !r.kobo_binary, onclick: () => install(d.path, false, nm === "pending") }, T(d.installed ? "install.update" : "install.install"));
       return el("div", { class: "kobo" },
@@ -1185,7 +1191,8 @@ async function scanKobos() {
             nmChip,
             el("span", { class: "status" + (d.installed ? " ok" : "") }, T(d.installed ? "install.installed" : "install.not_installed"))),
           !d.firmware_supported ? el("div", { class: "notice err" }, T("install.firmware_unsupported", { version: d.firmware || "?" })) : null,
-          nm === "missing" ? explain : null,
+          nm === "missing" || nm === "check" ? explain : null,
+          needsNm && d.nickelmenu_fork ? forkNote : null,
           mismatch ? el("div", { class: "notice warn row" },
             T("install.model_mismatch", { model: d.model_name, configured: configured ? configured.name : T("connect.model_auto") }),
             el("button", { class: "btn small", onclick: () => { setModel(d.model); scanKobos(); } }, T("install.use_model", { model: d.model_name }))) : null),

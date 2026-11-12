@@ -124,7 +124,11 @@ trap resume EXIT
 trap 'exit 1' INT TERM HUP
 
 echo "Device: PLATFORM=$PLATFORM WIFI_MODULE=$WIFI_MODULE INTERFACE=$INTERFACE PRODUCT=$PRODUCT"
-echo "Firmware: $(cut -d, -f3 /mnt/onboard/.kobo/version 2>/dev/null)"
+FIRMWARE="$(cut -d, -f3 /mnt/onboard/.kobo/version 2>/dev/null)"
+echo "Firmware: $FIRMWARE"
+# Started from the menu, so NickelMenu works on this Kobo software. The setup
+# tool compares it with the current software: updates remove NickelMenu.
+[ -n "$FIRMWARE" ] && echo "$FIRMWARE" >"$APP_DIR/launched-on-firmware"
 
 # How Nickel runs Wi-Fi (it changed with firmware 5/6): its processes with
 # their arguments, and where saved networks live. Only file names and the

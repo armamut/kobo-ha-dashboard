@@ -55,10 +55,12 @@ Kobo e-okuyucular için dokunmatik bir [Home Assistant](https://www.home-assista
 
 Kobo kendi başına üçüncü parti uygulama çalıştıramaz. Panel, Patrick Gaskin'in geliştirdiği küçük ve yaygın kullanılan açık kaynaklı eklenti [NickelMenu](https://pgaskin.net/NickelMenu/) ([kaynak kod](https://github.com/pgaskin/NickelMenu)) tarafından eklenen menü girdisiyle başlatılır. KOReader veya Cobalt kullananlarda genellikle zaten kuruludur.
 
-- **Ne kurulur:** Kobo'nun `.kobo` klasörüne tek bir `KoboRoot.tgz` dosyası kopyalanır. Bu, Kobo'nun kendi güncelleme yöntemidir: bir sonraki açılışta eklentiyi (`libnm.so`) ve dokümanını (`.adds/nm/doc`) açar. Kitaplarınıza, ayarlarınıza ve Kobo hesabınıza dokunulmaz; "root"lama ya da jailbreak yoktur.
-- **Kurulum aracı sizin yerinize yapar:** NickelMenu **v0.6.0**'ı resmi GitHub sürümünden indirir, yayınlanan SHA-256 özetiyle doğrular ve bekleyen başka bir güncelleme paketinin üzerine asla yazmaz.
-- **Zaten kurulu mu?** Kurulum aracı Kobo'da `.adds/nm/doc` dosyasını bulursa **NickelMenu kurulu** gösterir.
-- **Uyumluluk:** NickelMenu 4.6 veya üstü yazılım ister, 5.x sürümlerini henüz desteklemez; araç desteklenmeyen sürümde uyarır.
+- **Ne kurulur:** Kobo'nun `.kobo` klasörüne tek bir güncelleme paketi (`KoboRoot.tgz`, Kobo yazılımı 5.x/6.x'te `Kobo.tgz`) kopyalanır. Bu, Kobo'nun kendi güncelleme yöntemidir: bir sonraki açılışta eklentiyi (`libnm.so`) açar. Kitaplarınıza, ayarlarınıza ve Kobo hesabınıza dokunulmaz; "root"lama ya da jailbreak yoktur.
+- **Kurulum aracı sizin yerinize yapar:** Kobo'nun yazılımına uygun sürümü seçer, GitHub'dan indirir, sabitlenmiş SHA-256 özetiyle doğrular ve bekleyen başka bir güncelleme paketinin üzerine asla yazmaz.
+  - Kobo yazılımı **4.6 – 4.x:** resmi NickelMenu **v0.6.0**.
+  - Kobo yazılımı **5.x ve 6.x:** resmi sürüm bunları henüz desteklemediği için araç [Nico Verbruggen'in NickelMenu kopyasını](https://github.com/nicoverbruggen/NickelMenu/releases/tag/fork-v1.2) (**fork v1.2**, Qt6 derlemesi) kurar. Resmi değildir; aynı kaynaktan derlenmiş ve Kobo yazılımı 6.0.279225'te denenmiştir. Panel bununla bir Clara Colour'da test edildi.
+  - Daha eski ya da daha yeni yazılımlarda araç desteklenmediğini söyler.
+- **Kobo güncellemeleri NickelMenu'yü siler.** Güncellemeden sonra panelin girdisi menüden kaybolur: kurulum aracını yeniden çalıştırıp NickelMenu'yü kurun. Araç, panel menüden son açıldığından beri Kobo yazılımının değiştiğini fark edip **NickelMenu silinmiş olabilir** gösterir; aksi halde `.adds/nm/doc` dosyasını bulursa **NickelMenu kurulu** gösterir.
 - **Kaldırmak için:** Kobo'da `.adds/nm/` klasörüne `uninstall` adında boş bir dosya oluşturup yeniden başlatın. Açılışta bir hataya yol açarsa NickelMenu kendini zaten otomatik kaldırır.
 
 ## Sorun giderme

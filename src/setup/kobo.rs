@@ -2,6 +2,7 @@
 
 use crate::config::AppConfig;
 use crate::models;
+use crate::paths;
 use serde::Serialize;
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
@@ -18,9 +19,14 @@ pub struct KoboDevice {
     /// Key into `models::MODELS`, when the model is known
     pub model: Option<String>,
     pub model_name: Option<String>,
-    /// "installed", "pending" (waiting in .kobo/KoboRoot.tgz) or "missing"
+    /// "installed", "pending" (a package waiting in .kobo), "check" (the
+    /// Kobo software changed since the dashboard last started from the menu:
+    /// updates remove NickelMenu) or "missing"
     pub nickelmenu: &'static str,
-    /// NickelMenu supports firmware 4.6 up to (not including) 5.x
+    /// The NickelMenu release for this firmware, and whether it is the fork
+    pub nickelmenu_version: Option<&'static str>,
+    pub nickelmenu_fork: bool,
+    /// There is a NickelMenu for this firmware (4.6 and newer, up to 6.x)
     pub firmware_supported: bool,
     pub installed: bool,
     pub has_config: bool,
@@ -58,13 +64,17 @@ pub fn detect() -> Vec<KoboDevice> {
             let fields: Vec<&str> = version.trim().split(',').collect();
             let model_id = fields.last().and_then(|s| s.rsplit('-').next()).map(|s| s.trim_start_matches('0').to_string());
             let model = model_id.as_deref().and_then(models::by_model_id);
+            let firmware = fields.get(2).map(|s| s.trim().to_string()).filter(|s| !s.is_empty());
+            let package = nickelmenu_for(firmware.as_deref());
             KoboDevice {
-                firmware: fields.get(2).map(|s| s.to_string()),
+                nickelmenu: nickelmenu_status(&root, firmware.as_deref()),
+                nickelmenu_version: package.map(|p| p.version),
+                nickelmenu_fork: package.is_some_and(|p| p.fork),
+                firmware_supported: package.is_some(),
+                firmware,
                 model: model.map(|m| m.key.to_string()),
                 model_name: model.map(|m| m.name.to_string()),
                 model_id,
-                nickelmenu: nickelmenu_status(&root),
-                firmware_supported: fields.get(2).map(|f| firmware_supported(f)).unwrap_or(true),
                 installed: root.join(".kobo-ha/kobo-ha-dashboard").is_file(),
                 has_config: root.join(".kobo-ha/config.yaml").is_file(),
                 path: root.to_string_lossy().into_owned(),
@@ -73,39 +83,65 @@ pub fn detect() -> Vec<KoboDevice> {
         .collect()
 }
 
-/// NickelMenu's package installs `.adds/nm/doc`, so that file means it has
-/// been installed (our own menu entry also lives in `.adds/nm`, so the folder
-/// alone proves nothing).
-fn nickelmenu_status(root: &Path) -> &'static str {
-    if root.join(".adds/nm/doc").is_file() && !root.join(".adds/nm/uninstall").exists() {
-        "installed"
-    } else if root.join(".kobo/KoboRoot.tgz").is_file() {
-        "pending"
-    } else {
-        "missing"
+/// Written by launch.sh: the Kobo software the dashboard last started on
+/// from the menu, proof that NickelMenu worked there.
+pub const LAUNCHED_ON: &str = ".kobo-ha/launched-on-firmware";
+
+/// Update packages the Kobo installs when it restarts.
+const PACKAGE_NAMES: [&str; 2] = ["KoboRoot.tgz", "Kobo.tgz"];
+
+/// The NickelMenu release for a Kobo software version: the official one up to
+/// 4.x, the Qt6 fork for 5.x and 6.x, none before 4.6 or after 6.x (not
+/// known to work). An unreadable version gets the official release, as before.
+pub fn nickelmenu_for(firmware: Option<&str>) -> Option<&'static paths::NickelMenuPackage> {
+    let Some(version) = firmware else { return Some(&paths::NICKELMENU_QT5) };
+    let mut parts = version.split('.').map(|p| p.trim().parse::<u32>().ok());
+    match (parts.next().flatten(), parts.next().flatten()) {
+        (Some(4), Some(minor)) if minor >= 6 => Some(&paths::NICKELMENU_QT5),
+        (Some(5 | 6), _) => Some(&paths::NICKELMENU_QT6),
+        (Some(_), _) => None,
+        (None, _) => Some(&paths::NICKELMENU_QT5),
     }
 }
 
-fn firmware_supported(version: &str) -> bool {
-    let mut parts = version.split('.').filter_map(|p| p.parse::<u32>().ok());
-    match (parts.next(), parts.next()) {
-        (Some(4), Some(minor)) => minor >= 6,
-        (Some(major), _) => major < 5 && major >= 4,
-        _ => true,
+fn major(firmware: Option<&str>) -> Option<u32> {
+    firmware?.split('.').next()?.trim().parse().ok()
+}
+
+/// `.adds/nm/doc` is written when NickelMenu is first installed (our own menu
+/// entry also lives in `.adds/nm`, so the folder alone proves nothing). But a
+/// Kobo software update removes NickelMenu and leaves that file behind, so
+/// it is only trusted on the software the dashboard last started on. Without
+/// that record, on 5.x and newer (only reached by updating, after which the
+/// official release no longer works) it needs checking too.
+fn nickelmenu_status(root: &Path, firmware: Option<&str>) -> &'static str {
+    if PACKAGE_NAMES.iter().any(|n| root.join(".kobo").join(n).is_file()) {
+        return "pending";
+    }
+    if !root.join(".adds/nm/doc").is_file() || root.join(".adds/nm/uninstall").exists() {
+        return "missing";
+    }
+    let launched_on = std::fs::read_to_string(root.join(LAUNCHED_ON)).ok().map(|s| s.trim().to_string());
+    match (launched_on, firmware) {
+        (Some(last), Some(now)) if last != now => "check",
+        (None, now) if major(now).is_some_and(|m| m >= 5) => "check",
+        _ => "installed",
     }
 }
 
-/// Put NickelMenu's KoboRoot.tgz where the Kobo picks up updates. It is
+/// Put a NickelMenu package where the Kobo picks up updates. It is
 /// installed by the Kobo itself on the next restart.
-pub fn install_nickelmenu(root: &Path, package: &[u8]) -> Result<(), String> {
+pub fn install_nickelmenu(root: &Path, package: &[u8], file_name: &str) -> Result<(), String> {
     if !root.join(".kobo").is_dir() {
         return Err(format!("{} does not look like a Kobo (no .kobo folder)", root.display()));
     }
-    let target = root.join(".kobo/KoboRoot.tgz");
-    if let Ok(existing) = std::fs::read(&target) {
-        if existing != package {
-            // Don't overwrite some other pending update (e.g. another add-on).
-            return Err("other_package_pending".to_string());
+    let target = root.join(".kobo").join(file_name);
+    // Don't overwrite some other pending update (e.g. another add-on).
+    for name in PACKAGE_NAMES {
+        if let Ok(existing) = std::fs::read(root.join(".kobo").join(name)) {
+            if name != file_name || existing != package {
+                return Err("other_package_pending".to_string());
+            }
         }
     }
     let _ = std::fs::remove_file(root.join(".adds/nm/uninstall"));
@@ -272,20 +308,58 @@ mod tests {
         assert_eq!(read_menu_name(&root).as_deref(), Some("My  Home"));
 
         // Our menu entry created .adds/nm, but NickelMenu itself is not installed
-        assert_eq!(nickelmenu_status(&root), "missing");
-        install_nickelmenu(&root, b"pkg").unwrap();
-        assert_eq!(nickelmenu_status(&root), "pending");
-        assert_eq!(install_nickelmenu(&root, b"other").unwrap_err(), "other_package_pending");
+        assert_eq!(nickelmenu_status(&root, Some("4.38.21908")), "missing");
+        install_nickelmenu(&root, b"pkg", "KoboRoot.tgz").unwrap();
+        assert_eq!(nickelmenu_status(&root, Some("4.38.21908")), "pending");
+        assert_eq!(install_nickelmenu(&root, b"other", "KoboRoot.tgz").unwrap_err(), "other_package_pending");
+        assert_eq!(install_nickelmenu(&root, b"pkg", "Kobo.tgz").unwrap_err(), "other_package_pending");
+        install_nickelmenu(&root, b"pkg", "KoboRoot.tgz").unwrap();
+        // The Kobo installed it on restart
+        std::fs::remove_file(root.join(".kobo/KoboRoot.tgz")).unwrap();
         std::fs::write(root.join(".adds/nm/doc"), "doc").unwrap();
-        assert_eq!(nickelmenu_status(&root), "installed");
+        assert_eq!(nickelmenu_status(&root, Some("4.38.21908")), "installed");
         let _ = std::fs::remove_dir_all(&root);
     }
 
     #[test]
-    fn firmware_support() {
-        assert!(firmware_supported("4.46.23836"));
-        assert!(firmware_supported("4.6.9960"));
-        assert!(!firmware_supported("4.5.9587"));
-        assert!(!firmware_supported("5.2.1"));
+    fn a_kobo_update_since_the_last_start_needs_nickelmenu_checked() {
+        let root = std::env::temp_dir().join(format!("kobo-ha-test-nm-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(root.join(".kobo")).unwrap();
+        std::fs::create_dir_all(root.join(".adds/nm")).unwrap();
+        std::fs::create_dir_all(root.join(".kobo-ha")).unwrap();
+        std::fs::write(root.join(".adds/nm/doc"), "doc").unwrap();
+        // No record yet: 4.x trusts doc, 5.x and newer were reached by an update
+        assert_eq!(nickelmenu_status(&root, Some("4.38.21908")), "installed");
+        assert_eq!(nickelmenu_status(&root, Some("6.0.279225")), "check");
+        // Started from the menu on this very software: fine
+        std::fs::write(root.join(LAUNCHED_ON), "6.0.279225\n").unwrap();
+        assert_eq!(nickelmenu_status(&root, Some("6.0.279225")), "installed");
+        // Updated since (the case on the Clara Colour: 4.x to 6.0, menu gone)
+        std::fs::write(root.join(LAUNCHED_ON), "4.43.23418\n").unwrap();
+        assert_eq!(nickelmenu_status(&root, Some("6.0.279225")), "check");
+        // Reinstalling: pending until the Kobo restarts
+        install_nickelmenu(&root, b"qt6", "Kobo.tgz").unwrap();
+        assert_eq!(nickelmenu_status(&root, Some("6.0.279225")), "pending");
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn launch_sh_records_the_firmware_where_the_setup_tool_looks() {
+        let name = LAUNCHED_ON.trim_start_matches(".kobo-ha/");
+        assert!(LAUNCH_SH.contains(&format!(">\"$APP_DIR/{}\"", name)), "launch.sh must write {}", LAUNCHED_ON);
+    }
+
+    #[test]
+    fn nickelmenu_release_follows_the_firmware() {
+        let v = |f: Option<&str>| nickelmenu_for(f).map(|p| (p.file_name, p.fork));
+        assert_eq!(v(Some("4.46.23836")), Some(("KoboRoot.tgz", false)));
+        assert_eq!(v(Some("4.6.9960")), Some(("KoboRoot.tgz", false)));
+        assert_eq!(v(Some("4.5.9587")), None);
+        assert_eq!(v(Some("5.2.1")), Some(("Kobo.tgz", true)));
+        assert_eq!(v(Some("6.0.279225")), Some(("Kobo.tgz", true)));
+        assert_eq!(v(Some("7.0.1")), None, "not known to work yet");
+        assert_eq!(v(None), Some(("KoboRoot.tgz", false)));
+        assert_eq!(v(Some("garbled")), Some(("KoboRoot.tgz", false)));
     }
 }
