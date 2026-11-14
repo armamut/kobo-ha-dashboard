@@ -23,13 +23,16 @@ pub fn render_switch_card(
         .or_else(|| state.map(|s| s.friendly_name()))
         .unwrap_or_else(|| entity_id.to_string());
 
-    let status = i18n::t(if unavailable {
-        "state.unavailable"
-    } else if is_on {
-        "state.running"
-    } else {
-        "state.off"
-    });
+    let domain = entity_id.split('.').next().unwrap_or("");
+    let status = match state {
+        None => i18n::t("state.unavailable"),
+        Some(s) if s.state == "unavailable" => i18n::t("state.unavailable"),
+        Some(s) if matches!(domain, "lock" | "cover") => {
+            i18n::entity_state_label(domain, s.get_attr_str("device_class"), &s.state)
+        }
+        Some(s) if s.is_on() => i18n::t("state.running"),
+        Some(_) => i18n::t("state.off"),
+    };
     let subtitle = match custom_subtitle {
         Some(s) if !unavailable => format!("{} · {}", status, s),
         _ => status.to_string(),

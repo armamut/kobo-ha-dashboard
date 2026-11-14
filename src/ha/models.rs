@@ -16,7 +16,7 @@ pub struct EntityState {
 impl EntityState {
     pub fn is_on(&self) -> bool {
         let s = self.state.to_lowercase();
-        s == "on" || s == "playing" || s == "home" || s == "heat" || s == "cool" || s == "open"
+        s == "on" || s == "playing" || s == "home" || s == "heat" || s == "cool" || s == "open" || s == "unlocked"
     }
 
     pub fn get_attr_f32(&self, key: &str) -> Option<f32> {

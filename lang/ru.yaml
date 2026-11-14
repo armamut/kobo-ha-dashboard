@@ -1,0 +1,109 @@
+# Kobo HA Dashboard - Русский
+
+meta:
+  name: "Русский"
+  font: ""
+  percent: "{value}%"
+  decimal: ","
+
+date:
+  weekdays: ["Понедельник", "Вторник", "Среда", "Четверг", "Пятница", "Суббота", "Воскресенье"]
+  weekdays_short: ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"]
+  months: ["января", "февраля", "марта", "апреля", "мая", "июня", "июля", "августа", "сентября", "октября", "ноября", "декабря"]
+  long: "{day} {month}"
+  today: "Сегодня"
+
+header:
+  live: "Онлайн · {time}"
+  live_short: "Онлайн"
+  updated: "Обновлено · {time}"
+  offline: "Нет связи"
+  demo: "Демо-режим"
+
+state:
+  on: "Вкл"
+  off: "Выкл"
+  unavailable: "Недоступно"
+  unknown: "—"
+  running: "Работает"
+  idle: "Ожидание"
+  standby: "Режим ожидания"
+  heating: "Нагрев"
+  cooling: "Охлаждение"
+  drying: "Осушение"
+  fan: "Вентилятор"
+  printing: "Печать"
+  paused: "Пауза"
+  stopped: "Остановлено"
+  finished: "Завершено"
+  error: "Ошибка"
+  not_playing: "Не воспроизводится"
+  locked: "Закрыто"
+  unlocked: "Открыто"
+  locking: "Закрывается"
+  unlocking: "Открывается"
+  jammed: "Заблокировано"
+  open: "Открыто"
+  closed: "Закрыто"
+  opening: "Открывается"
+  closing: "Закрывается"
+  detected: "Обнаружено"
+  clear: "Чисто"
+  wet: "Влажно"
+  dry: "Сухо"
+  connected: "Подключено"
+  disconnected: "Отключено"
+  plugged_in: "Подключено"
+  unplugged: "Отключено"
+  low: "Низкий"
+  normal: "Норма"
+  charging: "Зарядка"
+  not_charging: "Не заряжается"
+  not_running: "Не работает"
+  problem: "Проблема"
+  ok: "ОК"
+  hot: "Жарко"
+  cold: "Холодно"
+  update_available: "Есть обновление"
+  up_to_date: "Актуально"
+  home: "Дома"
+  away: "Не дома"
+
+climate:
+  default_title: "Термостат"
+  room: "Комната {temp}°"
+
+media:
+  default_title: "Медиа"
+
+weather:
+  no_forecast: "Нет данных прогноза"
+  wind_kmh: "км/ч"
+  condition:
+    sunny: "Солнечно"
+    clear-night: "Ясно"
+    partlycloudy: "Переменная облачность"
+    cloudy: "Облачно"
+    rainy: "Дождь"
+    pouring: "Ливень"
+    snowy: "Снег"
+    snowy-rainy: "Мокрый снег"
+    hail: "Град"
+    lightning: "Гроза"
+    lightning-rainy: "Гроза"
+    fog: "Туман"
+    windy: "Ветрено"
+    windy-variant: "Ветрено"
+    exceptional: "Аномалия"
+
+generated:
+  overview: "Главная"
+  other: "Другое"
+  scenes: "Сценарии"
+
+sleep:
+  title: "Спящий режим"
+  next: "Обновление в {time}"
+  wake_hint: "Нажмите кнопку питания, чтобы разбудить панель"
+  battery_empty: "Батарея разряжена"
+  charge_hint: "Подключите Kobo к зарядке"
