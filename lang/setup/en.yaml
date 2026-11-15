@@ -128,6 +128,8 @@ report:
   unreachable: "Could not reach Home Assistant: {error}"
   https_port: "Behind a reverse proxy or Cloudflare, HTTPS usually runs on the default port. Try the URL without ':8123'."
   mdns: "'.local' addresses (mDNS) do not resolve on the Kobo. Use the IP address of Home Assistant instead."
+  path_removed: "The URL contains a page path. Home Assistant's API is only at the root address, so {url} is used."
+  not_api: "This address did not answer like the Home Assistant API (it may be a login or proxy page). Use the root address of Home Assistant, for example http://192.168.1.10:8123."
 
 design:
   pages: "Pages"

@@ -46,14 +46,14 @@ fn client(token: &str) -> reqwest::Client {
 }
 
 fn base(url: &str) -> String {
-    url.trim().trim_end_matches('/').to_string()
+    crate::ha::base_url(url).0
 }
 
 /// Check URL + token and point out setups that work on a PC but not on a Kobo.
 pub async fn test_connection(url: &str, token: &str) -> ConnectionReport {
     let mut warnings = Vec::new();
     let mut suggested_url = None;
-    let url = base(url);
+    let (url, path_dropped) = crate::ha::base_url(url);
 
     if url.is_empty() || token.trim().is_empty() {
         return ConnectionReport {
@@ -78,6 +78,11 @@ pub async fn test_connection(url: &str, token: &str) -> ConnectionReport {
                 }
             }
         }
+        if path_dropped {
+            // Page paths like /lovelace/0 are not part of the API address.
+            warnings.push(Msg::new("path_removed").arg("url", url.as_str()));
+            suggested_url.get_or_insert_with(|| url.clone());
+        }
     } else {
         return ConnectionReport {
             ok: false,
@@ -93,11 +98,24 @@ pub async fn test_connection(url: &str, token: &str) -> ConnectionReport {
     let result = http.get(format!("{}/api/config", url)).send().await;
     match result {
         Ok(resp) if resp.status().is_success() => {
-            let body: serde_json::Value = resp.json().await.unwrap_or_default();
+            // Anything that isn't HA's config JSON (its web app, a proxy page)
+            // would only fail later, when the entities are read.
+            let body: serde_json::Value = crate::ha::read_json(resp).await.unwrap_or_default();
+            let version = body.get("version").and_then(|v| v.as_str()).map(str::to_string);
+            if version.is_none() {
+                return ConnectionReport {
+                    ok: false,
+                    message: Msg::new("not_api"),
+                    version: None,
+                    location: None,
+                    warnings,
+                    suggested_url,
+                };
+            }
             ConnectionReport {
                 ok: true,
                 message: Msg::new("connected"),
-                version: body.get("version").and_then(|v| v.as_str()).map(str::to_string),
+                version,
                 location: body.get("location_name").and_then(|v| v.as_str()).map(str::to_string),
                 warnings,
                 suggested_url,
@@ -140,7 +158,7 @@ pub async fn fetch_entities(url: &str, token: &str) -> Result<Vec<EntityInfo>, B
     if !resp.status().is_success() {
         return Err(format!("HTTP {}", resp.status()).into());
     }
-    let states: Vec<serde_json::Value> = resp.json().await?;
+    let states: Vec<serde_json::Value> = crate::ha::read_json(resp).await?;
 
     // Areas and hidden flags are only exposed to templates, not /api/states.
     let template = r#"{% set ns = namespace(o={}) %}{% for s in states %}{% set ns.o = dict(ns.o, **{s.entity_id: [area_name(s.entity_id) or '', is_hidden_entity(s.entity_id)]}) %}{% endfor %}{{ ns.o | tojson }}"#;
@@ -472,5 +490,48 @@ mod tests {
         for p in big {
             assert_eq!(hidden_card_count(&p.cards, 1072, 1448, true), 0, "{} overflows", p.title);
         }
+    }
+
+    /// Minimal stand-in for HA: answers every request with `body`.
+    async fn fake_ha(content_type: &'static str, body: &'static str) -> String {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let port = listener.local_addr().unwrap().port();
+        tokio::spawn(async move {
+            use tokio::io::{AsyncReadExt, AsyncWriteExt};
+            while let Ok((mut sock, _)) = listener.accept().await {
+                let mut buf = [0u8; 4096];
+                let _ = sock.read(&mut buf).await;
+                let resp = format!(
+                    "HTTP/1.1 200 OK\r\nContent-Type: {}\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+                    content_type,
+                    body.len(),
+                    body
+                );
+                let _ = sock.write_all(resp.as_bytes()).await;
+            }
+        });
+        format!("http://127.0.0.1:{}", port)
+    }
+
+    #[tokio::test]
+    async fn web_app_page_is_not_a_connection() {
+        let url = fake_ha("text/html", "<!DOCTYPE html><html></html>").await;
+        let report = test_connection(&format!("{}/home/overview", url), "token").await;
+        assert!(!report.ok);
+        assert_eq!(report.message.key, "not_api");
+        assert!(report.warnings.iter().any(|w| w.key == "path_removed"));
+        assert_eq!(report.suggested_url.as_deref(), Some(url.as_str()));
+
+        let err = fetch_entities(&url, "token").await.unwrap_err().to_string();
+        assert!(err.contains("text/html"), "{}", err);
+    }
+
+    #[tokio::test]
+    async fn page_path_is_dropped_for_api_calls() {
+        let url = fake_ha("application/json", r#"{"version":"2026.11.1","location_name":"Home"}"#).await;
+        let report = test_connection(&format!("{}/lovelace/0", url), "token").await;
+        assert!(report.ok);
+        assert_eq!(report.version.as_deref(), Some("2026.11.1"));
+        assert!(report.warnings.iter().any(|w| w.key == "path_removed"));
     }
 }

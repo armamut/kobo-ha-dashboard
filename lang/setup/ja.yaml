@@ -124,6 +124,8 @@ report:
   unreachable: "Home Assistant に接続できません: {error}"
   https_port: "リバースプロキシや Cloudflare の背後では、HTTPS は通常デフォルトのポートで動作します。「:8123」を付けずに試してください。"
   mdns: "「.local」アドレス（mDNS）は Kobo では使えません。代わりに Home Assistant の IP アドレスを使ってください。"
+  path_removed: "URL にページのパスが含まれています。Home Assistant の API はルートアドレスにしかないため、{url} を使用します。"
+  not_api: "このアドレスは Home Assistant の API として応答しませんでした（ログインページやプロキシのページかもしれません）。Home Assistant のルートアドレスを使ってください。例: http://192.168.1.10:8123"
 
 design:
   pages: "ページ"

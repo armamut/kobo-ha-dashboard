@@ -124,6 +124,8 @@ report:
   unreachable: "无法连接 Home Assistant：{error}"
   https_port: "在反向代理或 Cloudflare 之后，HTTPS 通常使用默认端口。请尝试去掉“:8123”的地址。"
   mdns: "Kobo 无法解析“.local”地址（mDNS）。请改用 Home Assistant 的 IP 地址。"
+  path_removed: "该 URL 包含页面路径。Home Assistant 的 API 只在根地址上，因此使用 {url}。"
+  not_api: "该地址的响应不像 Home Assistant API（可能是登录页或代理页面）。请使用 Home Assistant 的根地址，例如 http://192.168.1.10:8123。"
 
 design:
   pages: "页面"

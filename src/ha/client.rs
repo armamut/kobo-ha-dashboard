@@ -189,7 +189,7 @@ impl HaClient {
     }
 
     fn url(&self, path: &str) -> String {
-        format!("{}{}", self.config.url.trim_end_matches('/'), path)
+        format!("{}{}", crate::ha::base_url(&self.config.url).0, path)
     }
 
     pub async fn is_connected(&self) -> bool {
@@ -261,7 +261,7 @@ impl HaClient {
         if !resp.status().is_success() {
             return Err(format!("HTTP {}", resp.status()).into());
         }
-        Ok(resp.json().await?)
+        crate::ha::read_json(resp).await
     }
 
     /// Forecasts (HA 2024.3+ removed the `forecast` attribute) and sensor history.
@@ -310,7 +310,7 @@ impl HaClient {
         if !resp.status().is_success() {
             return Err(format!("HTTP {}", resp.status()).into());
         }
-        let body: Value = resp.json().await?;
+        let body: Value = crate::ha::read_json(resp).await?;
         Ok(body
             .pointer(&format!("/service_response/{}/forecast", entity_id.replace('/', "~1")))
             .cloned())
@@ -331,7 +331,7 @@ impl HaClient {
         if !resp.status().is_success() {
             return Err(format!("HTTP {}", resp.status()).into());
         }
-        let series: Vec<Vec<Value>> = resp.json().await?;
+        let series: Vec<Vec<Value>> = crate::ha::read_json(resp).await?;
         let mut out = HashMap::new();
         for (idx, points) in series.into_iter().enumerate() {
             // With minimal_response only the first item carries entity_id.

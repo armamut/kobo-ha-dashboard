@@ -124,6 +124,8 @@ report:
   unreachable: "Home Assistant'a ulaşılamadı: {error}"
   https_port: "Reverse proxy veya Cloudflare arkasında HTTPS genellikle varsayılan porttadır. Adresi ':8123' olmadan deneyin."
   mdns: "'.local' adresleri (mDNS) Kobo'da çözülmez. Bunun yerine Home Assistant'ın IP adresini kullanın."
+  path_removed: "Adreste bir sayfa yolu var. Home Assistant API'si yalnızca kök adreste olduğu için {url} kullanılıyor."
+  not_api: "Bu adres Home Assistant API'si gibi yanıt vermedi (bir giriş veya proxy sayfası olabilir). Home Assistant'ın kök adresini kullanın, örneğin http://192.168.1.10:8123."
 
 design:
   pages: "Sayfalar"
