@@ -182,8 +182,21 @@ design:
   buttons: "Butonlar"
   add: "+ Ekle"
   remove: "Kaldır"
+  heading_title: "Başlık"
+  stat_period: "Dönem"
+  stat_days: "Gün sayısı"
+  stat_type: "Değer"
+  period_day: "Günlük"
+  period_week: "Haftalık"
+  period_month: "Aylık"
+  stat_change: "Tüketim (fark)"
+  stat_mean: "Ortalama"
+  stat_min: "En az"
+  stat_max: "En çok"
 
 card_types:
+  heading: "Başlık"
+  statistics: "İstatistik grafiği"
   weather: "Hava durumu"
   light: "Işık"
   switch: "Anahtar / aç-kapa"
@@ -193,6 +206,21 @@ card_types:
   media_player: "Medya oynatıcı"
   scenes_row: "Sahne butonları"
   scene: "Tek buton"
+  image: "Resim"
+
+lovelace:
+  title: "Lovelace panosunu içe aktar"
+  hint: "Home Assistant'taki bir panoyu başlangıç noktası olarak kullan. Kartları bu panonun kendi kartlarına çevrilir ve ekrana sığmayan sayfa bölünür."
+  import: "İçe aktar"
+  reload: "Listeyi yenile"
+  loading: "Panolar okunuyor."
+  load_failed: "Pano yok"
+  no_token: "Önce Home Assistant'a bağlan"
+  importing: "Pano okunuyor."
+  imported: "{pages} sayfa, {cards} kartla içe aktarıldı."
+  replaced: "{n} mevcut sayfa değiştirildi."
+  skipped: "İçe aktarılmadı (uygun kart yok):"
+  skipped_item: "{card} ×{count}"
 
 preview:
   sleep: "Uyku ekranını göster"
@@ -259,6 +287,9 @@ install:
     done: "Tamamlandı. Kobo'yu güvenle çıkarıp yeniden başlatın."
 
 errors:
+  lovelace_no_token: "Önce Home Assistant'a bağlan: pano oradan okunur."
+  lovelace_strategy: "Bu pano bir strateji tarafından oluşturuluyor (varsayılan Genel Bakış gibi), bu yüzden kartları yalnızca tarayıcıda var. Kendi görünümleri olan bir pano seç."
+  lovelace_empty: "Bu panoda Kobo'nun gösterebileceği kart yok."
   save_failed: "Kaydedilemedi: {error}"
   nm_failed: "NickelMenu kurulamadı: {error}"
   nm_other_pending: "Bu Kobo'da zaten bekleyen başka bir güncelleme paketi (.kobo/KoboRoot.tgz, .kobo/Kobo.tgz) var. Kobo'yu çıkarın, yeniden başlamasını bekleyin, sonra tekrar deneyin."

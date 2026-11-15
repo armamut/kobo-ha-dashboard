@@ -182,8 +182,21 @@ design:
   buttons: "Tasten"
   add: "+ Hinzufügen"
   remove: "Entfernen"
+  heading_title: "Überschrift"
+  stat_period: "Zeitraum"
+  stat_days: "Anzahl Tage"
+  stat_type: "Wert"
+  period_day: "Pro Tag"
+  period_week: "Pro Woche"
+  period_month: "Pro Monat"
+  stat_change: "Verbrauch (Differenz)"
+  stat_mean: "Durchschnitt"
+  stat_min: "Minimum"
+  stat_max: "Maximum"
 
 card_types:
+  heading: "Überschrift"
+  statistics: "Statistikdiagramm"
   weather: "Wetter"
   light: "Licht"
   switch: "Schalter"
@@ -193,6 +206,21 @@ card_types:
   media_player: "Mediaplayer"
   scenes_row: "Szenen-Tasten"
   scene: "Einzelne Taste"
+  image: "Bild"
+
+lovelace:
+  title: "Lovelace-Dashboard importieren"
+  hint: "Übernimm ein Dashboard aus Home Assistant als Ausgangspunkt. Die Karten werden in die Karten dieses Dashboards übersetzt, und eine Seite, die nicht auf den Bildschirm passt, wird geteilt."
+  import: "Importieren"
+  reload: "Liste neu laden"
+  loading: "Dashboards werden gelesen."
+  load_failed: "Keine Dashboards"
+  no_token: "Zuerst Home Assistant verbinden"
+  importing: "Dashboard wird gelesen."
+  imported: "{pages} Seiten mit {cards} Karten importiert."
+  replaced: "{n} vorhandene Seiten ersetzt."
+  skipped: "Nicht importiert (keine passende Karte):"
+  skipped_item: "{card} ×{count}"
 
 preview:
   sleep: "Ruhebildschirm anzeigen"
@@ -259,6 +287,9 @@ install:
     done: "Fertig. Wirf den Kobo sicher aus und starte ihn neu."
 
 errors:
+  lovelace_no_token: "Zuerst Home Assistant verbinden: das Dashboard wird dort gelesen."
+  lovelace_strategy: "Dieses Dashboard wird von einer Strategie erzeugt (wie die Standard-Übersicht); die Karten gibt es nur im Browser. Wähle ein Dashboard mit eigenen Ansichten."
+  lovelace_empty: "Dieses Dashboard hat keine Karten, die der Kobo anzeigen kann."
   save_failed: "Speichern fehlgeschlagen: {error}"
   nm_failed: "NickelMenu konnte nicht installiert werden: {error}"
   nm_other_pending: "Auf diesem Kobo wartet bereits ein anderes Update-Paket (.kobo/KoboRoot.tgz, .kobo/Kobo.tgz). Wirf ihn aus, lass ihn neu starten und versuche es dann erneut."

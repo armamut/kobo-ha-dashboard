@@ -15,8 +15,8 @@ A touch-friendly [Home Assistant](https://www.home-assistant.io/) dashboard for 
 ## Features
 
 - **Made for e-ink:** large type for 300 ppi screens, saturated colours that survive the Kaleido colour filter, and partial refreshes that only redraw what changed.
-- **Cards:** lights, switches, fans, thermostats (with +/- buttons), sensors with 24-hour graphs, sensor grids, media players, weather with forecast, and scene/script buttons.
-- **Setup tool:** connect Home Assistant, get a starter dashboard generated from your areas, rearrange it with a live, pixel-exact preview, and install with one click.
+- **Cards:** lights, switches, fans, thermostats (with +/- buttons), sensors with 24-hour graphs, sensor grids, media players, weather with forecast, scene/script buttons, section headings, bar charts of Home Assistant's statistics, and pictures from `image` entities (a chart or snapshot Home Assistant renders).
+- **Setup tool:** connect Home Assistant, get a starter dashboard generated from your areas, or import an existing Lovelace dashboard and let its cards be translated to native ones. Rearrange it with a live, pixel-exact preview, and install with one click.
 - **11 languages:** English, Türkçe, Deutsch, Français, Español, Italiano, Nederlands, Português, Polski, 日本語 and 简体中文, for both the dashboard and the setup tool. The setup tool asks for your language when it first opens.
 - **Portrait or landscape**, and four themes: colour, high-contrast black & white, warm paper, and dark.
 - **Safe exit:** the Kobo's reading software is paused while the dashboard runs and resumed afterwards. Tap the exit icon to go back to your books. Connecting the Kobo to a computer also returns to the reader, so it can offer to connect; a plain charger doesn't.

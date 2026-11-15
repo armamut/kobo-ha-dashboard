@@ -14,6 +14,8 @@ pub const HISTORY_ATTR: &str = "__history";
 
 /// Forecasts and graph history change slowly; fetching them rarely saves power.
 const HISTORY_REFRESH: Duration = Duration::from_secs(1800);
+/// Pictures change at most daily (a rendered chart), so fetch them rarely.
+const IMAGE_REFRESH: Duration = Duration::from_secs(6 * 3600);
 const HISTORY_SPAN_HOURS: i64 = 24;
 const HISTORY_POINTS: usize = 48;
 
@@ -27,6 +29,14 @@ pub struct HaClient {
     weather_entities: Arc<Vec<String>>,
     /// Sensors shown with a graph
     history_entities: Arc<Vec<String>>,
+    /// Statistics charts (Lovelace `statistics-graph`)
+    stat_requests: Arc<Vec<StatRequest>>,
+    /// `image.*` entities shown by image cards
+    image_entities: Arc<Vec<String>>,
+    /// Their pictures, as fetched from `/api/image_proxy`
+    images: Arc<RwLock<HashMap<String, Arc<Vec<u8>>>>>,
+    /// When the pictures were last fetched
+    last_image_fetch: Arc<std::sync::Mutex<Option<Instant>>>,
     extras: Arc<RwLock<Extras>>,
     last_update: Arc<RwLock<Option<chrono::DateTime<chrono::Utc>>>>,
     /// Every entity the dashboard shows (the WebSocket subscription list)
@@ -41,12 +51,26 @@ pub struct HaClient {
     pub(crate) battery_sent: Arc<std::sync::Mutex<Option<crate::ha::battery::Sent>>>,
 }
 
+/// One statistics chart: which statistic, over which range.
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) struct StatRequest {
+    pub entity_id: String,
+    /// "day", "week" or "month"
+    pub period: String,
+    pub days: u32,
+    /// "change", "mean", "min", "max" or "sum"
+    pub stat: String,
+}
+
 #[derive(Default)]
 struct Extras {
     forecasts: HashMap<String, Value>,
     history: HashMap<String, Vec<f32>>,
+    /// Per entity, a map of chart key -> `[[start_ms, value], ...]`
+    stats: HashMap<String, Value>,
     last_history_fetch: Option<Instant>,
     last_forecast_fetch: Option<Instant>,
+    last_stats_fetch: Option<Instant>,
 }
 
 impl HaClient {
@@ -82,6 +106,10 @@ impl HaClient {
             is_live: Arc::new(RwLock::new(false)),
             weather_entities: Arc::new(Vec::new()),
             history_entities: Arc::new(Vec::new()),
+            stat_requests: Arc::new(Vec::new()),
+            image_entities: Arc::new(Vec::new()),
+            images: Arc::new(RwLock::new(HashMap::new())),
+            last_image_fetch: Arc::new(std::sync::Mutex::new(None)),
             extras: Arc::new(RwLock::new(Extras::default())),
             last_update: Arc::new(RwLock::new(None)),
             entity_ids: Arc::new(Vec::new()),
@@ -92,16 +120,26 @@ impl HaClient {
         }
     }
 
-    /// Collect entities that need extra API calls (forecasts, history) from the pages.
+    /// Collect entities that need extra API calls (forecasts, history,
+    /// statistics) from the pages.
     pub fn for_app(app: &AppConfig) -> Self {
         let mut client = Self::new(app.home_assistant.clone());
         let mut weather = Vec::new();
         let mut history = Vec::new();
+        let mut stats = Vec::new();
+        let mut images = Vec::new();
         let mut all = Vec::new();
         for card in app.pages.iter().flat_map(|p| p.cards.iter()) {
             match card {
                 CardConfig::Weather { entity_id, .. } => weather.push(entity_id.clone()),
                 CardConfig::Sensor { entity_id, show_graph: true, .. } => history.push(entity_id.clone()),
+                CardConfig::Image { entity_id, .. } => images.push(entity_id.clone()),
+                CardConfig::Statistics { entity_id, period, days, stat, .. } => stats.push(StatRequest {
+                    entity_id: entity_id.clone(),
+                    period: period.clone(),
+                    days: *days,
+                    stat: stat.clone(),
+                }),
                 _ => {}
             }
             match card {
@@ -110,19 +148,26 @@ impl HaClient {
                 | CardConfig::Switch { entity_id, .. }
                 | CardConfig::Climate { entity_id, .. }
                 | CardConfig::Sensor { entity_id, .. }
+                | CardConfig::Statistics { entity_id, .. }
+                | CardConfig::Image { entity_id, .. }
                 | CardConfig::MediaPlayer { entity_id, .. }
                 | CardConfig::Scene { entity_id, .. } => all.push(entity_id.clone()),
                 CardConfig::SensorGrid { sensors, .. } => all.extend(sensors.iter().map(|s| s.entity_id.clone())),
                 CardConfig::ScenesRow { scenes, .. } => all.extend(scenes.iter().map(|s| s.entity_id.clone())),
+                CardConfig::Heading { .. } => {}
             }
         }
         weather.dedup();
         history.dedup();
+        stats.dedup();
+        images.dedup();
         all.retain(|e| !e.is_empty());
         all.sort();
         all.dedup();
         client.weather_entities = Arc::new(weather);
         client.history_entities = Arc::new(history);
+        client.stat_requests = Arc::new(stats);
+        client.image_entities = Arc::new(images);
         client.entity_ids = Arc::new(all);
         client
     }
@@ -168,6 +213,9 @@ impl HaClient {
         }
         if let Some(h) = extras.history.get(&state.entity_id) {
             state.attributes.insert(HISTORY_ATTR.to_string(), serde_json::json!(h));
+        }
+        if let Some(stats) = extras.stats.get(&state.entity_id) {
+            state.attributes.insert(crate::ui::widgets::statistics_card::STATS_ATTR.to_string(), stats.clone());
         }
     }
 
@@ -228,18 +276,16 @@ impl HaClient {
         match result {
             Ok(raw_states) => {
                 self.refresh_extras().await;
-                let extras = self.extras.read().await;
-                let mut map = self.states.write().await;
-                map.clear();
                 // Keep only what the dashboard shows (or everything, e.g. in the setup tool).
                 let wanted = |id: &str| self.entity_ids.is_empty() || self.entity_ids.iter().any(|e| e == id);
+                let mut kept = Vec::new();
                 for mut state in raw_states.into_iter().filter(|s| wanted(&s.entity_id)) {
-                    if let Some(fc) = extras.forecasts.get(&state.entity_id) {
-                        state.attributes.insert("forecast".to_string(), fc.clone());
-                    }
-                    if let Some(h) = extras.history.get(&state.entity_id) {
-                        state.attributes.insert(HISTORY_ATTR.to_string(), serde_json::json!(h));
-                    }
+                    self.decorate(&mut state).await;
+                    kept.push(state);
+                }
+                let mut map = self.states.write().await;
+                map.clear();
+                for state in kept {
                     map.insert(state.entity_id.clone(), state);
                 }
                 *self.last_update.write().await = Some(chrono::Utc::now());
@@ -269,10 +315,10 @@ impl HaClient {
 
     /// Forecasts (HA 2024.3+ removed the `forecast` attribute) and sensor history.
     async fn refresh_extras(&self) {
-        let (need_forecast, need_history) = {
+        let (need_forecast, need_history, need_stats) = {
             let ex = self.extras.read().await;
             let stale = |t: Option<Instant>| t.map(|t| t.elapsed() > HISTORY_REFRESH).unwrap_or(true);
-            (stale(ex.last_forecast_fetch), stale(ex.last_history_fetch))
+            (stale(ex.last_forecast_fetch), stale(ex.last_history_fetch), stale(ex.last_stats_fetch))
         };
 
         if need_forecast && !self.weather_entities.is_empty() {
@@ -301,6 +347,132 @@ impl HaClient {
                 Err(e) => tracing::warn!("History fetch failed: {}", e),
             }
         }
+
+        if need_stats && !self.stat_requests.is_empty() {
+            match self.fetch_statistics().await {
+                Ok(stats) => {
+                    let mut ex = self.extras.write().await;
+                    ex.stats = stats;
+                    ex.last_stats_fetch = Some(Instant::now());
+                }
+                Err(e) => tracing::warn!("Statistics fetch failed: {}", e),
+            }
+        }
+
+        let need_images = self
+            .last_image_fetch
+            .lock()
+            .map(|t| t.map(|t| t.elapsed() > IMAGE_REFRESH).unwrap_or(true))
+            .unwrap_or(false);
+        if need_images && !self.image_entities.is_empty() {
+            let images = self.fetch_images().await;
+            let mut map = self.images.write().await;
+            for (entity, bytes) in images {
+                map.insert(entity, bytes);
+            }
+            if let Ok(mut t) = self.last_image_fetch.lock() {
+                *t = Some(Instant::now());
+            }
+        }
+    }
+
+    /// The pictures of the dashboard's `image` entities, fetched once in a
+    /// while: they are rendered by Home Assistant, not by this dashboard.
+    async fn fetch_images(&self) -> Vec<(String, Arc<Vec<u8>>)> {
+        let mut out = Vec::new();
+        for entity in self.image_entities.iter() {
+            let url = self.url(&format!("/api/image_proxy/{}", entity));
+            match self.client.get(url).send().await {
+                Ok(resp) if resp.status().is_success() => match resp.bytes().await {
+                    Ok(bytes) => out.push((entity.clone(), Arc::new(bytes.to_vec()))),
+                    Err(e) => tracing::warn!("Image {} could not be read: {}", entity, e),
+                },
+                Ok(resp) => tracing::warn!("Image {} failed: HTTP {}", entity, resp.status()),
+                Err(e) => tracing::warn!("Image {} failed: {}", entity, e),
+            }
+        }
+        out
+    }
+
+    /// Pictures for `image` cards, keyed by entity id.
+    pub async fn images(&self) -> HashMap<String, Arc<Vec<u8>>> {
+        self.images.read().await.clone()
+    }
+
+    /// Home Assistant statistics for the charts on the pages. These live on the
+    /// WebSocket API; the REST API has no equivalent.
+    async fn fetch_statistics(&self) -> Result<HashMap<String, Value>, Box<dyn std::error::Error + Send + Sync>> {
+        let end = chrono::Utc::now();
+        let stamp = |t: chrono::DateTime<chrono::Utc>| t.to_rfc3339_opts(chrono::SecondsFormat::Secs, true);
+        // One request per period/statistic combination: the command takes one
+        // period and one set of types for any number of entities.
+        let mut groups: std::collections::BTreeMap<(String, u32, String), Vec<String>> = std::collections::BTreeMap::new();
+        for req in self.stat_requests.iter() {
+            // Home Assistant accepts only these periods and types; a typo in the
+            // config would otherwise fail the whole batch and empty every chart.
+            if !matches!(req.period.as_str(), "5minute" | "hour" | "day" | "week" | "month" | "year") {
+                tracing::warn!("Unknown statistics period '{}', skipped", req.period);
+                continue;
+            }
+            if !matches!(req.stat.as_str(), "change" | "last_reset" | "max" | "mean" | "min" | "state" | "sum") {
+                tracing::warn!("Unknown statistics type '{}', skipped", req.stat);
+                continue;
+            }
+            groups
+                .entry((req.period.clone(), req.days, req.stat.clone()))
+                .or_default()
+                .push(req.entity_id.clone());
+        }
+
+        if groups.is_empty() {
+            return Ok(HashMap::new());
+        }
+        let mut out: HashMap<String, serde_json::Map<String, Value>> = HashMap::new();
+        let mut plan = Vec::new();
+        let mut payloads = Vec::new();
+        for ((period, days, stat), mut ids) in groups {
+            ids.sort();
+            ids.dedup();
+            let start = end - chrono::Duration::days(crate::ui::widgets::statistics_card::window_days(days) as i64);
+            let id = payloads.len() as u64 + 1;
+            payloads.push(serde_json::json!({
+                "id": id,
+                "type": "recorder/statistics_during_period",
+                "start_time": stamp(start),
+                "end_time": stamp(end),
+                "statistic_ids": ids,
+                "period": period.clone(),
+                "types": [stat.clone()],
+            }));
+            plan.push((period, days, stat));
+        }
+
+        let results = crate::ha::ws::requests(&self.config.url, &self.config.token, payloads).await?;
+        for ((period, days, stat), result) in plan.into_iter().zip(results) {
+            let Some(by_entity) = result.as_object() else { continue };
+            for (entity_id, rows) in by_entity {
+                let series: Vec<(f64, f64)> = rows
+                    .as_array()
+                    .map(|rows| {
+                        rows.iter()
+                            .filter_map(|row| {
+                                let start = row.get("start")?.as_f64()?;
+                                let value = row.get(stat.as_str())?.as_f64()?;
+                                Some((start, value))
+                            })
+                            .collect()
+                    })
+                    .unwrap_or_default();
+                if series.is_empty() {
+                    continue;
+                }
+                out.entry(entity_id.clone()).or_default().insert(
+                    crate::ui::widgets::statistics_card::stat_key(&period, days, &stat),
+                    serde_json::json!(series),
+                );
+            }
+        }
+        Ok(out.into_iter().map(|(entity, charts)| (entity, Value::Object(charts))).collect())
     }
 
     async fn fetch_forecast(&self, entity_id: &str) -> Result<Option<Value>, Box<dyn std::error::Error + Send + Sync>> {

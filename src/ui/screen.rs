@@ -11,6 +11,7 @@ use crate::ui::widgets::sensor_card::{sensor_grid_columns, sensor_grid_height, T
 use crate::ui::widgets::*;
 use chrono::{DateTime, Utc};
 use std::collections::HashMap;
+use std::sync::Arc;
 
 const GAP: f32 = 18.0;
 const BOTTOM_PAD: f32 = 28.0;
@@ -33,7 +34,10 @@ fn span_of(card: &CardConfig) -> Span {
         CardConfig::Weather { .. }
         | CardConfig::ScenesRow { .. }
         | CardConfig::SensorGrid { .. }
-        | CardConfig::MediaPlayer { .. } => Span::Full,
+        | CardConfig::MediaPlayer { .. }
+        | CardConfig::Heading { .. }
+        | CardConfig::Statistics { .. }
+        | CardConfig::Image { .. } => Span::Full,
         _ => Span::Half,
     }
 }
@@ -81,6 +85,12 @@ fn heights(card: &CardConfig, w: f32) -> (f32, f32) {
         }
         CardConfig::MediaPlayer { .. } => (180.0, 140.0),
         CardConfig::Scene { .. } => (112.0, 86.0),
+        CardConfig::Heading { .. } => (heading_card::HEADING_H, heading_card::HEADING_H - 12.0),
+        CardConfig::Statistics { .. } => (380.0, 300.0),
+        CardConfig::Image { title, .. } => {
+            let t = if title.is_some() { image_card::TITLE_H } else { 0.0 };
+            (t + 320.0, t + 220.0)
+        }
     }
 }
 
@@ -201,6 +211,11 @@ pub struct ScreenRenderer {
     pub battery_empty: bool,
     /// Pixels per UI unit on the last rendered canvas
     scale: f32,
+    /// Raw images of `image.*` entities, as fetched from Home Assistant
+    images: HashMap<String, Arc<Vec<u8>>>,
+    /// Decoded and scaled copies, so a redraw does not decode again. Keyed by
+    /// entity and box size; the `Arc` identity says whether the bytes changed.
+    image_cache: HashMap<String, (Arc<Vec<u8>>, Arc<tiny_skia::Pixmap>)>,
 }
 
 impl ScreenRenderer {
@@ -214,7 +229,32 @@ impl ScreenRenderer {
             sleep_until: None,
             battery_empty: false,
             scale: 1.0,
+            images: HashMap::new(),
+            image_cache: HashMap::new(),
         }
+    }
+
+    /// Pictures for the `image` cards; decoded lazily, only when they change.
+    pub fn set_images(&mut self, images: HashMap<String, Arc<Vec<u8>>>) {
+        self.images = images;
+    }
+
+    /// Decoded picture for one card, scaled to its box. `None` while it is
+    /// missing or cannot be decoded.
+    fn image_pixmap(&mut self, entity_id: &str, rect: Rect, titled: bool, scale: f32) -> Option<Arc<tiny_skia::Pixmap>> {
+        let bytes = self.images.get(entity_id)?.clone();
+        let area = image_card::picture_box(rect, titled);
+        let bw = ((area.w * scale).round() as i32).clamp(1, 4096) as u32;
+        let bh = ((area.h * scale).round() as i32).clamp(1, 4096) as u32;
+        let key = format!("{}@{}x{}", entity_id, bw, bh);
+        if let Some((cached, pixmap)) = self.image_cache.get(&key) {
+            if Arc::ptr_eq(cached, &bytes) {
+                return Some(pixmap.clone());
+            }
+        }
+        let pixmap = Arc::new(crate::display::canvas::fit_image(&bytes, bw, bh)?);
+        self.image_cache.insert(key, (bytes, pixmap.clone()));
+        Some(pixmap)
     }
 
     pub fn render(
@@ -268,8 +308,19 @@ impl ScreenRenderer {
         let placements = zones_for(&page.cards, w, h - reserve, header_bottom);
         self.hidden_cards = page.cards.len() - placements.len();
 
-        for (card, rect) in placements {
-            self.render_card(canvas, card, rect, states);
+        // Pictures are decoded before drawing: the widget only places them.
+        let scale = canvas.scale;
+        let prepared: Vec<Option<Arc<tiny_skia::Pixmap>>> = placements
+            .iter()
+            .map(|(card, rect)| match card {
+                CardConfig::Image { entity_id, title } => self.image_pixmap(entity_id, *rect, title.is_some(), scale),
+                _ => None,
+            })
+            .collect();
+
+        for (i, (card, rect)) in placements.into_iter().enumerate() {
+            let image = prepared.get(i).and_then(|p| p.as_deref());
+            self.render_card(canvas, card, rect, states, image);
         }
 
         if let Some(next) = self.sleep_until.clone() {
@@ -326,7 +377,14 @@ impl ScreenRenderer {
         }
     }
 
-    fn render_card(&mut self, canvas: &mut Canvas, card: &CardConfig, rect: Rect, states: &HashMap<String, EntityState>) {
+    fn render_card(
+        &mut self,
+        canvas: &mut Canvas,
+        card: &CardConfig,
+        rect: Rect,
+        states: &HashMap<String, EntityState>,
+        image: Option<&tiny_skia::Pixmap>,
+    ) {
         let theme = &self.theme;
         let targets = &mut self.targets;
         match card {
@@ -387,6 +445,23 @@ impl ScreenRenderer {
                 }];
                 render_scenes_row(canvas, theme, rect, None, &item, targets)
             }
+            CardConfig::Heading { title, icon } => render_heading_card(canvas, theme, rect, title, icon.as_deref()),
+            CardConfig::Statistics { entity_id, title, period, days, stat, unit } => render_statistics_card(
+                canvas,
+                theme,
+                rect,
+                entity_id,
+                states.get(entity_id),
+                title.as_deref(),
+                period,
+                *days,
+                stat,
+                unit.as_deref(),
+                targets,
+            ),
+            CardConfig::Image { entity_id, title } => {
+                render_image_card(canvas, theme, rect, entity_id, title.as_deref(), image, targets)
+            }
         }
     }
 
@@ -442,6 +517,44 @@ fn sleep_line(canvas: &Canvas, time: &str, max_w: f32, size: f32) -> (String, f3
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn renders_an_image_card_from_fetched_bytes() {
+        let mut config = AppConfig::default();
+        let page = &mut config.pages[0];
+        page.cards = vec![CardConfig::Image { entity_id: "image.chart".into(), title: Some("Prices".into()) }];
+
+        // A red PNG, as Home Assistant would serve it from /api/image_proxy
+        let mut img = image::RgbaImage::new(400, 200);
+        for px in img.pixels_mut() {
+            *px = image::Rgba([200, 30, 30, 255]);
+        }
+        let mut bytes = std::io::Cursor::new(Vec::new());
+        image::DynamicImage::ImageRgba8(img).write_to(&mut bytes, image::ImageFormat::Png).unwrap();
+
+        let mut images = HashMap::new();
+        images.insert("image.chart".to_string(), Arc::new(bytes.into_inner()));
+
+        let mut renderer = ScreenRenderer::new(&config);
+        renderer.set_images(images);
+        let mut canvas = Canvas::new(758, 1024);
+        renderer.render(&mut canvas, &config, 0, &HashMap::new(), false);
+
+        let data = canvas.raw_rgba_data();
+        let red = (0..758 * 1024)
+            .filter(|i| {
+                let p = i * 4;
+                data[p] > 150 && data[p + 1] < 90 && data[p + 2] < 90
+            })
+            .count();
+        assert!(red > 20_000, "{} red pixels: the picture is not drawn", red);
+
+        // Without the bytes the card still draws, with a placeholder
+        let mut renderer = ScreenRenderer::new(&config);
+        let mut canvas = Canvas::new(758, 1024);
+        renderer.render(&mut canvas, &config, 0, &HashMap::new(), false);
+        assert_eq!(renderer.hidden_cards, 0);
+    }
 
     #[test]
     fn sleep_note_shows_the_next_update_time_on_narrow_screens() {

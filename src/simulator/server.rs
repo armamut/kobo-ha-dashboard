@@ -89,6 +89,7 @@ async fn render_canvas_internal(state: &SimulatorState) -> Canvas {
 
     let mut renderer = state.renderer.write().await;
     renderer.last_update = state.ha_client.last_update().await;
+    renderer.set_images(state.ha_client.images().await);
     renderer.render(&mut canvas, &config, active_page, &states, is_live);
 
     canvas

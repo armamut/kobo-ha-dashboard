@@ -29,6 +29,8 @@ pub struct Theme {
     pub text_faint: Color,
     pub card_radius: f32,
     pub is_dark: bool,
+    /// Times and dates are shown in this timezone (the configured one).
+    pub utc_offset: chrono::FixedOffset,
 
     pub accent: Tone,
     /// Lights on / warm
@@ -53,6 +55,7 @@ impl Theme {
     pub fn from_config(config: &ThemeConfig) -> Self {
         let radius = config.card_corner_radius;
         let accent_solid = Color::from_hex(&config.accent_color);
+        let utc_offset = crate::ui::widgets::header::timezone(config);
 
         match config.mode.to_lowercase().as_str() {
             "dark" => {
@@ -69,6 +72,7 @@ impl Theme {
                     text_faint: Color::rgb(120, 126, 136),
                     card_radius: radius,
                     is_dark: true,
+                    utc_offset,
                     accent: tone(accent_solid),
                     warm: tone(Color::rgb(245, 166, 35)),
                     heat: tone(Color::rgb(239, 83, 80)),
@@ -98,6 +102,7 @@ impl Theme {
                     text_faint: Color::rgb(100, 100, 100),
                     card_radius: radius,
                     is_dark: false,
+                    utc_offset,
                     accent: tone,
                     warm: tone,
                     heat: tone,
@@ -127,6 +132,7 @@ impl Theme {
                     text_faint: Color::rgb(150, 138, 122),
                     card_radius: radius,
                     is_dark: false,
+                    utc_offset,
                     accent: tone(accent_solid),
                     warm: tone(Color::rgb(214, 125, 0)),
                     heat: tone(Color::rgb(196, 48, 43)),
@@ -159,6 +165,7 @@ impl Theme {
                     text_faint: Color::rgb(128, 136, 148),
                     card_radius: radius,
                     is_dark: false,
+                    utc_offset,
                     accent: tone(accent_solid),
                     warm: tone(Color::rgb(240, 140, 0)),
                     heat: tone(Color::rgb(220, 38, 38)),

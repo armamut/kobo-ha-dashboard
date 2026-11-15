@@ -182,8 +182,21 @@ design:
   buttons: "按钮"
   add: "+ 添加"
   remove: "移除"
+  heading_title: "标题"
+  stat_period: "周期"
+  stat_days: "天数"
+  stat_type: "数值"
+  period_day: "每天"
+  period_week: "每周"
+  period_month: "每月"
+  stat_change: "用量（变化）"
+  stat_mean: "平均值"
+  stat_min: "最小值"
+  stat_max: "最大值"
 
 card_types:
+  heading: "标题"
+  statistics: "统计图"
   weather: "天气"
   light: "灯光"
   switch: "开关"
@@ -193,6 +206,21 @@ card_types:
   media_player: "媒体播放器"
   scenes_row: "场景按钮"
   scene: "单个按钮"
+  image: "图片"
+
+lovelace:
+  title: "导入 Lovelace 面板"
+  hint: "以 Home Assistant 中的面板作为起点。卡片会转换为这个面板自己的卡片，放不下的页面会被拆分。"
+  import: "导入"
+  reload: "刷新列表"
+  loading: "正在读取面板。"
+  load_failed: "没有面板"
+  no_token: "请先连接 Home Assistant"
+  importing: "正在读取面板。"
+  imported: "已导入 {pages} 个页面、{cards} 张卡片。"
+  replaced: "已替换 {n} 个现有页面。"
+  skipped: "未导入（没有对应的卡片）："
+  skipped_item: "{card} ×{count}"
 
 preview:
   sleep: "显示睡眠画面"
@@ -259,6 +287,9 @@ install:
     done: "完成。请安全弹出 Kobo 并重启。"
 
 errors:
+  lovelace_no_token: "请先连接 Home Assistant：面板从那里读取。"
+  lovelace_strategy: "此面板由策略生成（例如默认的概览），卡片只存在于浏览器中。请选择带有自己视图的面板。"
+  lovelace_empty: "此面板没有 Kobo 可以显示的卡片。"
   save_failed: "无法保存：{error}"
   nm_failed: "无法安装 NickelMenu：{error}"
   nm_other_pending: "这台 Kobo 上已有另一个更新包（.kobo/KoboRoot.tgz, .kobo/Kobo.tgz）在等待。请弹出设备，让它重启后再试。"

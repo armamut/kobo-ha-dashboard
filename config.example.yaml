@@ -168,6 +168,30 @@ pages:
         title: "All off"
         icon: "power"
 
+      # A section title, like Lovelace's heading card
+      - type: "heading"
+        title: "Energy"
+        icon: "zap"
+
+      # Bar chart of Home Assistant's long-term statistics, like Lovelace's
+      # statistics-graph. period is "day", "week" or "month"; days is how far
+      # back the chart goes; stat is "change" (usage per period), "mean",
+      # "min" or "max".
+      - type: "statistics"
+        entity_id: "sensor.gas_meter_gas"
+        title: "Gas per day"
+        period: "day"
+        days: 14
+        stat: "change"
+        unit: "m³"
+
+      # A picture from a Home Assistant image entity: a chart or snapshot that
+      # Home Assistant renders itself. It is fetched every few hours; while it
+      # is missing the card shows "--".
+      - type: "image"
+        entity_id: "image.energy_prices_today"
+        title: "Electricity price today"
+
 # Available icons: lightbulb, lightbulb_on, power, plug, fan, thermometer, flame,
 # snowflake, droplet, wind, zap, sun, moon, cloud, home, sofa, bed, door, lock,
 # tv, music, coffee, washer, printer, battery, clock, layers, progress, play,

@@ -29,6 +29,84 @@ fn ws_url(base: &str) -> Option<String> {
     Some(format!("{}/api/websocket", rest))
 }
 
+/// One request over the WebSocket API: log in, send `payload` (which carries
+/// its own `id`) and wait for that result. Used for what the REST API does not
+/// offer, such as the Lovelace config and statistics.
+pub async fn request(config_url: &str, token: &str, payload: Value) -> Result<Value, BoxError> {
+    Ok(requests(config_url, token, vec![payload]).await?.pop().unwrap_or(Value::Null))
+}
+
+/// Several requests over one connection. Each payload carries its own `id`;
+/// the results come back in the same order. Opening a connection per request
+/// would mean a handshake per chart, and on the Kobo every one of those wakes
+/// the Wi-Fi radio.
+pub async fn requests(config_url: &str, token: &str, payloads: Vec<Value>) -> Result<Vec<Value>, BoxError> {
+    if payloads.is_empty() {
+        return Ok(Vec::new());
+    }
+    let url = ws_url(config_url).ok_or("Home Assistant URL must start with http:// or https://")?;
+    let (mut ws, _) = tokio::time::timeout(Duration::from_secs(15), tokio_tungstenite::connect_async(url.as_str()))
+        .await
+        .map_err(|_| "connection timed out")??;
+
+    loop {
+        let msg = next_json(&mut ws).await?;
+        match msg.get("type").and_then(|t| t.as_str()) {
+            Some("auth_required") => {
+                let auth = json!({ "type": "auth", "access_token": token.trim() });
+                ws.send(Message::Text(auth.to_string())).await?;
+            }
+            Some("auth_ok") => break,
+            Some("auth_invalid") => return Err("the access token was rejected".into()),
+            _ => {}
+        }
+    }
+
+    for payload in &payloads {
+        ws.send(Message::Text(payload.to_string())).await?;
+    }
+    // Every request needs its own numeric id, otherwise the answers cannot be
+    // matched and this would wait for a result that never comes.
+    let mut wanted = std::collections::HashSet::new();
+    for payload in &payloads {
+        let id = payload
+            .get("id")
+            .and_then(Value::as_u64)
+            .ok_or("every request needs a numeric id")?;
+        if !wanted.insert(id) {
+            return Err(format!("two requests share the id {}", id).into());
+        }
+    }
+    let mut answers: std::collections::HashMap<u64, Value> = std::collections::HashMap::new();
+    while wanted.iter().any(|id| !answers.contains_key(id)) {
+        let msg = next_json(&mut ws).await?;
+        if msg.get("type").and_then(|t| t.as_str()) != Some("result") {
+            continue;
+        }
+        if let Some(id) = msg.get("id").and_then(Value::as_u64) {
+            answers.insert(id, msg);
+        }
+    }
+    let _ = ws.close(None).await;
+    Ok(collect_results(payloads, answers)?)
+}
+
+fn collect_results(payloads: Vec<Value>, mut answers: std::collections::HashMap<u64, Value>) -> Result<Vec<Value>, BoxError> {
+    let mut out = Vec::with_capacity(payloads.len());
+    for payload in payloads {
+        let id = payload.get("id").and_then(Value::as_u64).unwrap_or(1);
+        let msg = answers.remove(&id).unwrap_or(Value::Null);
+        if msg.get("success").and_then(Value::as_bool) == Some(true) {
+            out.push(msg.get("result").cloned().unwrap_or(Value::Null));
+            continue;
+        }
+        let error = msg.get("error").cloned().unwrap_or(Value::Null);
+        let text = error.get("message").and_then(Value::as_str).map(str::to_string).unwrap_or_else(|| error.to_string());
+        return Err(format!("Home Assistant: {}", text).into());
+    }
+    Ok(out)
+}
+
 impl HaClient {
     /// Keep a live subscription to the dashboard's entities, reconnecting with
     /// backoff. `notify` gets a message after every change.
@@ -192,7 +270,7 @@ where
     S: StreamExt<Item = Result<Message, tokio_tungstenite::tungstenite::Error>> + Unpin,
 {
     loop {
-        match tokio::time::timeout(Duration::from_secs(15), ws.next()).await.map_err(|_| "no answer during login")? {
+        match tokio::time::timeout(Duration::from_secs(15), ws.next()).await.map_err(|_| "Home Assistant did not answer in time")? {
             Some(Ok(Message::Text(t))) => return Ok(serde_json::from_str(&t)?),
             Some(Ok(Message::Close(_))) | None => return Err("connection closed during login".into()),
             Some(Ok(_)) => continue,
@@ -212,6 +290,41 @@ mod tests {
         assert_eq!(ws_url("https://ha.example.com").as_deref(), Some("wss://ha.example.com/api/websocket"));
         assert_eq!(ws_url("http://192.168.1.10:8123/lovelace/0").as_deref(), Some("ws://192.168.1.10:8123/api/websocket"));
         assert_eq!(ws_url("ha.local"), None);
+    }
+
+    #[tokio::test]
+    async fn several_requests_share_a_connection_and_keep_their_order() {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let port = listener.local_addr().unwrap().port();
+        tokio::spawn(async move {
+            let (tcp, _) = listener.accept().await.unwrap();
+            let mut ws = tokio_tungstenite::accept_async(tcp).await.unwrap();
+            ws.send(Message::Text(json!({ "type": "auth_required" }).to_string())).await.unwrap();
+            let _ = ws.next().await;
+            ws.send(Message::Text(json!({ "type": "auth_ok" }).to_string())).await.unwrap();
+            let mut ids = Vec::new();
+            for _ in 0..2 {
+                if let Some(Ok(Message::Text(text))) = ws.next().await {
+                    let payload: Value = serde_json::from_str(&text).unwrap();
+                    ids.push(payload.get("id").and_then(Value::as_u64).unwrap());
+                }
+            }
+            // Answer in reverse: each result still belongs to its own request
+            for id in ids.into_iter().rev() {
+                let msg = json!({ "id": id, "type": "result", "success": true, "result": { "id": id } });
+                ws.send(Message::Text(msg.to_string())).await.unwrap();
+            }
+            while ws.next().await.is_some() {}
+        });
+
+        let out = requests(
+            &format!("http://127.0.0.1:{}", port),
+            "t",
+            vec![json!({ "id": 1, "type": "recorder/statistics_during_period" }), json!({ "id": 2, "type": "lovelace/config" })],
+        )
+        .await
+        .expect("both are answered");
+        assert_eq!(out, vec![json!({ "id": 1 }), json!({ "id": 2 })]);
     }
 
     #[tokio::test]

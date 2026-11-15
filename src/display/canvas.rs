@@ -4,7 +4,7 @@ use ab_glyph::{Font as _, ScaleFont as _};
 use fontdue::{Font, FontSettings};
 use std::path::PathBuf;
 use std::sync::{Arc, OnceLock, RwLock};
-use tiny_skia::{FillRule, LineCap, LineJoin, Paint, PathBuilder, Pixmap, Rect, Stroke, Transform};
+use tiny_skia::{FillRule, FilterQuality, IntSize, LineCap, LineJoin, Paint, PathBuilder, Pixmap, PixmapPaint, Rect, Stroke, Transform};
 
 static FONT_REGULAR_BYTES: &[u8] = include_bytes!("../../assets/fonts/Roboto-Regular.ttf");
 static FONT_BOLD_BYTES: &[u8] = include_bytes!("../../assets/fonts/Roboto-Bold.ttf");
@@ -116,6 +116,39 @@ pub fn ui_size(w: u32, h: u32) -> (f32, f32) {
     (w as f32 / s, h as f32 / s)
 }
 
+/// Decode a PNG or JPEG and scale it to fit a `box_w` x `box_h` box, keeping
+/// its aspect ratio. `None` when the bytes are not a decodable image.
+pub fn fit_image(bytes: &[u8], box_w: u32, box_h: u32) -> Option<Pixmap> {
+    if box_w == 0 || box_h == 0 {
+        return None;
+    }
+    let decoded = image::load_from_memory(bytes).ok()?.to_rgba8();
+    let (w, h) = decoded.dimensions();
+    if w == 0 || h == 0 {
+        return None;
+    }
+    let scale = (box_w as f32 / w as f32).min(box_h as f32 / h as f32);
+    let tw = ((w as f32 * scale).round() as u32).clamp(1, box_w);
+    let th = ((h as f32 * scale).round() as u32).clamp(1, box_h);
+    let scaled = if (tw, th) == (w, h) {
+        decoded
+    } else {
+        // Bilinear-ish: sharp enough for a chart on e-ink, cheap on the Kobo.
+        image::imageops::resize(&decoded, tw, th, image::imageops::FilterType::Triangle)
+    };
+    let mut data = scaled.into_raw();
+    // tiny-skia stores premultiplied alpha; a chart is opaque, but be safe.
+    for px in data.chunks_exact_mut(4) {
+        if px[3] < 255 {
+            let a = px[3] as u32;
+            for c in px.iter_mut().take(3) {
+                *c = ((*c as u32 * a + 127) / 255) as u8;
+            }
+        }
+    }
+    Pixmap::from_vec(data, IntSize::from_wh(tw, th)?)
+}
+
 pub struct Canvas {
     /// Size in pixels; drawing calls take UI units, see `ui_size`.
     pub width: u32,
@@ -152,6 +185,16 @@ impl Canvas {
 
     pub fn clear(&mut self, color: Color) {
         self.pixmap.fill(color.to_skia());
+    }
+
+    /// Draw an image (already decoded, in device pixels) at a UI-unit position.
+    pub fn draw_image(&mut self, image: &Pixmap, x: f32, y: f32) {
+        let paint = PixmapPaint {
+            quality: FilterQuality::Bilinear,
+            ..Default::default()
+        };
+        let t = Transform::from_translate(x * self.scale, y * self.scale);
+        self.pixmap.draw_pixmap(0, 0, image.as_ref(), &paint, t, None);
     }
 
     pub fn fill_rect(&mut self, x: f32, y: f32, w: f32, h: f32, color: Color) {

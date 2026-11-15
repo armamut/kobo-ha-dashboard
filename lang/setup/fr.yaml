@@ -182,8 +182,21 @@ design:
   buttons: "Boutons"
   add: "+ Ajouter"
   remove: "Retirer"
+  heading_title: "Titre de section"
+  stat_period: "Période"
+  stat_days: "Nombre de jours"
+  stat_type: "Valeur"
+  period_day: "Par jour"
+  period_week: "Par semaine"
+  period_month: "Par mois"
+  stat_change: "Consommation (écart)"
+  stat_mean: "Moyenne"
+  stat_min: "Minimum"
+  stat_max: "Maximum"
 
 card_types:
+  heading: "Titre de section"
+  statistics: "Graphique de statistiques"
   weather: "Météo"
   light: "Lumière"
   switch: "Interrupteur"
@@ -193,6 +206,21 @@ card_types:
   media_player: "Lecteur multimédia"
   scenes_row: "Boutons de scène"
   scene: "Bouton unique"
+  image: "Image"
+
+lovelace:
+  title: "Importer un tableau de bord Lovelace"
+  hint: "Prenez un tableau de bord de Home Assistant comme point de départ. Ses cartes sont traduites en cartes de ce tableau de bord, et une page qui ne tient pas à l'écran est découpée."
+  import: "Importer"
+  reload: "Recharger la liste"
+  loading: "Lecture des tableaux de bord."
+  load_failed: "Aucun tableau de bord"
+  no_token: "Connectez d'abord Home Assistant"
+  importing: "Lecture du tableau de bord."
+  imported: "{pages} pages avec {cards} cartes importées."
+  replaced: "{n} pages existantes remplacées."
+  skipped: "Non importé (aucune carte correspondante) :"
+  skipped_item: "{card} ×{count}"
 
 preview:
   sleep: "Afficher l'écran de veille"
@@ -259,6 +287,9 @@ install:
     done: "Terminé. Éjectez la Kobo en toute sécurité et redémarrez-la."
 
 errors:
+  lovelace_no_token: "Connectez d'abord Home Assistant : le tableau de bord est lu là-bas."
+  lovelace_strategy: "Ce tableau de bord est généré par une stratégie (comme la Vue d'ensemble par défaut) : ses cartes n'existent que dans le navigateur. Choisissez un tableau de bord avec ses propres vues."
+  lovelace_empty: "Ce tableau de bord n'a aucune carte que le Kobo peut afficher."
   save_failed: "Impossible d'enregistrer : {error}"
   nm_failed: "Impossible d'installer NickelMenu : {error}"
   nm_other_pending: "Un autre paquet de mise à jour (.kobo/KoboRoot.tgz, .kobo/Kobo.tgz) attend déjà sur cette Kobo. Éjectez-la, laissez-la redémarrer, puis réessayez."

@@ -182,8 +182,21 @@ design:
   buttons: "ボタン"
   add: "+ 追加"
   remove: "削除"
+  heading_title: "見出し"
+  stat_period: "期間"
+  stat_days: "日数"
+  stat_type: "値"
+  period_day: "日ごと"
+  period_week: "週ごと"
+  period_month: "月ごと"
+  stat_change: "使用量（差分）"
+  stat_mean: "平均"
+  stat_min: "最小"
+  stat_max: "最大"
 
 card_types:
+  heading: "見出し"
+  statistics: "統計グラフ"
   weather: "天気"
   light: "照明"
   switch: "スイッチ"
@@ -193,6 +206,21 @@ card_types:
   media_player: "メディアプレーヤー"
   scenes_row: "シーンボタン"
   scene: "単独ボタン"
+  image: "画像"
+
+lovelace:
+  title: "Lovelace ダッシュボードを読み込む"
+  hint: "Home Assistant のダッシュボードを出発点にします。カードはこのダッシュボードのカードに変換され、画面に収まらないページは分割されます。"
+  import: "読み込む"
+  reload: "一覧を更新"
+  loading: "ダッシュボードを読み込み中。"
+  load_failed: "ダッシュボードがありません"
+  no_token: "先に Home Assistant に接続してください"
+  importing: "ダッシュボードを読み込み中。"
+  imported: "{pages} ページ、{cards} カードを読み込みました。"
+  replaced: "{n} 件の既存ページを置き換えました。"
+  skipped: "読み込めませんでした（対応するカードがありません）:"
+  skipped_item: "{card} ×{count}"
 
 preview:
   sleep: "スリープ画面を表示"
@@ -259,6 +287,9 @@ install:
     done: "完了しました。Kobo を安全に取り外して再起動してください。"
 
 errors:
+  lovelace_no_token: "先に Home Assistant に接続してください。ダッシュボードはそこから読み込みます。"
+  lovelace_strategy: "このダッシュボードはストラテジー（既定の概要など）で生成されるため、カードはブラウザー内にしかありません。独自のビューを持つダッシュボードを選んでください。"
+  lovelace_empty: "このダッシュボードには Kobo で表示できるカードがありません。"
   save_failed: "保存できませんでした: {error}"
   nm_failed: "NickelMenu をインストールできませんでした: {error}"
   nm_other_pending: "この Kobo には別のアップデートパッケージ（.kobo/KoboRoot.tgz, .kobo/Kobo.tgz）がすでに待機しています。取り外して再起動させてから、もう一度お試しください。"

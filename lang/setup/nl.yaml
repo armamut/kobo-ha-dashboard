@@ -182,8 +182,21 @@ design:
   buttons: "Knoppen"
   add: "+ Toevoegen"
   remove: "Verwijderen"
+  heading_title: "Kop"
+  stat_period: "Periode"
+  stat_days: "Aantal dagen"
+  stat_type: "Waarde"
+  period_day: "Per dag"
+  period_week: "Per week"
+  period_month: "Per maand"
+  stat_change: "Verbruik (verschil)"
+  stat_mean: "Gemiddelde"
+  stat_min: "Minimum"
+  stat_max: "Maximum"
 
 card_types:
+  heading: "Kop"
+  statistics: "Statistiekgrafiek"
   weather: "Weer"
   light: "Lamp"
   switch: "Schakelaar"
@@ -193,6 +206,21 @@ card_types:
   media_player: "Mediaspeler"
   scenes_row: "Scèneknoppen"
   scene: "Losse knop"
+  image: "Afbeelding"
+
+lovelace:
+  title: "Lovelace-dashboard importeren"
+  hint: "Neem een dashboard uit Home Assistant als uitgangspunt. De kaarten worden omgezet naar de kaarten van dit dashboard en een pagina die niet op het scherm past wordt opgesplitst."
+  import: "Importeren"
+  reload: "Lijst vernieuwen"
+  loading: "Dashboards lezen."
+  load_failed: "Geen dashboards"
+  no_token: "Verbind eerst Home Assistant"
+  importing: "Dashboard lezen."
+  imported: "{pages} pagina's met {cards} kaarten geïmporteerd."
+  replaced: "{n} bestaande pagina's vervangen."
+  skipped: "Niet geïmporteerd (geen passende kaart):"
+  skipped_item: "{card} ×{count}"
 
 preview:
   sleep: "Slaapscherm tonen"
@@ -259,6 +287,9 @@ install:
     done: "Klaar. Werp de Kobo veilig uit en start hem opnieuw."
 
 errors:
+  lovelace_no_token: "Verbind eerst Home Assistant: het dashboard wordt daar gelezen."
+  lovelace_strategy: "Dit dashboard wordt door een strategy gemaakt (zoals het standaard Overzicht), dus de kaarten bestaan alleen in de browser. Kies een dashboard met eigen weergaven."
+  lovelace_empty: "Dit dashboard heeft geen kaarten die de Kobo kan tonen."
   save_failed: "Opslaan mislukt: {error}"
   nm_failed: "NickelMenu kon niet worden geïnstalleerd: {error}"
   nm_other_pending: "Er wacht al een ander updatepakket (.kobo/KoboRoot.tgz, .kobo/Kobo.tgz) op deze Kobo. Werp hem uit, laat hem herstarten en probeer het opnieuw."

@@ -27,12 +27,18 @@ pub fn now_local(theme_cfg: &ThemeConfig) -> DateTime<FixedOffset> {
     to_local(Utc::now(), theme_cfg)
 }
 
-pub fn to_local(t: DateTime<Utc>, theme_cfg: &ThemeConfig) -> DateTime<FixedOffset> {
-    let offset = theme_cfg
+/// The offset the dashboard shows times in: the configured one, or this
+/// machine's when none is set.
+pub fn timezone(theme_cfg: &ThemeConfig) -> FixedOffset {
+    theme_cfg
         .utc_offset
         .as_deref()
         .and_then(parse_offset)
-        .unwrap_or_else(|| *Local::now().offset());
+        .unwrap_or_else(|| *Local::now().offset())
+}
+
+pub fn to_local(t: DateTime<Utc>, theme_cfg: &ThemeConfig) -> DateTime<FixedOffset> {
+    let offset = timezone(theme_cfg);
     t.with_timezone(&offset)
 }
 

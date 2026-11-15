@@ -182,8 +182,21 @@ design:
   buttons: "Przyciski"
   add: "+ Dodaj"
   remove: "Usuń"
+  heading_title: "Nagłówek"
+  stat_period: "Okres"
+  stat_days: "Liczba dni"
+  stat_type: "Wartość"
+  period_day: "Na dzień"
+  period_week: "Na tydzień"
+  period_month: "Na miesiąc"
+  stat_change: "Zużycie (zmiana)"
+  stat_mean: "Średnia"
+  stat_min: "Minimum"
+  stat_max: "Maksimum"
 
 card_types:
+  heading: "Nagłówek"
+  statistics: "Wykres statystyk"
   weather: "Pogoda"
   light: "Światło"
   switch: "Przełącznik"
@@ -193,6 +206,21 @@ card_types:
   media_player: "Odtwarzacz multimediów"
   scenes_row: "Przyciski scen"
   scene: "Pojedynczy przycisk"
+  image: "Obraz"
+
+lovelace:
+  title: "Importuj pulpit Lovelace"
+  hint: "Użyj pulpitu z Home Assistant jako punktu wyjścia. Karty są tłumaczone na karty tego pulpitu, a strona, która nie mieści się na ekranie, jest dzielona."
+  import: "Importuj"
+  reload: "Odśwież listę"
+  loading: "Odczyt pulpitów."
+  load_failed: "Brak pulpitów"
+  no_token: "Najpierw połącz Home Assistant"
+  importing: "Odczyt pulpitu."
+  imported: "Zaimportowano {pages} stron z {cards} kartami."
+  replaced: "Zastąpiono {n} istniejących stron."
+  skipped: "Nie zaimportowano (brak pasującej karty):"
+  skipped_item: "{card} ×{count}"
 
 preview:
   sleep: "Pokaż ekran uśpienia"
@@ -259,6 +287,9 @@ install:
     done: "Gotowe. Bezpiecznie wysuń Kobo i uruchom je ponownie."
 
 errors:
+  lovelace_no_token: "Najpierw połącz Home Assistant: pulpit jest z niego odczytywany."
+  lovelace_strategy: "Ten pulpit jest tworzony przez strategię (jak domyślny Przegląd), więc jego karty istnieją tylko w przeglądarce. Wybierz pulpit z własnymi widokami."
+  lovelace_empty: "Ten pulpit nie ma kart, które Kobo może pokazać."
   save_failed: "Nie udało się zapisać: {error}"
   nm_failed: "Nie udało się zainstalować NickelMenu: {error}"
   nm_other_pending: "Na tym Kobo czeka już inny pakiet aktualizacji (.kobo/KoboRoot.tgz, .kobo/Kobo.tgz). Wysuń je, pozwól mu się uruchomić ponownie i spróbuj jeszcze raz."

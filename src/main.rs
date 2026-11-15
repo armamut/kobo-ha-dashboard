@@ -964,6 +964,7 @@ async fn redraw(renderer: &mut ScreenRenderer, canvas: &mut Canvas, config: &App
     let states = ha.get_all_states().await;
     let is_live = ha.is_connected().await;
     renderer.last_update = ha.last_update().await;
+    renderer.set_images(ha.images().await);
     renderer.render(canvas, config, page, &states, is_live);
 }
 

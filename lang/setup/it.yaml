@@ -182,8 +182,21 @@ design:
   buttons: "Pulsanti"
   add: "+ Aggiungi"
   remove: "Rimuovi"
+  heading_title: "Titolo di sezione"
+  stat_period: "Periodo"
+  stat_days: "Numero di giorni"
+  stat_type: "Valore"
+  period_day: "Al giorno"
+  period_week: "Alla settimana"
+  period_month: "Al mese"
+  stat_change: "Consumo (differenza)"
+  stat_mean: "Media"
+  stat_min: "Minimo"
+  stat_max: "Massimo"
 
 card_types:
+  heading: "Titolo di sezione"
+  statistics: "Grafico statistiche"
   weather: "Meteo"
   light: "Luce"
   switch: "Interruttore"
@@ -193,6 +206,21 @@ card_types:
   media_player: "Lettore multimediale"
   scenes_row: "Pulsanti scena"
   scene: "Pulsante singolo"
+  image: "Immagine"
+
+lovelace:
+  title: "Importa una dashboard Lovelace"
+  hint: "Prendi una dashboard di Home Assistant come punto di partenza. Le sue schede vengono tradotte nelle schede di questa dashboard e una pagina che non entra nello schermo viene divisa."
+  import: "Importa"
+  reload: "Ricarica elenco"
+  loading: "Lettura delle dashboard."
+  load_failed: "Nessuna dashboard"
+  no_token: "Collega prima Home Assistant"
+  importing: "Lettura della dashboard."
+  imported: "Importate {pages} pagine con {cards} schede."
+  replaced: "Sostituite {n} pagine esistenti."
+  skipped: "Non importato (nessuna scheda corrispondente):"
+  skipped_item: "{card} ×{count}"
 
 preview:
   sleep: "Mostra la schermata di sospensione"
@@ -259,6 +287,9 @@ install:
     done: "Fatto. Espelli il Kobo in sicurezza e riavvialo."
 
 errors:
+  lovelace_no_token: "Collega prima Home Assistant: la dashboard viene letta da lì."
+  lovelace_strategy: "Questa dashboard è generata da una strategia (come la Panoramica predefinita), quindi le sue schede esistono solo nel browser. Scegli una dashboard con viste proprie."
+  lovelace_empty: "Questa dashboard non ha schede che il Kobo possa mostrare."
   save_failed: "Impossibile salvare: {error}"
   nm_failed: "Impossibile installare NickelMenu: {error}"
   nm_other_pending: "Su questo Kobo è già in attesa un altro pacchetto di aggiornamento (.kobo/KoboRoot.tgz, .kobo/Kobo.tgz). Espellilo, lascialo riavviare e riprova."

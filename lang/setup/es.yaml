@@ -182,8 +182,21 @@ design:
   buttons: "Botones"
   add: "+ Añadir"
   remove: "Quitar"
+  heading_title: "Título de sección"
+  stat_period: "Periodo"
+  stat_days: "Número de días"
+  stat_type: "Valor"
+  period_day: "Por día"
+  period_week: "Por semana"
+  period_month: "Por mes"
+  stat_change: "Consumo (cambio)"
+  stat_mean: "Media"
+  stat_min: "Mínimo"
+  stat_max: "Máximo"
 
 card_types:
+  heading: "Título de sección"
+  statistics: "Gráfico de estadísticas"
   weather: "Tiempo"
   light: "Luz"
   switch: "Interruptor"
@@ -193,6 +206,21 @@ card_types:
   media_player: "Reproductor multimedia"
   scenes_row: "Botones de escena"
   scene: "Botón único"
+  image: "Imagen"
+
+lovelace:
+  title: "Importar un panel de Lovelace"
+  hint: "Usa un panel de Home Assistant como punto de partida. Sus tarjetas se traducen a las tarjetas de este panel, y una página que no cabe en la pantalla se divide."
+  import: "Importar"
+  reload: "Recargar lista"
+  loading: "Leyendo paneles."
+  load_failed: "No hay paneles"
+  no_token: "Conecta Home Assistant primero"
+  importing: "Leyendo el panel."
+  imported: "Importadas {pages} páginas con {cards} tarjetas."
+  replaced: "Se reemplazaron {n} páginas existentes."
+  skipped: "No importado (sin tarjeta equivalente):"
+  skipped_item: "{card} ×{count}"
 
 preview:
   sleep: "Mostrar la pantalla de reposo"
@@ -259,6 +287,9 @@ install:
     done: "Listo. Expulsa el Kobo de forma segura y reinícialo."
 
 errors:
+  lovelace_no_token: "Conecta Home Assistant primero: el panel se lee desde allí."
+  lovelace_strategy: "Este panel lo genera una estrategia (como el panel Resumen predeterminado), así que sus tarjetas solo existen en el navegador. Elige un panel con sus propias vistas."
+  lovelace_empty: "Este panel no tiene tarjetas que el Kobo pueda mostrar."
   save_failed: "No se pudo guardar: {error}"
   nm_failed: "No se pudo instalar NickelMenu: {error}"
   nm_other_pending: "Ya hay otro paquete de actualización (.kobo/KoboRoot.tgz, .kobo/Kobo.tgz) esperando en este Kobo. Expúlsalo, deja que se reinicie y vuelve a intentarlo."

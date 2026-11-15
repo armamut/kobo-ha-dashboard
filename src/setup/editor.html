@@ -367,6 +367,17 @@ a.btn.primary { color: var(--accent-ink); }
   <!-- STEP 2 -->
   <div id="step-design" class="step hidden">
     <div class="card">
+      <h2 data-i18n="lovelace.title"></h2>
+      <p class="hint" data-i18n="lovelace.hint"></p>
+      <div class="row">
+        <select id="lovelaceDash" style="width:auto;min-width:220px"></select>
+        <button class="btn small primary" id="lovelaceImport" data-i18n="lovelace.import"></button>
+        <button class="btn small" id="lovelaceReload" data-i18n="lovelace.reload"></button>
+      </div>
+      <div id="lovelaceResult"></div>
+    </div>
+
+    <div class="card">
       <div class="row" style="margin-bottom:10px">
         <h2 style="margin:0" data-i18n="design.pages"></h2>
         <span class="spacer"></span>
@@ -496,8 +507,8 @@ async function setUiLang(code) {
 }
 
 // Card schemas: which entity domains fit, and which fields to edit.
-const TOGGLE_DOMAINS = ["switch", "fan", "input_boolean", "automation", "light", "cover", "climate", "media_player"];
-const SENSOR_DOMAINS = ["sensor", "binary_sensor", "input_number", "number", "counter", "input_text", "input_select", "select"];
+const TOGGLE_DOMAINS = ["switch", "fan", "input_boolean", "automation", "light", "cover", "climate", "media_player", "humidifier", "siren"];
+const SENSOR_DOMAINS = ["sensor", "binary_sensor", "input_number", "number", "counter", "input_text", "input_select", "select", "text"];
 const ACTION_DOMAINS = ["scene", "script", "button", "input_button", "switch", "light", "input_boolean", "automation"];
 const CARD_TYPES = {
   weather: { icon: "sun", domains: ["weather"], defaults: { forecast_days: 5 },
@@ -516,6 +527,15 @@ const CARD_TYPES = {
     fields: [["title", "text", "design.title_optional"], ["scenes", "list", "design.buttons", { max: 6, domains: ACTION_DOMAINS, item: "scene" }]] },
   scene: { icon: "play", domains: ACTION_DOMAINS, defaults: { title: "" },
     fields: [["entity_id"], ["title", "text", "design.label"], ["icon"]] },
+  image: { icon: "progress", domains: ["image"], fields: [["entity_id"], ["title", "text", "design.title_optional"]] },
+  heading: { icon: "layers", fields: [["title", "text", "design.heading_title"], ["icon"]] },
+  statistics: { icon: "progress", domains: ["sensor", "counter", "input_number", "number"],
+    defaults: { period: "day", days: 14, stat: "change" },
+    fields: [["entity_id"], ["title", "text", "design.title_optional"],
+      ["period", "select", "design.stat_period", { options: ["day", "week", "month"], label: "design.period_" }],
+      ["stat", "select", "design.stat_type", { options: ["change", "mean", "min", "max"], label: "design.stat_" }],
+      ["days", "number", "design.stat_days", { min: 2, max: 400 }],
+      ["unit", "text", "design.unit_optional"]] },
 };
 const typeLabel = (type) => T("card_types." + type);
 
@@ -671,7 +691,7 @@ function setStep(step) {
   document.querySelectorAll("nav.steps button").forEach((b) => b.classList.toggle("active", b.dataset.step === step));
   document.querySelectorAll(".step").forEach((s) => s.classList.toggle("hidden", s.id !== "step-" + step));
   clearInterval(kobosTimer);
-  if (step === "design") renderDesign();
+  if (step === "design") { renderDesign(); loadDashboards(); }
   if (step === "install") { scanKobos(); kobosTimer = setInterval(scanKobos, 4000); }
   window.scrollTo({ top: 0 });
   history.replaceState(null, "", "#" + step);
@@ -922,6 +942,65 @@ function renderCardTypes() {
   if (current) sel.value = current;
 }
 
+// ---------- Lovelace import ----------
+// The cards live in Home Assistant; the setup tool reads them once and turns
+// them into native pages here.
+let dashboards = null;
+async function loadDashboards(force = false) {
+  const sel = $("lovelaceDash");
+  if (!cfg || !cfg.home_assistant.token) {
+    sel.replaceChildren(el("option", {}, T("lovelace.no_token")));
+    sel.disabled = true;
+    return;
+  }
+  if (dashboards && !force) return;
+  sel.disabled = true;
+  sel.replaceChildren(el("option", {}, T("lovelace.loading")));
+  try {
+    dashboards = await api("/api/lovelace/dashboards");
+    sel.replaceChildren(...dashboards.map((d) => el("option", { value: d.url_path }, d.title || d.url_path || "Overview")));
+    sel.disabled = false;
+  } catch (e) {
+    dashboards = null;
+    sel.replaceChildren(el("option", {}, T("lovelace.load_failed")));
+    $("lovelaceResult").replaceChildren(el("div", { class: "notice err" }, e.message));
+  }
+}
+
+async function importLovelace() {
+  const box = $("lovelaceResult");
+  const btn = $("lovelaceImport");
+  btn.disabled = true;
+  box.replaceChildren(el("div", { class: "notice" }, T("lovelace.importing")));
+  try {
+    const r = await api("/api/lovelace/import", { method: "POST", body: { url_path: $("lovelaceDash").value } });
+    recordPending();
+    // A page that is already here (same id) is replaced, the rest is appended;
+    // importing the same dashboard twice does not duplicate pages.
+    let replaced = 0;
+    for (const p of r.pages) {
+      const i = cfg.pages.findIndex((x) => x.id === p.id);
+      if (i >= 0) { cfg.pages[i] = p; replaced += 1; } else cfg.pages.push(p);
+    }
+    const cards = r.pages.reduce((n, p) => n + p.cards.length, 0);
+    const parts = [el("div", { class: "notice ok" }, T("lovelace.imported", { pages: r.pages.length, cards }))];
+    if (replaced) parts.push(el("div", { class: "notice" }, T("lovelace.replaced", { n: replaced })));
+    if (r.skipped.length) {
+      parts.push(el("div", { class: "notice warn" },
+        el("div", {}, T("lovelace.skipped")),
+        el("ul", {}, r.skipped.map((s) => el("li", {}, T("lovelace.skipped_item", { card: s.card, count: s.count }))))));
+    }
+    box.replaceChildren(...parts);
+    page = Math.max(0, cfg.pages.findIndex((p) => p.id === r.pages[0].id));
+    renderDesign();
+    sync();
+  } catch (e) {
+    box.replaceChildren(el("div", { class: "notice err" }, e.message));
+  } finally {
+    btn.disabled = false;
+  }
+}
+
 function renderDesign() {
   if (!cfg) return;
   if (page >= cfg.pages.length) page = Math.max(0, cfg.pages.length - 1);
@@ -1079,10 +1158,14 @@ function cardForm(c) {
       const n = el("input", { type: "number", value: c[key] ?? "", min: opts.min, max: opts.max, step: opts.step || 1 });
       n.onchange = () => { c[key] = parseFloat(n.value) || schema.defaults[key]; sync(); };
       form.append(el("label", { class: "field" }, T(label), n));
+    } else if (kind === "select") {
+      const sel = el("select", { onchange: () => { c[key] = sel.value; sync(); } },
+        (opts.options || []).map((v) => el("option", { value: v, selected: v === c[key] }, T((opts.label || "design.opt_") + v))));
+      form.append(el("label", { class: "field" }, T(label), sel));
     } else if (kind === "list") {
       form.append(listEditor(c, key, T(label), opts));
     } else {
-      const placeholder = key === "title" && c.type !== "scene" ? T("design.title_auto") : "";
+      const placeholder = key === "title" && c.type !== "scene" && c.type !== "heading" ? T("design.title_auto") : "";
       const t = el("input", { type: "text", value: c[key] || "", placeholder });
       t.oninput = () => { if (t.value) c[key] = t.value; else if (key === "title" && c.type === "scene") c[key] = ""; else delete c[key]; renderCardsSoon(); sync(); };
       const text = label ? T(label) : key === "title" ? T("design.title") : key === "subtitle" ? T("design.subtitle") : key;
@@ -1326,6 +1409,8 @@ async function boot() {
 
   document.querySelectorAll("nav.steps button").forEach((b) => (b.onclick = () => setStep(b.dataset.step)));
   $("addCard").onclick = addCard;
+  $("lovelaceImport").onclick = importLovelace;
+  $("lovelaceReload").onclick = () => loadDashboards(true);
   $("addPage").onclick = () => {
     cfg.pages.push({ id: "page" + (cfg.pages.length + 1), title: T("design.new_page"), icon: "home", cards: [] });
     page = cfg.pages.length - 1;

@@ -182,8 +182,21 @@ design:
   buttons: "Botões"
   add: "+ Adicionar"
   remove: "Remover"
+  heading_title: "Título de secção"
+  stat_period: "Período"
+  stat_days: "Número de dias"
+  stat_type: "Valor"
+  period_day: "Por dia"
+  period_week: "Por semana"
+  period_month: "Por mês"
+  stat_change: "Consumo (variação)"
+  stat_mean: "Média"
+  stat_min: "Mínimo"
+  stat_max: "Máximo"
 
 card_types:
+  heading: "Título de secção"
+  statistics: "Gráfico de estatísticas"
   weather: "Clima"
   light: "Luz"
   switch: "Interruptor"
@@ -193,6 +206,21 @@ card_types:
   media_player: "Reprodutor de mídia"
   scenes_row: "Botões de cena"
   scene: "Botão único"
+  image: "Imagem"
+
+lovelace:
+  title: "Importar um painel Lovelace"
+  hint: "Use um painel do Home Assistant como ponto de partida. Os cartões são traduzidos para os cartões deste painel e uma página que não cabe no ecrã é dividida."
+  import: "Importar"
+  reload: "Recarregar lista"
+  loading: "A ler painéis."
+  load_failed: "Sem painéis"
+  no_token: "Ligue primeiro o Home Assistant"
+  importing: "A ler o painel."
+  imported: "Importadas {pages} páginas com {cards} cartões."
+  replaced: "Substituídas {n} páginas existentes."
+  skipped: "Não importado (sem cartão correspondente):"
+  skipped_item: "{card} ×{count}"
 
 preview:
   sleep: "Mostrar a tela de suspensão"
@@ -259,6 +287,9 @@ install:
     done: "Pronto. Ejete o Kobo com segurança e reinicie-o."
 
 errors:
+  lovelace_no_token: "Ligue primeiro o Home Assistant: o painel é lido a partir de lá."
+  lovelace_strategy: "Este painel é gerado por uma estratégia (como a Vista geral predefinida), por isso os cartões só existem no navegador. Escolha um painel com vistas próprias."
+  lovelace_empty: "Este painel não tem cartões que o Kobo possa mostrar."
   save_failed: "Não foi possível salvar: {error}"
   nm_failed: "Não foi possível instalar o NickelMenu: {error}"
   nm_other_pending: "Já existe outro pacote de atualização (.kobo/KoboRoot.tgz, .kobo/Kobo.tgz) aguardando neste Kobo. Ejete-o, deixe-o reiniciar e tente novamente."

@@ -401,6 +401,50 @@ pub enum CardConfig {
         title: Option<String>,
         scenes: Vec<SceneItemConfig>,
     },
+    /// Section title, as a Lovelace `heading` card
+    #[serde(rename = "heading")]
+    Heading {
+        #[serde(default)]
+        title: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        icon: Option<String>,
+    },
+    /// Bar chart of Home Assistant statistics, as a Lovelace `statistics-graph`
+    #[serde(rename = "statistics")]
+    Statistics {
+        entity_id: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        title: Option<String>,
+        /// "day", "week" or "month"
+        #[serde(default = "default_stat_period")]
+        period: String,
+        /// How far back the chart goes
+        #[serde(default = "default_stat_days")]
+        days: u32,
+        /// "change" (usage per period) or "mean" (average per period)
+        #[serde(default = "default_stat_type")]
+        stat: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        unit: Option<String>,
+    },
+    /// Picture from a Home Assistant `image` entity, as a Lovelace `picture`
+    /// card with `image_entity` (or an `image` card).
+    #[serde(rename = "image")]
+    Image {
+        entity_id: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        title: Option<String>,
+    },
+}
+
+fn default_stat_period() -> String {
+    "day".to_string()
+}
+fn default_stat_days() -> u32 {
+    14
+}
+fn default_stat_type() -> String {
+    "change".to_string()
 }
 
 fn default_forecast_days() -> usize {
