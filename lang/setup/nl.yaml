@@ -58,6 +58,9 @@ connect:
   connected: "Verbonden met {name}{version}."
   suggested: "Voorstel: {url}"
   use_this: "Gebruiken"
+  report_battery: "Batterijniveau van de Kobo naar Home Assistant sturen"
+  battery_entity: "Sensor-entiteit"
+  battery_hint: "Maakt een batterijsensor in Home Assistant, bijvoorbeeld om een slimme stekker te schakelen voor het opladen. Hij wordt om de paar minuten bijgewerkt en meteen als de kabel erin of eruit gaat; in slaapstand bij elke verversing. Er is een token van een beheerder nodig; na een herstart van Home Assistant is hij er bij de volgende update weer."
   display_title: "Apparaat, scherm en taal"
   model: "Kobo-model"
   model_auto: "Weet ik niet / automatisch herkennen"
@@ -124,6 +127,10 @@ report:
   unreachable: "Home Assistant is niet bereikbaar: {error}"
   https_port: "Achter een reverse proxy of Cloudflare draait HTTPS meestal op de standaardpoort. Probeer de URL zonder ':8123'."
   mdns: "'.local'-adressen (mDNS) werken niet op de Kobo. Gebruik in plaats daarvan het IP-adres van Home Assistant."
+  path_removed: "De URL bevat een paginapad. De Home Assistant-API staat alleen op het hoofdadres, dus {url} wordt gebruikt."
+  not_api: "Dit adres antwoordde niet zoals de Home Assistant-API (misschien een inlog- of proxypagina). Gebruik het hoofdadres van Home Assistant, bijvoorbeeld http://192.168.1.10:8123."
+  battery_not_admin: "Home Assistant stond het schrijven van de batterijsensor niet toe (er is een token van een beheerder nodig). Maak de token aan terwijl je als beheerder bent ingelogd, of zet het sturen van het batterijniveau uit."
+  battery_failed: "De batterijsensor kon niet worden aangemaakt: {error}"
 
 design:
   pages: "Pagina's"

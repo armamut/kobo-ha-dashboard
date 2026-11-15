@@ -58,6 +58,9 @@ connect:
   connected: "Verbunden mit {name}{version}."
   suggested: "Vorschlag: {url}"
   use_this: "Übernehmen"
+  report_battery: "Akkustand des Kobo an Home Assistant senden"
+  battery_entity: "Sensor-Entität"
+  battery_hint: "Legt in Home Assistant einen Akkusensor an, zum Beispiel um eine smarte Steckdose zum Laden zu schalten. Er wird alle paar Minuten und sofort beim Ein- oder Ausstecken des Kabels aktualisiert, im Schlafmodus bei jeder Aktualisierung. Dafür braucht es den Token eines Admin-Benutzers; nach einem Neustart von Home Assistant ist er mit der nächsten Aktualisierung wieder da."
   display_title: "Gerät, Anzeige & Sprache"
   model: "Kobo-Modell"
   model_auto: "Nicht sicher / automatisch erkennen"
@@ -124,6 +127,10 @@ report:
   unreachable: "Home Assistant ist nicht erreichbar: {error}"
   https_port: "Hinter einem Reverse-Proxy oder Cloudflare läuft HTTPS meist auf dem Standardport. Versuche die URL ohne „:8123“."
   mdns: "„.local“-Adressen (mDNS) funktionieren auf dem Kobo nicht. Verwende stattdessen die IP-Adresse von Home Assistant."
+  path_removed: "Die URL enthält einen Seitenpfad. Die Home-Assistant-API liegt nur unter der Stammadresse, daher wird {url} verwendet."
+  not_api: "Diese Adresse hat nicht wie die Home-Assistant-API geantwortet (vielleicht eine Anmelde- oder Proxy-Seite). Verwende die Stammadresse von Home Assistant, zum Beispiel http://192.168.1.10:8123."
+  battery_not_admin: "Home Assistant hat das Schreiben des Akkusensors nicht erlaubt (dafür braucht es den Token eines Admin-Benutzers). Erstelle den Token als Administrator angemeldet oder schalte das Senden des Akkustands aus."
+  battery_failed: "Der Akkusensor konnte nicht angelegt werden: {error}"
 
 design:
   pages: "Seiten"

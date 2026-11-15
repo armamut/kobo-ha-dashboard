@@ -58,6 +58,9 @@ connect:
   connected: "已连接到 {name}{version}。"
   suggested: "建议：{url}"
   use_this: "使用此地址"
+  report_battery: "将 Kobo 的电池电量发送到 Home Assistant"
+  battery_entity: "传感器实体"
+  battery_hint: "在 Home Assistant 中创建一个电池传感器，例如用来切换智能插座进行充电。它每隔几分钟更新一次，插拔数据线时会立即更新；睡眠模式下在每次刷新时更新。需要管理员用户的令牌；Home Assistant 重启后，会在下一次更新时恢复。"
   display_title: "设备、显示与语言"
   model: "Kobo 型号"
   model_auto: "不确定 / 自动检测"
@@ -124,6 +127,10 @@ report:
   unreachable: "无法连接 Home Assistant：{error}"
   https_port: "在反向代理或 Cloudflare 之后，HTTPS 通常使用默认端口。请尝试去掉“:8123”的地址。"
   mdns: "Kobo 无法解析“.local”地址（mDNS）。请改用 Home Assistant 的 IP 地址。"
+  path_removed: "该 URL 包含页面路径。Home Assistant 的 API 只在根地址上，因此使用 {url}。"
+  not_api: "该地址的响应不像 Home Assistant API（可能是登录页或代理页面）。请使用 Home Assistant 的根地址，例如 http://192.168.1.10:8123。"
+  battery_not_admin: "Home Assistant 不允许写入电池传感器（需要管理员用户的令牌）。请以管理员身份登录后创建令牌，或关闭电池电量发送。"
+  battery_failed: "无法创建电池传感器：{error}"
 
 design:
   pages: "页面"

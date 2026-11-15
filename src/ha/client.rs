@@ -20,7 +20,7 @@ const HISTORY_POINTS: usize = 48;
 #[derive(Clone)]
 pub struct HaClient {
     config: HomeAssistantConfig,
-    client: reqwest::Client,
+    pub(crate) client: reqwest::Client,
     states: Arc<RwLock<HashMap<String, EntityState>>>,
     is_live: Arc<RwLock<bool>>,
     /// Weather entities whose forecast must be fetched via weather.get_forecasts
@@ -37,6 +37,8 @@ pub struct HaClient {
     pub(crate) ws_nudge: Arc<tokio::sync::Notify>,
     /// Ends the WebSocket session in progress (Wi-Fi is going off)
     pub(crate) ws_drop: Arc<tokio::sync::Notify>,
+    /// Last battery report sent to Home Assistant
+    pub(crate) battery_sent: Arc<std::sync::Mutex<Option<crate::ha::battery::Sent>>>,
 }
 
 #[derive(Default)]
@@ -86,6 +88,7 @@ impl HaClient {
             ws_live: Arc::new(AtomicBool::new(false)),
             ws_nudge: Arc::new(tokio::sync::Notify::new()),
             ws_drop: Arc::new(tokio::sync::Notify::new()),
+            battery_sent: Arc::new(std::sync::Mutex::new(None)),
         }
     }
 
@@ -188,8 +191,8 @@ impl HaClient {
         self.config.token.is_empty()
     }
 
-    fn url(&self, path: &str) -> String {
-        format!("{}{}", self.config.url.trim_end_matches('/'), path)
+    pub(crate) fn url(&self, path: &str) -> String {
+        format!("{}{}", crate::ha::base_url(&self.config.url).0, path)
     }
 
     pub async fn is_connected(&self) -> bool {
@@ -261,7 +264,7 @@ impl HaClient {
         if !resp.status().is_success() {
             return Err(format!("HTTP {}", resp.status()).into());
         }
-        Ok(resp.json().await?)
+        crate::ha::read_json(resp).await
     }
 
     /// Forecasts (HA 2024.3+ removed the `forecast` attribute) and sensor history.
@@ -310,7 +313,7 @@ impl HaClient {
         if !resp.status().is_success() {
             return Err(format!("HTTP {}", resp.status()).into());
         }
-        let body: Value = resp.json().await?;
+        let body: Value = crate::ha::read_json(resp).await?;
         Ok(body
             .pointer(&format!("/service_response/{}/forecast", entity_id.replace('/', "~1")))
             .cloned())
@@ -331,7 +334,7 @@ impl HaClient {
         if !resp.status().is_success() {
             return Err(format!("HTTP {}", resp.status()).into());
         }
-        let series: Vec<Vec<Value>> = resp.json().await?;
+        let series: Vec<Vec<Value>> = crate::ha::read_json(resp).await?;
         let mut out = HashMap::new();
         for (idx, points) in series.into_iter().enumerate() {
             // With minimal_response only the first item carries entity_id.
