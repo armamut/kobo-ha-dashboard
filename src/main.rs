@@ -249,6 +249,7 @@ async fn run_device(
                 } else {
                     let _ = ha.refresh_states().await;
                 }
+                ha.report_battery(power::battery_reading(), false).await;
                 if tx.send(()).await.is_err() {
                     return;
                 }
@@ -579,6 +580,7 @@ async fn run_device(
                                 ha.reconnect_now();
                                 let _ = tokio::time::timeout(Duration::from_secs(20), ha.refresh_states()).await;
                                 let _ = tx.send(()).await;
+                                ha.report_battery(power::battery_reading(), true).await;
                             }
                         });
                         break;
@@ -586,6 +588,7 @@ async fn run_device(
                     ha_client.reconnect_now();
                     if wifi_ok {
                         let _ = tokio::time::timeout(Duration::from_secs(20), ha_client.refresh_states()).await;
+                        let _ = tokio::time::timeout(Duration::from_secs(10), ha_client.report_battery(power::battery_reading(), true)).await;
                     }
                     power::log_battery();
                 }
@@ -673,6 +676,13 @@ async fn run_device(
                         break;
                     }
                     InputEvent::PowerSourceChanged => {
+                        // Tell HA right away: a charging automation may wait for it.
+                        let ha = ha_client.clone();
+                        tokio::spawn(async move {
+                            // The charge status follows the cable a moment later.
+                            tokio::time::sleep(Duration::from_secs(2)).await;
+                            ha.report_battery(power::battery_reading(), true).await;
+                        });
                         // Charging bolt on the battery icon
                         redraw(&mut renderer, &mut canvas, &config, active_page, &ha_client).await;
                         flush(&mut fb, &canvas, false);
@@ -820,6 +830,7 @@ fn wifi_on_in_background(script: PathBuf, ha: HaClient, tx: tokio::sync::mpsc::S
             ha.reconnect_now();
             let _ = tokio::time::timeout(Duration::from_secs(20), ha.refresh_states()).await;
             let _ = tx.send(()).await;
+            ha.report_battery(power::battery_reading(), true).await;
         }
     });
 }
@@ -847,6 +858,10 @@ async fn battery_empty_sleep(
     let critical = config.device.battery_critical_percent;
     tracing::warn!("Battery at or below {}%: sleeping until the Kobo is charged", critical);
     power::log_battery();
+    // Last report before Wi-Fi goes off, e.g. for an automation that switches on a charger.
+    if wifi_up {
+        let _ = tokio::time::timeout(Duration::from_secs(10), ha.report_battery(power::battery_reading(), true)).await;
+    }
     if let Some(l) = light.as_mut() {
         l.set_on(false);
         renderer.frontlight = Some(false);

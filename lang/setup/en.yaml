@@ -62,6 +62,9 @@ connect:
   connected: "Connected to {name}{version}."
   suggested: "Suggested: {url}"
   use_this: "Use this"
+  report_battery: "Send the Kobo's battery level to Home Assistant"
+  battery_entity: "Sensor entity"
+  battery_hint: "Creates a battery sensor in Home Assistant, for example to switch a smart plug for charging. It is updated every few minutes and right after the cable goes in or out; in sleep mode at each refresh. It needs a token of an admin user, and after a Home Assistant restart it is back with the next update."
   display_title: "Device, display & language"
   model: "Kobo model"
   model_auto: "Not sure / detect automatically"
@@ -130,6 +133,8 @@ report:
   mdns: "'.local' addresses (mDNS) do not resolve on the Kobo. Use the IP address of Home Assistant instead."
   path_removed: "The URL contains a page path. Home Assistant's API is only at the root address, so {url} is used."
   not_api: "This address did not answer like the Home Assistant API (it may be a login or proxy page). Use the root address of Home Assistant, for example http://192.168.1.10:8123."
+  battery_not_admin: "Home Assistant didn't allow writing the battery sensor (it needs a token of an admin user). Create the token while signed in as an administrator, or turn off battery reporting."
+  battery_failed: "Could not create the battery sensor: {error}"
 
 design:
   pages: "Pages"

@@ -150,6 +150,33 @@ pub async fn test_connection(url: &str, token: &str) -> ConnectionReport {
     }
 }
 
+/// Battery reporting writes a state, which needs an admin user's token.
+/// Write the sensor now (keeping a value the Kobo already sent, else
+/// "unknown") so it can be used in automations right away. A warning if
+/// that's not possible.
+pub async fn prepare_battery_sensor(url: &str, token: &str, entity: &str) -> Option<Msg> {
+    let url = base(url);
+    let entity = crate::ha::battery::entity_id(entity);
+    let http = client(token);
+    let existing: Option<serde_json::Value> = match http.get(format!("{}/api/states/{}", url, entity)).send().await {
+        Ok(r) if r.status().is_success() => r.json().await.ok(),
+        _ => None,
+    };
+    let body = match existing {
+        Some(state) if state.get("state").and_then(|v| v.as_str()).is_some() => serde_json::json!({
+            "state": state["state"],
+            "attributes": state.get("attributes").cloned().unwrap_or_default(),
+        }),
+        _ => crate::ha::battery::payload(None, None),
+    };
+    match http.post(format!("{}/api/states/{}", url, entity)).json(&body).send().await {
+        Ok(r) if r.status().is_success() => None,
+        Ok(r) if matches!(r.status().as_u16(), 401 | 403) => Some(Msg::new("battery_not_admin")),
+        Ok(r) => Some(Msg::new("battery_failed").arg("error", format!("HTTP {}", r.status()))),
+        Err(e) => Some(Msg::new("battery_failed").arg("error", e.to_string())),
+    }
+}
+
 /// All entities with their area and hidden flag.
 pub async fn fetch_entities(url: &str, token: &str) -> Result<Vec<EntityInfo>, Box<dyn std::error::Error + Send + Sync>> {
     let url = base(url);
@@ -494,6 +521,10 @@ mod tests {
 
     /// Minimal stand-in for HA: answers every request with `body`.
     async fn fake_ha(content_type: &'static str, body: &'static str) -> String {
+        fake_ha_status(200, content_type, body).await
+    }
+
+    async fn fake_ha_status(status: u16, content_type: &'static str, body: &'static str) -> String {
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
         let port = listener.local_addr().unwrap().port();
         tokio::spawn(async move {
@@ -502,7 +533,8 @@ mod tests {
                 let mut buf = [0u8; 4096];
                 let _ = sock.read(&mut buf).await;
                 let resp = format!(
-                    "HTTP/1.1 200 OK\r\nContent-Type: {}\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+                    "HTTP/1.1 {} X\r\nContent-Type: {}\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+                    status,
                     content_type,
                     body.len(),
                     body
@@ -533,5 +565,15 @@ mod tests {
         assert!(report.ok);
         assert_eq!(report.version.as_deref(), Some("2026.11.1"));
         assert!(report.warnings.iter().any(|w| w.key == "path_removed"));
+    }
+
+    #[tokio::test]
+    async fn battery_sensor_needs_an_admin_token() {
+        let url = fake_ha_status(401, "application/json", r#"{"message":"Unauthorized"}"#).await;
+        let warning = prepare_battery_sensor(&url, "token", "sensor.kobo_battery").await;
+        assert_eq!(warning.map(|w| w.key), Some("battery_not_admin".to_string()));
+
+        let url = fake_ha("application/json", r#"{"state":"57","attributes":{"unit_of_measurement":"%"}}"#).await;
+        assert!(prepare_battery_sensor(&url, "token", "sensor.kobo_battery").await.is_none());
     }
 }

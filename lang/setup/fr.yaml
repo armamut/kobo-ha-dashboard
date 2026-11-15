@@ -58,6 +58,9 @@ connect:
   connected: "Connecté à {name}{version}."
   suggested: "Suggestion : {url}"
   use_this: "Utiliser"
+  report_battery: "Envoyer le niveau de batterie du Kobo à Home Assistant"
+  battery_entity: "Entité du capteur"
+  battery_hint: "Crée un capteur de batterie dans Home Assistant, par exemple pour commander une prise connectée pour la recharge. Il est mis à jour toutes les quelques minutes et dès que le câble est branché ou débranché ; en mode veille, à chaque actualisation. Il faut le jeton d'un utilisateur administrateur ; après un redémarrage de Home Assistant, il revient à la mise à jour suivante."
   display_title: "Appareil, affichage et langue"
   model: "Modèle de Kobo"
   model_auto: "Je ne sais pas / détecter automatiquement"
@@ -126,6 +129,8 @@ report:
   mdns: "Les adresses « .local » (mDNS) ne fonctionnent pas sur la Kobo. Utilisez plutôt l'adresse IP de Home Assistant."
   path_removed: "L'URL contient le chemin d'une page. L'API de Home Assistant n'est qu'à l'adresse racine, donc {url} est utilisée."
   not_api: "Cette adresse n'a pas répondu comme l'API de Home Assistant (page de connexion ou de proxy ?). Utilisez l'adresse racine de Home Assistant, par exemple http://192.168.1.10:8123."
+  battery_not_admin: "Home Assistant n'a pas autorisé l'écriture du capteur de batterie (il faut le jeton d'un utilisateur administrateur). Créez le jeton en étant connecté comme administrateur, ou désactivez l'envoi de la batterie."
+  battery_failed: "Impossible de créer le capteur de batterie : {error}"
 
 design:
   pages: "Pages"

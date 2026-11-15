@@ -93,6 +93,8 @@ Sleep mode switches Wi-Fi off before suspending (suspending with Wi-Fi on can cr
 
 When the battery reaches 3% without a charger (`battery_critical_percent` in `config.yaml`, 0 turns this off), the dashboard replaces the screen with "Battery empty" and suspends, even if sleep mode is off. E-ink keeps the message without power. It checks for a charger every 5 minutes and whenever the power button is pressed, and comes back by itself once the Kobo is plugged in.
 
+**Battery level in Home Assistant (optional):** turn on *Send the Kobo's battery level to Home Assistant* in the setup tool, and the dashboard writes it to a sensor (`sensor.kobo_battery` by default, with a `charging` attribute), for example for an automation that switches a smart plug on at 20% and off at 85%. It is sent when the level changes (at least every 10 minutes), right after the cable goes in or out, before "Battery empty", and in sleep mode at each wake-up. The token must belong to an admin user. Home Assistant forgets such a sensor when it restarts, until the next update.
+
 ## Languages
 
 The language is set in the setup tool, or with `theme.language` in `config.yaml`. Dates, weather conditions, device states and number formats follow the chosen language.

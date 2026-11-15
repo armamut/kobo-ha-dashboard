@@ -58,6 +58,9 @@ connect:
   connected: "{name}{version} に接続しました。"
   suggested: "おすすめ: {url}"
   use_this: "これを使う"
+  report_battery: "Kobo のバッテリー残量を Home Assistant に送信"
+  battery_entity: "センサーのエンティティ"
+  battery_hint: "Home Assistant にバッテリーセンサーを作成します。たとえば充電用のスマートプラグの切り替えに使えます。数分ごと、およびケーブルの抜き差し時にすぐ更新され、スリープモードでは更新のたびに送られます。管理者ユーザーのトークンが必要です。Home Assistant を再起動した後は、次の更新で戻ります。"
   display_title: "デバイス・表示・言語"
   model: "Kobo のモデル"
   model_auto: "わからない / 自動検出"
@@ -126,6 +129,8 @@ report:
   mdns: "「.local」アドレス（mDNS）は Kobo では使えません。代わりに Home Assistant の IP アドレスを使ってください。"
   path_removed: "URL にページのパスが含まれています。Home Assistant の API はルートアドレスにしかないため、{url} を使用します。"
   not_api: "このアドレスは Home Assistant の API として応答しませんでした（ログインページやプロキシのページかもしれません）。Home Assistant のルートアドレスを使ってください。例: http://192.168.1.10:8123"
+  battery_not_admin: "Home Assistant がバッテリーセンサーの書き込みを許可しませんでした（管理者ユーザーのトークンが必要です）。管理者としてログインした状態でトークンを作成するか、バッテリーの送信をオフにしてください。"
+  battery_failed: "バッテリーセンサーを作成できませんでした: {error}"
 
 design:
   pages: "ページ"

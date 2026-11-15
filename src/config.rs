@@ -207,6 +207,14 @@ pub struct HomeAssistantConfig {
     /// Enable demo/mock mode if HA is unreachable or token is empty
     #[serde(default = "default_demo_mode")]
     pub demo_mode_fallback: bool,
+
+    /// Send the Kobo's battery level to Home Assistant as a sensor
+    #[serde(default)]
+    pub report_battery: bool,
+
+    /// Entity the battery level is written to
+    #[serde(default = "default_battery_entity")]
+    pub battery_entity: String,
 }
 
 fn default_ha_url() -> String {
@@ -221,6 +229,9 @@ fn default_timeout_secs() -> u64 {
 fn default_demo_mode() -> bool {
     true
 }
+pub fn default_battery_entity() -> String {
+    "sensor.kobo_battery".to_string()
+}
 
 impl Default for HomeAssistantConfig {
     fn default() -> Self {
@@ -230,6 +241,8 @@ impl Default for HomeAssistantConfig {
             refresh_interval_secs: default_refresh_secs(),
             timeout_secs: default_timeout_secs(),
             demo_mode_fallback: default_demo_mode(),
+            report_battery: false,
+            battery_entity: default_battery_entity(),
         }
     }
 }

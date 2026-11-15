@@ -283,10 +283,21 @@ fn entity_set(c: &AppConfig) -> Vec<String> {
 struct TestRequest {
     url: String,
     token: String,
+    /// Set when battery reporting is on: check that the token may write it.
+    #[serde(default)]
+    battery_entity: Option<String>,
 }
 
 async fn test_ha(Json(req): Json<TestRequest>) -> Json<generate::ConnectionReport> {
-    Json(generate::test_connection(&req.url, &req.token).await)
+    let mut report = generate::test_connection(&req.url, &req.token).await;
+    if report.ok {
+        if let Some(entity) = &req.battery_entity {
+            if let Some(warning) = generate::prepare_battery_sensor(&req.url, &req.token, entity).await {
+                report.warnings.push(warning);
+            }
+        }
+    }
+    Json(report)
 }
 
 async fn load_entities(s: &Shared, force: bool) -> Result<Vec<EntityInfo>, String> {
