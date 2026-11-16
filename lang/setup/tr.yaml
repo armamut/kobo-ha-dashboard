@@ -193,6 +193,7 @@ design:
   stat_mean: "Ortalama"
   stat_min: "En az"
   stat_max: "En çok"
+  image_memory_hint: "Eski Kobo'ların yalnızca 256–512 MB belleği var. Bu resmi küçük tutun, örneğin 1920×1080 ya da daha küçük; büyük bir kamera görüntüsü panelin belleğini tüketebilir. 4K'dan büyük resimler gösterilmez."
 
 card_types:
   heading: "Başlık"

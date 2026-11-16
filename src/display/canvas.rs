@@ -116,13 +116,36 @@ pub fn ui_size(w: u32, h: u32) -> (f32, f32) {
     (w as f32 / s, h as f32 / s)
 }
 
+/// Largest picture the Kobo decodes: 4K (3840x2160), about 33 MB once decoded.
+/// Older Kobos have only 256-512 MB of memory, most of it held by the paused
+/// reading app, so a bigger camera snapshot is refused instead of risking it.
+pub const MAX_IMAGE_PIXELS: u64 = 3840 * 2160;
+
 /// Decode a PNG or JPEG and scale it to fit a `box_w` x `box_h` box, keeping
-/// its aspect ratio. `None` when the bytes are not a decodable image.
+/// its aspect ratio. `None` when the bytes are not a decodable image or the
+/// picture is larger than [`MAX_IMAGE_PIXELS`] (the reason goes to the log).
 pub fn fit_image(bytes: &[u8], box_w: u32, box_h: u32) -> Option<Pixmap> {
     if box_w == 0 || box_h == 0 {
         return None;
     }
-    let decoded = image::load_from_memory(bytes).ok()?.to_rgba8();
+    let reader = || image::ImageReader::new(std::io::Cursor::new(bytes)).with_guessed_format().ok();
+    // The header alone gives the size: check it before anything is allocated.
+    let (w, h) = reader()?.into_dimensions().ok()?;
+    if w as u64 * h as u64 > MAX_IMAGE_PIXELS {
+        tracing::warn!("Picture is {}x{}, larger than 4K: not shown, to keep the Kobo's memory safe. Make it smaller in Home Assistant.", w, h);
+        return None;
+    }
+    let mut reader = reader()?;
+    let mut limits = image::Limits::default();
+    limits.max_alloc = Some(64 * 1024 * 1024);
+    reader.limits(limits);
+    let decoded = match reader.decode() {
+        Ok(img) => img.to_rgba8(),
+        Err(e) => {
+            tracing::warn!("Picture could not be decoded: {}", e);
+            return None;
+        }
+    };
     let (w, h) = decoded.dimensions();
     if w == 0 || h == 0 {
         return None;

@@ -32,7 +32,7 @@ pub fn render_image_card(
     draw_card(canvas, theme, rect, None);
     let area = picture_box(rect, title.is_some());
     if let Some(title) = title {
-        canvas.draw_text_fit(&title, rect.x + PAD, rect.y + PAD, type_scale::BODY, true, theme.text_muted, TextAlign::Left, area.w);
+        canvas.draw_text_fit(title, rect.x + PAD, rect.y + PAD, type_scale::BODY, true, theme.text_muted, TextAlign::Left, area.w);
     }
     match image {
         Some(pixmap) => {
@@ -101,6 +101,33 @@ mod tests {
     fn rubbish_is_not_an_image() {
         assert!(crate::display::canvas::fit_image(b"not an image", 100, 100).is_none());
         assert!(crate::display::canvas::fit_image(&png(10, 10, [0, 0, 0]), 0, 100).is_none());
+    }
+
+    #[test]
+    fn a_picture_larger_than_4k_is_refused_before_decoding() {
+        // A small PNG whose header claims 4000x3000 (12 MP): only the header
+        // is read, so nothing that size is ever allocated.
+        let mut bytes = png(10, 10, [0, 0, 0]);
+        bytes[16..20].copy_from_slice(&4000u32.to_be_bytes());
+        bytes[20..24].copy_from_slice(&3000u32.to_be_bytes());
+        let crc = crc32(&bytes[12..29]);
+        bytes[29..33].copy_from_slice(&crc.to_be_bytes());
+        let reader = image::ImageReader::new(std::io::Cursor::new(&bytes)).with_guessed_format().unwrap();
+        assert_eq!(reader.into_dimensions().unwrap(), (4000, 3000), "the header is valid");
+        assert!(crate::display::canvas::fit_image(&bytes, 400, 300).is_none());
+        // 4K itself is still allowed
+        assert!(3840 * 2160 <= crate::display::canvas::MAX_IMAGE_PIXELS);
+    }
+
+    fn crc32(data: &[u8]) -> u32 {
+        let mut crc = 0xffff_ffffu32;
+        for &b in data {
+            crc ^= b as u32;
+            for _ in 0..8 {
+                crc = if crc & 1 != 0 { (crc >> 1) ^ 0xedb8_8320 } else { crc >> 1 };
+            }
+        }
+        !crc
     }
 
     #[test]

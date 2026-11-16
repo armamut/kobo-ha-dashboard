@@ -193,6 +193,7 @@ design:
   stat_mean: "Média"
   stat_min: "Mínimo"
   stat_max: "Máximo"
+  image_memory_hint: "Kobos mais antigos têm apenas 256–512 MB de memória. Mantenha esta imagem pequena, por exemplo 1920×1080 ou menos; uma captura de câmera grande pode esgotar a memória do painel. Imagens maiores que 4K não são exibidas."
 
 card_types:
   heading: "Título de secção"

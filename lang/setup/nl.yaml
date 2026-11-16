@@ -193,6 +193,7 @@ design:
   stat_mean: "Gemiddelde"
   stat_min: "Minimum"
   stat_max: "Maximum"
+  image_memory_hint: "Oudere Kobo's hebben maar 256–512 MB geheugen. Houd deze afbeelding klein, bijvoorbeeld 1920×1080 of kleiner; een grote camera-snapshot kan het geheugen van het dashboard opmaken. Afbeeldingen groter dan 4K worden niet getoond."
 
 card_types:
   heading: "Kop"

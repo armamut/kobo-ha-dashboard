@@ -197,6 +197,7 @@ design:
   stat_mean: "Average (mean)"
   stat_min: "Minimum"
   stat_max: "Maximum"
+  image_memory_hint: "Older Kobos have only 256–512 MB of memory. Keep this picture small, for example 1920×1080 or less; a large camera snapshot can make the dashboard run out of memory. Pictures larger than 4K are not shown."
 
 card_types:
   heading: "Heading"

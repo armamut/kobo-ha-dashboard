@@ -193,6 +193,7 @@ design:
   stat_mean: "平均值"
   stat_min: "最小值"
   stat_max: "最大值"
+  image_memory_hint: "较旧的 Kobo 只有 256–512 MB 内存。请让这张图片保持较小，例如 1920×1080 或更小；过大的摄像头快照可能耗尽仪表板的内存。大于 4K 的图片不会显示。"
 
 card_types:
   heading: "标题"

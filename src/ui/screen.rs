@@ -215,7 +215,7 @@ pub struct ScreenRenderer {
     images: HashMap<String, Arc<Vec<u8>>>,
     /// Decoded and scaled copies, so a redraw does not decode again. Keyed by
     /// entity and box size; the `Arc` identity says whether the bytes changed.
-    image_cache: HashMap<String, (Arc<Vec<u8>>, Arc<tiny_skia::Pixmap>)>,
+    image_cache: HashMap<String, (Arc<Vec<u8>>, Option<Arc<tiny_skia::Pixmap>>)>,
 }
 
 impl ScreenRenderer {
@@ -249,12 +249,14 @@ impl ScreenRenderer {
         let key = format!("{}@{}x{}", entity_id, bw, bh);
         if let Some((cached, pixmap)) = self.image_cache.get(&key) {
             if Arc::ptr_eq(cached, &bytes) {
-                return Some(pixmap.clone());
+                return pixmap.clone();
             }
         }
-        let pixmap = Arc::new(crate::display::canvas::fit_image(&bytes, bw, bh)?);
+        // A failure is cached too: a picture that is too large or broken is not
+        // decoded again (and logged again) on every redraw.
+        let pixmap = crate::display::canvas::fit_image(&bytes, bw, bh).map(Arc::new);
         self.image_cache.insert(key, (bytes, pixmap.clone()));
-        Some(pixmap)
+        pixmap
     }
 
     pub fn render(

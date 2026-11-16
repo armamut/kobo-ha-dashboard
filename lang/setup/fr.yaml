@@ -193,6 +193,7 @@ design:
   stat_mean: "Moyenne"
   stat_min: "Minimum"
   stat_max: "Maximum"
+  image_memory_hint: "Les anciennes Kobo n'ont que 256 à 512 Mo de mémoire. Gardez cette image petite, par exemple 1920×1080 ou moins : une grande capture de caméra peut épuiser la mémoire du tableau de bord. Les images de plus de 4K ne sont pas affichées."
 
 card_types:
   heading: "Titre de section"

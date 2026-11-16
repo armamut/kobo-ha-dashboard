@@ -19,6 +19,8 @@ const IMAGE_REFRESH: Duration = Duration::from_secs(6 * 3600);
 /// A failed picture fetch (a restarting chart, a slow Home Assistant) is retried
 /// after this instead of leaving the card empty for six hours.
 const IMAGE_RETRY: Duration = Duration::from_secs(300);
+/// Largest picture file kept in memory.
+const MAX_IMAGE_BYTES: usize = 10_000_000;
 const HISTORY_SPAN_HOURS: i64 = 24;
 const HISTORY_POINTS: usize = 48;
 
@@ -424,6 +426,10 @@ impl HaClient {
             let url = self.url(&format!("/api/image_proxy/{}", entity));
             match self.client.get(url).send().await {
                 Ok(resp) if resp.status().is_success() => match resp.bytes().await {
+                    // A file this big is far beyond the 4K the Kobo decodes anyway.
+                    Ok(bytes) if bytes.len() > MAX_IMAGE_BYTES => {
+                        tracing::warn!("Image {} is {} MB, too large for the Kobo: skipped", entity, bytes.len() / 1_000_000)
+                    }
                     Ok(bytes) => out.push((entity.clone(), Arc::new(bytes.to_vec()))),
                     Err(e) => tracing::warn!("Image {} could not be read: {}", entity, e),
                 },

@@ -537,6 +537,8 @@ const CARD_TYPES = {
       ["days", "number", "design.stat_days", { min: 2, max: 400 }],
       ["unit", "text", "design.unit_optional"]] },
 };
+// Kobos with 256-512 MB of memory (the older i.MX models).
+const LOW_MEMORY_MODELS = ["touch", "touch_c", "mini", "glo", "aura", "aura_2", "aura_hd", "aura_h2o", "glo_hd", "nia"];
 const typeLabel = (type) => T("card_types." + type);
 
 // ---------- API ----------
@@ -1189,6 +1191,10 @@ function cardForm(c) {
       const text = label ? T(label) : key === "title" ? T("design.title") : key === "subtitle" ? T("design.subtitle") : key;
       form.append(el("label", { class: "field" }, text, t));
     }
+  }
+  // The Kobo decodes pictures itself, and the older ones have little memory.
+  if (c.type === "image" && (!cfg.device.model || cfg.device.model === "auto" || LOW_MEMORY_MODELS.includes(cfg.device.model))) {
+    form.append(el("p", { class: "hint", style: "grid-column: 1 / -1; margin: 4px 0 0" }, T("design.image_memory_hint")));
   }
   return form;
 }

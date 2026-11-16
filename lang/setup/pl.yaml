@@ -193,6 +193,7 @@ design:
   stat_mean: "Średnia"
   stat_min: "Minimum"
   stat_max: "Maksimum"
+  image_memory_hint: "Starsze Kobo mają tylko 256–512 MB pamięci. Używaj małego obrazu, na przykład 1920×1080 lub mniejszego; duży zrzut z kamery może wyczerpać pamięć panelu. Obrazy większe niż 4K nie są wyświetlane."
 
 card_types:
   heading: "Nagłówek"

@@ -88,7 +88,7 @@ pub async fn requests(config_url: &str, token: &str, payloads: Vec<Value>) -> Re
         }
     }
     let _ = ws.close(None).await;
-    Ok(collect_results(payloads, answers)?)
+    collect_results(payloads, answers)
 }
 
 fn collect_results(payloads: Vec<Value>, mut answers: std::collections::HashMap<u64, Value>) -> Result<Vec<Value>, BoxError> {

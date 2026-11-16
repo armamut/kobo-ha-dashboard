@@ -193,6 +193,7 @@ design:
   stat_mean: "平均"
   stat_min: "最小"
   stat_max: "最大"
+  image_memory_hint: "古いKoboのメモリは256〜512 MBしかありません。この画像は1920×1080以下など小さめにしてください。大きなカメラのスナップショットはメモリ不足の原因になります。4Kを超える画像は表示されません。"
 
 card_types:
   heading: "見出し"

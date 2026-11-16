@@ -193,6 +193,7 @@ design:
   stat_mean: "Durchschnitt"
   stat_min: "Minimum"
   stat_max: "Maximum"
+  image_memory_hint: "Ältere Kobos haben nur 256–512 MB Arbeitsspeicher. Halten Sie dieses Bild klein, zum Beispiel 1920×1080 oder kleiner; ein großer Kamera-Schnappschuss kann den Speicher des Dashboards erschöpfen. Bilder über 4K werden nicht angezeigt."
 
 card_types:
   heading: "Überschrift"
