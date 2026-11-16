@@ -59,6 +59,11 @@ fn battery_percent() -> Option<u32> {
     read_trim(&battery_dir()?.join("capacity"))?.parse().ok()
 }
 
+/// (charge level, plugged in) for reporting to Home Assistant.
+pub fn battery_reading() -> Option<(u32, bool)> {
+    battery_percent().map(|p| (p, is_plugged()))
+}
+
 fn is_critical(percent: Option<u32>, plugged: bool, critical: u32) -> bool {
     !plugged && matches!(percent, Some(p) if p <= critical)
 }

@@ -184,6 +184,21 @@ impl DeviceConfig {
     pub fn fb_rotation(&self) -> Option<Rotation> {
         self.fb_rotation.trim().parse::<i32>().ok().map(Rotation::from_degrees)
     }
+
+    /// Touch axes (swap, invert x, invert y) for this device. The Libra 2
+    /// (`PRODUCT=io`) has its panel's touch Y the other way round from other
+    /// Kobos, so the generic defaults are replaced for it; a config that
+    /// already changed them is kept as it is.
+    pub fn touch_axes(&self, product: &str) -> (bool, bool, bool) {
+        let configured = (self.swap_touch_xy, self.invert_touch_x, self.invert_touch_y);
+        let generic = (true, true, false);
+        let libra_2 = product == "io" || self.model == "libra_2";
+        if libra_2 && configured == generic {
+            (true, false, false)
+        } else {
+            configured
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -207,6 +222,14 @@ pub struct HomeAssistantConfig {
     /// Enable demo/mock mode if HA is unreachable or token is empty
     #[serde(default = "default_demo_mode")]
     pub demo_mode_fallback: bool,
+
+    /// Send the Kobo's battery level to Home Assistant as a sensor
+    #[serde(default)]
+    pub report_battery: bool,
+
+    /// Entity the battery level is written to
+    #[serde(default = "default_battery_entity")]
+    pub battery_entity: String,
 }
 
 fn default_ha_url() -> String {
@@ -221,6 +244,9 @@ fn default_timeout_secs() -> u64 {
 fn default_demo_mode() -> bool {
     true
 }
+pub fn default_battery_entity() -> String {
+    "sensor.kobo_battery".to_string()
+}
 
 impl Default for HomeAssistantConfig {
     fn default() -> Self {
@@ -230,6 +256,8 @@ impl Default for HomeAssistantConfig {
             refresh_interval_secs: default_refresh_secs(),
             timeout_secs: default_timeout_secs(),
             demo_mode_fallback: default_demo_mode(),
+            report_battery: false,
+            battery_entity: default_battery_entity(),
         }
     }
 }
@@ -591,6 +619,31 @@ impl AppConfig {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn libra_2_touch_axes() {
+        let dev = DeviceConfig::default();
+        assert_eq!(dev.touch_axes(""), (true, true, false), "other Kobos keep the generic axes");
+        assert_eq!(dev.touch_axes("io"), (true, false, false));
+        let libra = DeviceConfig { model: "libra_2".into(), ..DeviceConfig::default() };
+        assert_eq!(libra.touch_axes(""), (true, false, false));
+        // A config that already sets its own axes is left alone
+        let custom = DeviceConfig { invert_touch_y: true, ..DeviceConfig::default() };
+        assert_eq!(custom.touch_axes("io"), (true, true, true));
+
+        // Real tap from a Libra 2 in landscape: the "+" of a climate card
+        let (swap_xy, invert_x, invert_y) = DeviceConfig::default().touch_axes("io");
+        let mapping = crate::input::TouchMapping {
+            portrait_w: 1264,
+            portrait_h: 1680,
+            swap_xy,
+            invert_x,
+            invert_y,
+            canvas_rotation: Rotation::R90,
+        };
+        let (x, y) = mapping.to_canvas(973.0 / 1680.0, 788.0 / 1264.0);
+        assert_eq!((x.round(), y.round()), (973.0, 475.0));
+    }
 
     #[test]
     fn example_config_parses() {

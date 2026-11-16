@@ -83,8 +83,6 @@ enum Command {
     },
 }
 
-/// Ignore taps arriving faster than this (e-ink ghost/bounce protection)
-const TAP_DEBOUNCE: Duration = Duration::from_millis(350);
 /// For this long after a tap, pushed updates are drawn right away (so a
 /// toggled light shows its new state). Otherwise they wait for the next
 /// minute tick: a busy sensor can push every few seconds, and redrawing for
@@ -220,14 +218,15 @@ async fn run_device(
         return Ok(());
     }
 
+    let (swap_xy, invert_x, invert_y) = config.device.touch_axes(&std::env::var("PRODUCT").unwrap_or_default());
     let (mut touch_driver, _touch_tx) = TouchDriver::new(
         &config.device.touch_device,
         TouchMapping {
             portrait_w,
             portrait_h,
-            swap_xy: config.device.swap_touch_xy,
-            invert_x: config.device.invert_touch_x,
-            invert_y: config.device.invert_touch_y,
+            swap_xy,
+            invert_x,
+            invert_y,
             canvas_rotation,
         },
     );
@@ -249,6 +248,7 @@ async fn run_device(
                 } else {
                     let _ = ha.refresh_states().await;
                 }
+                ha.report_battery(power::battery_reading(), false).await;
                 if tx.send(()).await.is_err() {
                     return;
                 }
@@ -272,7 +272,6 @@ async fn run_device(
     // Partial updates since the last full refresh; only updates that changed
     // pixels count, so an unchanged screen never triggers a full flash.
     let mut partials: u32 = 0;
-    let mut last_tap = Instant::now() - TAP_DEBOUNCE;
     let mut flush = |fb: &mut Box<dyn display::FramebufferDriver>, canvas: &Canvas, force_full: bool| {
         let cycles = config.device.full_refresh_cycles;
         let refresh = if force_full {
@@ -579,6 +578,7 @@ async fn run_device(
                                 ha.reconnect_now();
                                 let _ = tokio::time::timeout(Duration::from_secs(20), ha.refresh_states()).await;
                                 let _ = tx.send(()).await;
+                                ha.report_battery(power::battery_reading(), true).await;
                             }
                         });
                         break;
@@ -586,6 +586,7 @@ async fn run_device(
                     ha_client.reconnect_now();
                     if wifi_ok {
                         let _ = tokio::time::timeout(Duration::from_secs(20), ha_client.refresh_states()).await;
+                        let _ = tokio::time::timeout(Duration::from_secs(10), ha_client.report_battery(power::battery_reading(), true)).await;
                     }
                     power::log_battery();
                 }
@@ -673,6 +674,13 @@ async fn run_device(
                         break;
                     }
                     InputEvent::PowerSourceChanged => {
+                        // Tell HA right away: a charging automation may wait for it.
+                        let ha = ha_client.clone();
+                        tokio::spawn(async move {
+                            // The charge status follows the cable a moment later.
+                            tokio::time::sleep(Duration::from_secs(2)).await;
+                            ha.report_battery(power::battery_reading(), true).await;
+                        });
                         // Charging bolt on the battery icon
                         redraw(&mut renderer, &mut canvas, &config, active_page, &ha_client).await;
                         flush(&mut fb, &canvas, false);
@@ -680,12 +688,9 @@ async fn run_device(
                     }
                     InputEvent::Tap { x, y } => (x, y),
                 };
-                if last_tap.elapsed() < TAP_DEBOUNCE {
-                    continue;
-                }
-                last_tap = Instant::now();
+                // Bounces are already filtered by the touch listener, on the
+                // kernel's event times (not when we get round to reading them).
                 last_activity = Instant::now();
-                tracing::debug!("Tap at ({:.0}, {:.0})", x, y);
 
                 // After an automatic switch-off, a tap only brings the light back.
                 if light_dimmed {
@@ -699,7 +704,10 @@ async fn run_device(
                     }
                 }
 
-                let Some(action) = renderer.handle_touch(x, y) else { continue };
+                let action = renderer.handle_touch(x, y);
+                // Every tap with what it hit: to see where the touch lands on new models.
+                tracing::info!("Tap at ({:.0}, {:.0}) -> {:?}", x, y, action);
+                let Some(action) = action else { continue };
                 let mut force_full = false;
                 let service = match action {
                     UiAction::ExitToReader => {
@@ -820,6 +828,7 @@ fn wifi_on_in_background(script: PathBuf, ha: HaClient, tx: tokio::sync::mpsc::S
             ha.reconnect_now();
             let _ = tokio::time::timeout(Duration::from_secs(20), ha.refresh_states()).await;
             let _ = tx.send(()).await;
+            ha.report_battery(power::battery_reading(), true).await;
         }
     });
 }
@@ -847,6 +856,10 @@ async fn battery_empty_sleep(
     let critical = config.device.battery_critical_percent;
     tracing::warn!("Battery at or below {}%: sleeping until the Kobo is charged", critical);
     power::log_battery();
+    // Last report before Wi-Fi goes off, e.g. for an automation that switches on a charger.
+    if wifi_up {
+        let _ = tokio::time::timeout(Duration::from_secs(10), ha.report_battery(power::battery_reading(), true)).await;
+    }
     if let Some(l) = light.as_mut() {
         l.set_on(false);
         renderer.frontlight = Some(false);

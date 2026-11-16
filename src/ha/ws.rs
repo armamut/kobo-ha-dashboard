@@ -24,7 +24,7 @@ const PONG_TIMEOUT: Duration = Duration::from_secs(30);
 type BoxError = Box<dyn std::error::Error + Send + Sync>;
 
 fn ws_url(base: &str) -> Option<String> {
-    let base = base.trim().trim_end_matches('/');
+    let (base, _) = crate::ha::base_url(base);
     let rest = base.strip_prefix("https://").map(|r| format!("wss://{}", r)).or_else(|| base.strip_prefix("http://").map(|r| format!("ws://{}", r)))?;
     Some(format!("{}/api/websocket", rest))
 }
@@ -210,6 +210,7 @@ mod tests {
     fn websocket_url() {
         assert_eq!(ws_url("http://192.168.1.10:8123/").as_deref(), Some("ws://192.168.1.10:8123/api/websocket"));
         assert_eq!(ws_url("https://ha.example.com").as_deref(), Some("wss://ha.example.com/api/websocket"));
+        assert_eq!(ws_url("http://192.168.1.10:8123/lovelace/0").as_deref(), Some("ws://192.168.1.10:8123/api/websocket"));
         assert_eq!(ws_url("ha.local"), None);
     }
 

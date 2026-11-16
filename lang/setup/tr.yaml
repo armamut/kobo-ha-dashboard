@@ -58,6 +58,9 @@ connect:
   connected: "{name} sistemine bağlanıldı{version}."
   suggested: "Önerilen: {url}"
   use_this: "Bunu kullan"
+  report_battery: "Kobo'nun pil seviyesini Home Assistant'a gönder"
+  battery_entity: "Sensör entity'si"
+  battery_hint: "Home Assistant'ta bir pil sensörü oluşturur; örneğin şarj için akıllı prizi açıp kapatmakta kullanılabilir. Birkaç dakikada bir ve kablo takılıp çıkarıldığında hemen, sleep modunda her yenilemede güncellenir. Admin kullanıcının token'ını gerektirir; Home Assistant yeniden başlarsa bir sonraki güncellemeyle geri gelir."
   display_title: "Cihaz, ekran ve dil"
   model: "Kobo modeli"
   model_auto: "Emin değilim / otomatik algıla"
@@ -124,6 +127,10 @@ report:
   unreachable: "Home Assistant'a ulaşılamadı: {error}"
   https_port: "Reverse proxy veya Cloudflare arkasında HTTPS genellikle varsayılan porttadır. Adresi ':8123' olmadan deneyin."
   mdns: "'.local' adresleri (mDNS) Kobo'da çözülmez. Bunun yerine Home Assistant'ın IP adresini kullanın."
+  path_removed: "Adreste bir sayfa yolu var. Home Assistant API'si yalnızca kök adreste olduğu için {url} kullanılıyor."
+  not_api: "Bu adres Home Assistant API'si gibi yanıt vermedi (bir giriş veya proxy sayfası olabilir). Home Assistant'ın kök adresini kullanın, örneğin http://192.168.1.10:8123."
+  battery_not_admin: "Home Assistant pil sensörünün yazılmasına izin vermedi (admin kullanıcının token'ı gerekir). Token'ı yönetici olarak giriş yapmışken oluşturun ya da pil bildirimini kapatın."
+  battery_failed: "Pil sensörü oluşturulamadı: {error}"
 
 design:
   pages: "Sayfalar"

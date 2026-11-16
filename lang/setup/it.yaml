@@ -58,6 +58,9 @@ connect:
   connected: "Connesso a {name}{version}."
   suggested: "Suggerito: {url}"
   use_this: "Usa questo"
+  report_battery: "Invia il livello della batteria del Kobo a Home Assistant"
+  battery_entity: "Entità del sensore"
+  battery_hint: "Crea un sensore della batteria in Home Assistant, ad esempio per accendere una presa smart per la ricarica. Si aggiorna ogni pochi minuti e subito quando il cavo viene collegato o scollegato; in modalità sospensione a ogni aggiornamento. Serve il token di un utente amministratore; dopo un riavvio di Home Assistant torna con l'aggiornamento successivo."
   display_title: "Dispositivo, display e lingua"
   model: "Modello Kobo"
   model_auto: "Non so / rileva automaticamente"
@@ -124,6 +127,10 @@ report:
   unreachable: "Impossibile raggiungere Home Assistant: {error}"
   https_port: "Dietro un reverse proxy o Cloudflare, HTTPS di solito usa la porta predefinita. Prova l'URL senza «:8123»."
   mdns: "Gli indirizzi «.local» (mDNS) non funzionano sul Kobo. Usa invece l'indirizzo IP di Home Assistant."
+  path_removed: "L'URL contiene il percorso di una pagina. L'API di Home Assistant è solo all'indirizzo principale, quindi viene usato {url}."
+  not_api: "Questo indirizzo non ha risposto come l'API di Home Assistant (forse una pagina di accesso o di un proxy). Usa l'indirizzo principale di Home Assistant, ad esempio http://192.168.1.10:8123."
+  battery_not_admin: "Home Assistant non ha permesso di scrivere il sensore della batteria (serve il token di un utente amministratore). Crea il token con un accesso da amministratore oppure disattiva l'invio della batteria."
+  battery_failed: "Impossibile creare il sensore della batteria: {error}"
 
 design:
   pages: "Pagine"

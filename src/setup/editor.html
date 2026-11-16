@@ -265,6 +265,15 @@ a.btn.primary { color: var(--accent-ink); }
           </div>
         </div>
       </div>
+      <label class="check" style="margin-top:14px"><input type="checkbox" id="reportBattery"> <span data-i18n="connect.report_battery"></span></label>
+      <div id="batteryOpts" class="hidden">
+        <div class="grid2" style="margin-top:8px">
+          <label class="field"><span data-i18n="connect.battery_entity"></span>
+            <input id="batteryEntity" type="text" placeholder="sensor.kobo_battery" autocomplete="off" spellcheck="false">
+          </label>
+        </div>
+        <p class="hint" style="margin-top:8px" data-i18n="connect.battery_hint"></p>
+      </div>
       <div class="row" style="margin-top:14px">
         <button class="btn primary" id="testBtn" data-i18n="connect.test"></button>
         <span class="hint" style="margin:0" data-i18n="connect.test_hint"></span>
@@ -737,6 +746,13 @@ function bindConnect() {
   bind("sleepWake", () => String(cfg.device.sleep_wake_secs || 900), (v) => (cfg.device.sleep_wake_secs = parseInt(v) || 900), "change");
   bind("language", () => cfg.theme.language, (v) => { cfg.theme.language = v; ensureFont(); }, "change");
   $("model").addEventListener("change", () => { $("modelNote").classList.add("hidden"); setModel($("model").value); });
+  $("reportBattery").addEventListener("change", () => {
+    cfg.home_assistant.report_battery = $("reportBattery").checked;
+    showBatteryOpts();
+    sync();
+  });
+  bind("batteryEntity", () => cfg.home_assistant.battery_entity, (v) => (cfg.home_assistant.battery_entity = v.trim() || "sensor.kobo_battery"));
+  showBatteryOpts();
 
   $("toggleToken").onclick = () => {
     const t = $("haToken");
@@ -850,7 +866,10 @@ async function testConnection() {
   const box = $("testResult");
   box.replaceChildren(el("div", { class: "notice" }, T("connect.testing")));
   try {
-    const r = await api("/api/ha/test", { method: "POST", body: { url: cfg.home_assistant.url, token: cfg.home_assistant.token } });
+    const r = await api("/api/ha/test", { method: "POST", body: {
+      url: cfg.home_assistant.url, token: cfg.home_assistant.token,
+      battery_entity: cfg.home_assistant.report_battery ? (cfg.home_assistant.battery_entity || "sensor.kobo_battery") : null,
+    } });
     const parts = [];
     if (r.ok) parts.push(el("div", { class: "notice ok" }, T("connect.connected", { name: r.location || "Home Assistant", version: r.version ? ` (${r.version})` : "" })));
     else parts.push(el("div", { class: "notice err" }, reportText(r.message)));
@@ -1260,15 +1279,22 @@ function lightTimeoutValue() {
   return v;
 }
 
+function showBatteryOpts() {
+  $("reportBattery").checked = !!cfg.home_assistant.report_battery;
+  $("batteryOpts").classList.toggle("hidden", !cfg.home_assistant.report_battery);
+}
+
 function bindAllFields() {
   for (const [id, v] of [["haUrl", cfg.home_assistant.url], ["haToken", cfg.home_assistant.token], ["orientation", cfg.device.orientation],
     ["themeMode", cfg.theme.mode], ["accent", cfg.theme.accent_color], ["timeFormat", cfg.theme.time_format],
     ["utcOffset", cfg.theme.utc_offset || ""], ["refresh", cfg.home_assistant.refresh_interval_secs], ["language", cfg.theme.language],
     ["model", cfg.device.model || "auto"], ["lightTimeout", lightTimeoutValue()],
     ["sleepAfter", selectValue("sleepAfter", cfg.device.sleep_after_secs || 0)],
-    ["sleepWake", selectValue("sleepWake", cfg.device.sleep_wake_secs || 900)]]) {
+    ["sleepWake", selectValue("sleepWake", cfg.device.sleep_wake_secs || 900)],
+    ["batteryEntity", cfg.home_assistant.battery_entity || "sensor.kobo_battery"]]) {
     $(id).value = v ?? "";
   }
+  showBatteryOpts();
 }
 
 async function boot() {

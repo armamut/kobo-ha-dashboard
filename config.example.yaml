@@ -66,6 +66,12 @@ home_assistant:
   refresh_interval_secs: 60
   timeout_secs: 8
 
+  # Send the Kobo's battery level to Home Assistant as a sensor, for example
+  # to switch a smart plug for charging. Needs a token of an admin user. The
+  # sensor is gone after a Home Assistant restart until the next report.
+  report_battery: false
+  battery_entity: "sensor.kobo_battery"
+
   # Show demo data when no token is set
   demo_mode_fallback: true
 
