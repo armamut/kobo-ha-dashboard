@@ -46,9 +46,12 @@ impl EntityState {
     }
 
     pub fn friendly_name(&self) -> String {
-        self.get_attr_str("friendly_name")
-            .map(|s| s.to_string())
-            .unwrap_or_else(|| self.entity_id.clone())
+        self.get_attr_str("friendly_name").map(|s| s.to_string()).unwrap_or_else(|| {
+            // No name from Home Assistant: the object id still reads better as
+            // words than as an id.
+            let object = self.entity_id.split('.').nth(1).unwrap_or(&self.entity_id);
+            object.replace(['-', '_'], " ")
+        })
     }
 
     pub fn brightness_percent(&self) -> Option<u8> {
