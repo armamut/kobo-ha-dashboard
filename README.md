@@ -127,7 +127,7 @@ The setup tool writes `config.yaml` for you. If you prefer editing it by hand, [
 - **Log file:** each start writes `.kobo-ha/dashboard.log` on the Kobo (the previous run is kept as `dashboard.log.old`). It shows the screen format, the e-ink refresh method and the touch device that were detected.
 - **The Kobo freezes and then reboots:** Kobo firmware has a watchdog (`sickel`) that restarts the device when the reading app stops responding. The launcher pauses it together with the reading app. If you see this, reinstall with the setup tool to get the current launcher.
 - **The picture is rotated or upside down:** set `device.fb_rotation` to `0`, `90`, `180` or `270`.
-- **Taps land in the wrong place:** adjust `swap_touch_xy`, `invert_touch_x` and `invert_touch_y` (for example, Kobo Libra 2 needs `invert_touch_x: false`).
+- **Taps land in the wrong place:** adjust `swap_touch_xy`, `invert_touch_x` and `invert_touch_y`.
 - **The clock is wrong:** set `theme.utc_offset` (the setup tool's **Use mine** button fills it in). The Kobo keeps its system clock in UTC.
 - **"Offline":** check the URL from another device on the same Wi-Fi. If Home Assistant sits behind a reverse proxy or Cloudflare, HTTPS usually runs on the default port, so leave out `:8123`.
 - **Battery drains fast:** turn on sleep mode (see [Battery life](#battery-life)), or keep the Kobo on a charger if you use it as a wall panel. The log records the battery level every 10 minutes, so you can compare settings.
