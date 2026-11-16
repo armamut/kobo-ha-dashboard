@@ -219,6 +219,7 @@ lovelace:
   importing: "正在读取面板。"
   imported: "已导入 {pages} 个页面、{cards} 张卡片。"
   replaced: "已替换 {n} 个现有页面。"
+  removed: "已移除上次导入的 {n} 个页面。"
   skipped: "未导入（没有对应的卡片）："
   skipped_item: "{card} ×{count}"
 

@@ -219,6 +219,7 @@ lovelace:
   importing: "ダッシュボードを読み込み中。"
   imported: "{pages} ページ、{cards} カードを読み込みました。"
   replaced: "{n} 件の既存ページを置き換えました。"
+  removed: "以前のインポートから {n} ページを削除しました。"
   skipped: "読み込めませんでした（対応するカードがありません）:"
   skipped_item: "{card} ×{count}"
 

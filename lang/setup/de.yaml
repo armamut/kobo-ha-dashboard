@@ -219,6 +219,7 @@ lovelace:
   importing: "Dashboard wird gelesen."
   imported: "{pages} Seiten mit {cards} Karten importiert."
   replaced: "{n} vorhandene Seiten ersetzt."
+  removed: "{n} Seiten aus einem früheren Import entfernt."
   skipped: "Nicht importiert (keine passende Karte):"
   skipped_item: "{card} ×{count}"
 

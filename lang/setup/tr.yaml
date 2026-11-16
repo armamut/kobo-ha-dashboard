@@ -219,6 +219,7 @@ lovelace:
   importing: "Pano okunuyor."
   imported: "{pages} sayfa, {cards} kartla içe aktarıldı."
   replaced: "{n} mevcut sayfa değiştirildi."
+  removed: "Önceki bir içe aktarmadan {n} sayfa kaldırıldı."
   skipped: "İçe aktarılmadı (uygun kart yok):"
   skipped_item: "{card} ×{count}"
 

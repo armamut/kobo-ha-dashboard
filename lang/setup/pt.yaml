@@ -219,6 +219,7 @@ lovelace:
   importing: "A ler o painel."
   imported: "Importadas {pages} páginas com {cards} cartões."
   replaced: "Substituídas {n} páginas existentes."
+  removed: "Removidas {n} páginas de uma importação anterior."
   skipped: "Não importado (sem cartão correspondente):"
   skipped_item: "{card} ×{count}"
 

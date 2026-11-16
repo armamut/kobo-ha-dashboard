@@ -74,6 +74,18 @@ pub async fn fetch_config(url: &str, token: &str, url_path: Option<&str>) -> Res
 /// the dashboard will show a tab bar; that costs a row of height, so it decides
 /// how much fits on a page.
 pub fn import(config: &Value, screen: (u32, u32), with_tabs: bool) -> Result<ImportResult, ImportError> {
+    import_with(config, screen, with_tabs, &BTreeMap::new())
+}
+
+/// `state_classes` maps an entity to its `state_class`, so a chart without
+/// `stat_types` can pick the type Home Assistant would: `change` for a meter
+/// (which has `sum`), `mean` for a measurement such as temperature.
+pub fn import_with(
+    config: &Value,
+    screen: (u32, u32),
+    with_tabs: bool,
+    state_classes: &BTreeMap<String, String>,
+) -> Result<ImportResult, ImportError> {
     if config.get("strategy").is_some() {
         return Err(ImportError::Strategy);
     }
@@ -119,6 +131,16 @@ pub fn import(config: &Value, screen: (u32, u32), with_tabs: bool) -> Result<Imp
         // Every view was a strategy: say so, instead of claiming it is empty.
         return Err(if saw_strategy { ImportError::Strategy } else { ImportError::Empty });
     }
+    // A chart without an explicit type gets the one its entity supports.
+    for page in &mut pages {
+        for card in &mut page.cards {
+            if let CardConfig::Statistics { entity_id, stat, .. } = card {
+                if stat.is_empty() {
+                    *stat = stat_for(entity_id, state_classes);
+                }
+            }
+        }
+    }
     let mut skipped: Vec<Skipped> = skipped.into_iter().map(|(card, count)| Skipped { card, count }).collect();
     skipped.sort_by(|a, b| b.count.cmp(&a.count).then_with(|| a.card.cmp(&b.card)));
     Ok(ImportResult { pages, skipped })
@@ -126,6 +148,49 @@ pub fn import(config: &Value, screen: (u32, u32), with_tabs: bool) -> Result<Imp
 
 fn skip(skipped: &mut BTreeMap<String, usize>, kind: &str) {
     *skipped.entry(kind.to_string()).or_default() += 1;
+}
+
+/// Charts read `change` from the `sum` column, which only meters have; any other
+/// sensor gets `mean`, because a chart with no data points shows nothing at all.
+fn stat_for(entity: &str, state_classes: &BTreeMap<String, String>) -> String {
+    match state_classes.get(entity).map(String::as_str) {
+        Some("total" | "total_increasing") => "change",
+        _ => "mean",
+    }
+    .to_string()
+}
+
+/// `state_class` per entity, so a chart can use the type Home Assistant would
+/// pick for that sensor.
+pub async fn state_classes(url: &str, token: &str) -> BTreeMap<String, String> {
+    let http = crate::setup::generate::client(token);
+    let url = crate::setup::generate::base(url);
+    let resp = match http.get(format!("{}/api/states", url)).send().await {
+        Ok(resp) if resp.status().is_success() => resp,
+        Ok(resp) => {
+            tracing::warn!("state_class lookup failed: HTTP {}", resp.status());
+            return BTreeMap::new();
+        }
+        Err(e) => {
+            tracing::warn!("state_class lookup failed: {}", e);
+            return BTreeMap::new();
+        }
+    };
+    let states: Vec<Value> = match crate::ha::read_json(resp).await {
+        Ok(list) => list,
+        Err(e) => {
+            tracing::warn!("state_class lookup failed: {}", e);
+            return BTreeMap::new();
+        }
+    };
+    let mut out = BTreeMap::new();
+    for state in states {
+        let Some(entity) = state.get("entity_id").and_then(Value::as_str) else { continue };
+        if let Some(class) = state.get("attributes").and_then(|a| a.get("state_class")).and_then(Value::as_str) {
+            out.insert(entity.to_string(), class.to_string());
+        }
+    }
+    out
 }
 
 /// Walk a list of Lovelace cards in order, flattening stacks and grids.
@@ -353,10 +418,9 @@ fn statistics_cards(card: &Value, out: &mut Vec<CardConfig>, skipped: &mut BTree
         .and_then(Value::as_array)
         .map(|a| a.iter().filter_map(Value::as_str).collect())
         .unwrap_or_default();
-    let stat = match types.first().copied() {
-        Some(s @ ("change" | "mean" | "min" | "max" | "sum")) => s,
-        _ => "change",
-    };
+    // Without `stat_types` Home Assistant lets the chart pick a type per
+    // entity; that choice is made once the state_class is known, in `import`.
+    let explicit = types.first().copied().filter(|s| matches!(*s, "change" | "mean" | "min" | "max" | "sum"));
     // One card carries one series: extra statistics are reported, not dropped.
     for extra in types.iter().skip(1) {
         let label = format!("statistics-graph {}", extra);
@@ -370,7 +434,7 @@ fn statistics_cards(card: &Value, out: &mut Vec<CardConfig>, skipped: &mut BTree
                 title: title.clone(),
                 period: period.to_string(),
                 days,
-                stat: stat.to_string(),
+                stat: explicit.unwrap_or("").to_string(),
                 unit: None,
             }),
             None => skip(skipped, "statistics-graph"),
@@ -422,7 +486,7 @@ fn page(title: &str, part: usize, icon: &str, cards: Vec<CardConfig>, used: &mut
         id = format!("{}_{}", base, n);
         n += 1;
     }
-    PageConfig { id, title, icon: icon.to_string(), cards }
+    PageConfig { id, title, icon: icon.to_string(), cards, imported_from: None }
 }
 
 /// "living-room" -> "Living room"
@@ -779,6 +843,45 @@ views:
             result.skipped,
             vec![Skipped { card: "statistics-graph 5minute".into(), count: 1 }, Skipped { card: "statistics-graph hour".into(), count: 1 }, Skipped { card: "statistics-graph max".into(), count: 1 }]
         );
+    }
+
+    #[test]
+    fn a_chart_without_a_type_follows_the_state_class() {
+        let config = serde_json::json!({ "views": [{ "title": "Energy", "cards": [
+            { "type": "statistics-graph", "entities": ["sensor.gas_meter"] },
+            { "type": "statistics-graph", "entities": ["sensor.living_room_temperature"] },
+            { "type": "statistics-graph", "entities": ["sensor.unknown"] }
+        ]}]});
+        let classes: BTreeMap<String, String> = [
+            ("sensor.gas_meter".to_string(), "total_increasing".to_string()),
+            ("sensor.living_room_temperature".to_string(), "measurement".to_string()),
+        ]
+        .into_iter()
+        .collect();
+        let result = import_with(&config, (1072, 1448), false, &classes).expect("imports");
+        let stats: Vec<String> = result
+            .pages
+            .iter()
+            .flat_map(|p| p.cards.iter())
+            .filter_map(|c| match c {
+                CardConfig::Statistics { stat, .. } => Some(stat.clone()),
+                _ => None,
+            })
+            .collect();
+        // Only a meter has a `sum` to take a change from; everything else would
+        // show an empty chart, so it gets the average Home Assistant also shows.
+        assert_eq!(stats, vec!["change".to_string(), "mean".to_string(), "mean".to_string()]);
+    }
+
+    #[test]
+    fn a_chart_with_an_explicit_type_keeps_it() {
+        let config = serde_json::json!({ "views": [{ "title": "Energy", "cards": [
+            { "type": "statistics-graph", "entities": ["sensor.living_room_temperature"], "stat_types": ["change"] }
+        ]}]});
+        let classes: BTreeMap<String, String> =
+            [("sensor.living_room_temperature".to_string(), "measurement".to_string())].into_iter().collect();
+        let result = import_with(&config, (1072, 1448), false, &classes).expect("imports");
+        assert!(matches!(&result.pages[0].cards[0], CardConfig::Statistics { stat, .. } if stat == "change"));
     }
 
     #[test]

@@ -219,6 +219,7 @@ lovelace:
   importing: "Lettura della dashboard."
   imported: "Importate {pages} pagine con {cards} schede."
   replaced: "Sostituite {n} pagine esistenti."
+  removed: "Rimosse {n} pagine da un'importazione precedente."
   skipped: "Non importato (nessuna scheda corrispondente):"
   skipped_item: "{card} ×{count}"
 

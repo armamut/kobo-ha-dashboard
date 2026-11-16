@@ -530,7 +530,7 @@ const CARD_TYPES = {
   image: { icon: "progress", domains: ["image"], fields: [["entity_id"], ["title", "text", "design.title_optional"]] },
   heading: { icon: "layers", fields: [["title", "text", "design.heading_title"], ["icon"]] },
   statistics: { icon: "progress", domains: ["sensor", "counter", "input_number", "number"],
-    defaults: { period: "day", days: 14, stat: "change" },
+    defaults: { period: "day", days: 14, stat: "mean" },
     fields: [["entity_id"], ["title", "text", "design.title_optional"],
       ["period", "select", "design.stat_period", { options: ["day", "week", "month"], label: "design.period_" }],
       ["stat", "select", "design.stat_type", { options: ["change", "mean", "min", "max"], label: "design.stat_" }],
@@ -975,16 +975,27 @@ async function importLovelace() {
   try {
     const r = await api("/api/lovelace/import", { method: "POST", body: { url_path: $("lovelaceDash").value } });
     recordPending();
-    // A page that is already here (same id) is replaced, the rest is appended;
-    // importing the same dashboard twice does not duplicate pages.
+    // Pages this dashboard produced before are replaced, and those it no longer
+    // produces are removed. A page of your own is never overwritten, even when
+    // it happens to have the same id: it gets a new id and the import is added.
+    const incoming = new Set(r.pages.map((p) => p.id));
+    let removed = 0;
+    cfg.pages = cfg.pages.filter((p) => {
+      if (p.imported_from === r.source && !incoming.has(p.id)) { removed += 1; return false; }
+      return true;
+    });
     let replaced = 0;
     for (const p of r.pages) {
       const i = cfg.pages.findIndex((x) => x.id === p.id);
-      if (i >= 0) { cfg.pages[i] = p; replaced += 1; } else cfg.pages.push(p);
+      if (i < 0) { cfg.pages.push(p); continue; }
+      if (cfg.pages[i].imported_from === r.source) { cfg.pages[i] = p; replaced += 1; continue; }
+      p.id = uniquePageId(p.id);
+      cfg.pages.push(p);
     }
     const cards = r.pages.reduce((n, p) => n + p.cards.length, 0);
     const parts = [el("div", { class: "notice ok" }, T("lovelace.imported", { pages: r.pages.length, cards }))];
     if (replaced) parts.push(el("div", { class: "notice" }, T("lovelace.replaced", { n: replaced })));
+    if (removed) parts.push(el("div", { class: "notice" }, T("lovelace.removed", { n: removed })));
     if (r.skipped.length) {
       parts.push(el("div", { class: "notice warn" },
         el("div", {}, T("lovelace.skipped")),
@@ -1043,6 +1054,13 @@ function renderPageSettings() {
 }
 
 const slug = (s) => s.toLowerCase().normalize("NFKD").replace(/[^\w]+/g, "_").replace(/^_|_$/g, "");
+
+// An id that no page uses yet, so an import never overwrites one of your own.
+function uniquePageId(id) {
+  let out = id, n = 2;
+  while (cfg.pages.some((p) => p.id === out)) { out = id + "_" + n; n += 1; }
+  return out;
+}
 
 function movePage(d) {
   const [p] = cfg.pages.splice(page, 1);

@@ -219,6 +219,7 @@ lovelace:
   importing: "Lecture du tableau de bord."
   imported: "{pages} pages avec {cards} cartes importées."
   replaced: "{n} pages existantes remplacées."
+  removed: "{n} pages d'un import précédent supprimées."
   skipped: "Non importé (aucune carte correspondante) :"
   skipped_item: "{card} ×{count}"
 

@@ -723,6 +723,7 @@ async fn run_device(
                     }
                     UiAction::Refresh => {
                         force_full = true;
+                        ha_client.force_images();
                         let ha = ha_client.clone();
                         let tx = wake_tx.clone();
                         tokio::spawn(async move {

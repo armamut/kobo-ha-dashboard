@@ -219,6 +219,7 @@ lovelace:
   importing: "Odczyt pulpitu."
   imported: "Zaimportowano {pages} stron z {cards} kartami."
   replaced: "Zastąpiono {n} istniejących stron."
+  removed: "Usunięto {n} stron z wcześniejszego importu."
   skipped: "Nie zaimportowano (brak pasującej karty):"
   skipped_item: "{card} ×{count}"
 

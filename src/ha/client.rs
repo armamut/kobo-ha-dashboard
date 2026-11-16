@@ -16,6 +16,9 @@ pub const HISTORY_ATTR: &str = "__history";
 const HISTORY_REFRESH: Duration = Duration::from_secs(1800);
 /// Pictures change at most daily (a rendered chart), so fetch them rarely.
 const IMAGE_REFRESH: Duration = Duration::from_secs(6 * 3600);
+/// A failed picture fetch (a restarting chart, a slow Home Assistant) is retried
+/// after this instead of leaving the card empty for six hours.
+const IMAGE_RETRY: Duration = Duration::from_secs(300);
 const HISTORY_SPAN_HOURS: i64 = 24;
 const HISTORY_POINTS: usize = 48;
 
@@ -37,6 +40,10 @@ pub struct HaClient {
     images: Arc<RwLock<HashMap<String, Arc<Vec<u8>>>>>,
     /// When the pictures were last fetched
     last_image_fetch: Arc<std::sync::Mutex<Option<Instant>>>,
+    /// True when the last picture fetch brought nothing back: retry sooner.
+    image_retry: Arc<AtomicBool>,
+    /// True while a picture fetch runs, so refreshes never stack up.
+    images_running: Arc<AtomicBool>,
     extras: Arc<RwLock<Extras>>,
     last_update: Arc<RwLock<Option<chrono::DateTime<chrono::Utc>>>>,
     /// Every entity the dashboard shows (the WebSocket subscription list)
@@ -110,6 +117,8 @@ impl HaClient {
             image_entities: Arc::new(Vec::new()),
             images: Arc::new(RwLock::new(HashMap::new())),
             last_image_fetch: Arc::new(std::sync::Mutex::new(None)),
+            image_retry: Arc::new(AtomicBool::new(false)),
+            images_running: Arc::new(AtomicBool::new(false)),
             extras: Arc::new(RwLock::new(Extras::default())),
             last_update: Arc::new(RwLock::new(None)),
             entity_ids: Arc::new(Vec::new()),
@@ -359,20 +368,51 @@ impl HaClient {
             }
         }
 
-        let need_images = self
+        // Pictures are fetched off the way: they are not needed for the state
+        // refresh, and a slow image proxy must not eat its time budget.
+        let stale_images = self
             .last_image_fetch
             .lock()
-            .map(|t| t.map(|t| t.elapsed() > IMAGE_REFRESH).unwrap_or(true))
+            .map(|t| {
+                let wait = if self.image_retry.load(Ordering::Relaxed) { IMAGE_RETRY } else { IMAGE_REFRESH };
+                t.map(|t| t.elapsed() > wait).unwrap_or(true)
+            })
             .unwrap_or(false);
-        if need_images && !self.image_entities.is_empty() {
-            let images = self.fetch_images().await;
+        if stale_images
+            && !self.image_entities.is_empty()
+            && !self.images_running.swap(true, Ordering::Relaxed)
+        {
+            let this = self.clone();
+            tokio::spawn(async move {
+                this.refresh_images().await;
+                this.images_running.store(false, Ordering::Relaxed);
+            });
+        }
+    }
+
+    /// Fetch the pictures of the dashboard's `image` entities and remember when.
+    /// Nothing came back (a chart being regenerated, a restarting Home
+    /// Assistant): remember that too, so the next try is a few minutes away.
+    async fn refresh_images(&self) {
+        let images = self.fetch_images().await;
+        let empty = images.is_empty();
+        if !empty {
             let mut map = self.images.write().await;
             for (entity, bytes) in images {
                 map.insert(entity, bytes);
             }
-            if let Ok(mut t) = self.last_image_fetch.lock() {
-                *t = Some(Instant::now());
-            }
+        }
+        self.image_retry.store(empty, Ordering::Relaxed);
+        if let Ok(mut t) = self.last_image_fetch.lock() {
+            *t = Some(Instant::now());
+        }
+    }
+
+    /// Ask for the pictures again on the next refresh (a tap on the screen, or
+    /// a test in the setup tool).
+    pub fn force_images(&self) {
+        if let Ok(mut t) = self.last_image_fetch.lock() {
+            *t = None;
         }
     }
 

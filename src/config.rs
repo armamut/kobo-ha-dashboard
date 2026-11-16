@@ -312,6 +312,10 @@ pub struct PageConfig {
     pub icon: String,
     #[serde(default)]
     pub cards: Vec<CardConfig>,
+    /// Where the page came from, e.g. `lovelace:energie`. An import only
+    /// replaces and removes pages with its own mark, so your own pages survive.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub imported_from: Option<String>,
 }
 
 fn default_page_icon() -> String {
@@ -444,7 +448,8 @@ fn default_stat_days() -> u32 {
     14
 }
 fn default_stat_type() -> String {
-    "change".to_string()
+    // `mean` exists for every statistics sensor; `change` only for meters.
+    "mean".to_string()
 }
 
 fn default_forecast_days() -> usize {
@@ -503,6 +508,7 @@ pub fn default_demo_pages() -> Vec<PageConfig> {
             id: "main".to_string(),
             title: "Home".to_string(),
             icon: "home".to_string(),
+            imported_from: None,
             cards: vec![
                 CardConfig::Weather {
                     entity_id: "weather.home".to_string(),
@@ -593,6 +599,7 @@ pub fn default_demo_pages() -> Vec<PageConfig> {
             id: "climate".to_string(),
             title: "Climate".to_string(),
             icon: "thermometer".to_string(),
+            imported_from: None,
             cards: vec![
                 CardConfig::Climate {
                     entity_id: "climate.lounge".to_string(),
@@ -654,6 +661,17 @@ mod tests {
         let cfg: AppConfig = serde_yaml::from_str(include_str!("../config.example.yaml")).expect("config.example.yaml parses");
         assert_eq!(cfg.version, CONFIG_VERSION);
         assert!(!cfg.pages.is_empty());
+    }
+
+    #[test]
+    fn a_page_without_an_import_mark_still_loads() {
+        let plain: PageConfig = serde_yaml::from_str("id: home\ntitle: Home\ncards: []").expect("older config parses");
+        assert_eq!(plain.imported_from, None);
+        let marked: PageConfig =
+            serde_yaml::from_str("id: energy\ntitle: Energy\nimported_from: lovelace:energie\ncards: []").expect("marked page parses");
+        assert_eq!(marked.imported_from.as_deref(), Some("lovelace:energie"));
+        let yaml = serde_yaml::to_string(&plain).unwrap();
+        assert!(!yaml.contains("imported_from"), "an unmarked page writes no empty field");
     }
 
     #[test]

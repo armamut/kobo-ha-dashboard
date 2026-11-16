@@ -32,7 +32,7 @@ pub struct ConnectionReport {
     pub suggested_url: Option<String>,
 }
 
-fn client(token: &str) -> reqwest::Client {
+pub(crate) fn client(token: &str) -> reqwest::Client {
     let mut headers = reqwest::header::HeaderMap::new();
     if let Ok(v) = reqwest::header::HeaderValue::from_str(&format!("Bearer {}", token.trim())) {
         headers.insert(reqwest::header::AUTHORIZATION, v);
@@ -45,7 +45,7 @@ fn client(token: &str) -> reqwest::Client {
         .unwrap_or_default()
 }
 
-fn base(url: &str) -> String {
+pub(crate) fn base(url: &str) -> String {
     crate::ha::base_url(url).0
 }
 
@@ -352,7 +352,7 @@ pub fn generate(entities: &[EntityInfo], screen: (u32, u32)) -> Vec<PageConfig> 
         overview.extend(card_for(m));
     }
     if !overview.is_empty() {
-        pages.push(PageConfig { id: "home".into(), title: i18n::t("generated.overview"), icon: "home".into(), cards: overview });
+        pages.push(PageConfig { id: "home".into(), title: i18n::t("generated.overview"), icon: "home".into(), cards: overview, imported_from: None });
     }
 
     // Per area, biggest areas first; entities without an area go to "Other".
@@ -444,7 +444,7 @@ fn page(area: &str, part: usize, icon: &str, cards: Vec<CardConfig>) -> PageConf
         .chars()
         .map(|c| if c.is_alphanumeric() { c } else { '_' })
         .collect();
-    PageConfig { id, title, icon: icon.to_string(), cards }
+    PageConfig { id, title, icon: icon.to_string(), cards, imported_from: None }
 }
 
 #[cfg(test)]

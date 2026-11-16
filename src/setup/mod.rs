@@ -354,8 +354,15 @@ async fn import_lovelace(State(s): State<Shared>, Json(req): Json<LovelaceImport
             return bad_request(e);
         }
     };
-    match lovelace::import(&raw, config.device.get_dimensions(), !config.pages.is_empty()) {
-        Ok(result) => {
+    // Mark where these pages came from, so a later import of the same dashboard
+    // replaces its own pages and leaves the rest alone.
+    let source = format!("lovelace:{}", url_path.unwrap_or("default"));
+    let classes = lovelace::state_classes(&url, &token).await;
+    match lovelace::import_with(&raw, config.device.get_dimensions(), !config.pages.is_empty(), &classes) {
+        Ok(mut result) => {
+            for page in &mut result.pages {
+                page.imported_from = Some(source.clone());
+            }
             let cards: usize = result.pages.iter().map(|p| p.cards.len()).sum();
             tracing::info!(
                 "Lovelace import: {} pages, {} cards, {} skipped kinds",
@@ -363,7 +370,8 @@ async fn import_lovelace(State(s): State<Shared>, Json(req): Json<LovelaceImport
                 cards,
                 result.skipped.len()
             );
-            Json(serde_json::json!({ "pages": result.pages, "skipped": result.skipped })).into_response()
+            Json(serde_json::json!({ "pages": result.pages, "skipped": result.skipped, "source": source }))
+                .into_response()
         }
         Err(e) => {
             tracing::warn!("Lovelace import refused: {:?}", e);
