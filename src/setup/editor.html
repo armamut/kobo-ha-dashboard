@@ -786,7 +786,10 @@ function bindConnect() {
     cfg.theme.utc_offset = s;
     sync();
   };
-  if (!cfg.theme.utc_offset) $("useTz").click();
+  // An empty field means "the device's own zone": the launcher sets TZ, and the
+  // POSIX rule in it follows daylight saving. Filling the field pins a fixed
+  // offset, which is an hour off after the next clock change, so the button
+  // stays a deliberate choice instead of being pressed here.
   $("tokenHelpBtn").onclick = openTokenHelp;
   $("tokenHelpClose").onclick = () => $("tokenHelp").close();
   $("testBtn").onclick = testConnection;
