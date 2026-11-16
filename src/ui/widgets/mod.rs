@@ -141,3 +141,16 @@ pub fn format_number(raw: &str) -> String {
         Err(_) => crate::i18n::state_label(raw),
     }
 }
+
+/// Format an entity's state, using its domain and `device_class` for localized
+/// non-numeric states (e.g. `binary_sensor` with `device_class: "lock"`).
+pub fn format_entity_state(state: &crate::ha::models::EntityState) -> String {
+    match state.state.parse::<f64>() {
+        Ok(v) if v.abs() >= 100.0 || v.fract() == 0.0 => crate::i18n::num(v, 0),
+        Ok(v) => crate::i18n::num(v, 1),
+        Err(_) => {
+            let domain = state.entity_id.split('.').next().unwrap_or("");
+            crate::i18n::entity_state_label(domain, state.get_attr_str("device_class"), &state.state)
+        }
+    }
+}

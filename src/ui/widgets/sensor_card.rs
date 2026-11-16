@@ -4,7 +4,7 @@ use crate::ha::client::HISTORY_ATTR;
 use crate::ha::models::EntityState;
 use crate::ui::layout::{InteractiveTarget, Rect, UiAction};
 use crate::ui::theme::{Theme, Tone};
-use crate::ui::widgets::{draw_card, draw_icon_badge, draw_value_unit, format_number, type_scale, PAD};
+use crate::ui::widgets::{draw_card, draw_icon_badge, draw_value_unit, format_entity_state, type_scale, PAD};
 use std::collections::HashMap;
 
 pub const TILE_H: f32 = 132.0;
@@ -75,7 +75,7 @@ pub fn render_sensor_card(
         .map(|s| s.to_string())
         .or_else(|| state.map(|s| s.friendly_name()))
         .unwrap_or_else(|| entity_id.to_string());
-    let value = state.map(|s| format_number(&s.state)).unwrap_or_else(|| "--".to_string());
+    let value = state.map(format_entity_state).unwrap_or_else(|| "--".to_string());
     let unit = custom_unit
         .map(|s| s.to_string())
         .or_else(|| state.and_then(|s| s.unit_of_measurement()))
@@ -171,7 +171,7 @@ pub fn render_sensor_grid(
             cell.w - 2.0 * ip - badge - 12.0,
         );
 
-        let value = state.map(|s| format_number(&s.state)).unwrap_or_else(|| "--".to_string());
+        let value = state.map(format_entity_state).unwrap_or_else(|| "--".to_string());
         let unit = item
             .unit
             .clone()

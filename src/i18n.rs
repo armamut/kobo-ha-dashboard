@@ -19,6 +19,7 @@ pub const BUILTIN: &[(&str, &str)] = &[
     ("nl", include_str!("../lang/nl.yaml")),
     ("pt", include_str!("../lang/pt.yaml")),
     ("pl", include_str!("../lang/pl.yaml")),
+    ("ru", include_str!("../lang/ru.yaml")),
     ("ja", include_str!("../lang/ja.yaml")),
     ("zh", include_str!("../lang/zh.yaml")),
 ];
@@ -34,6 +35,7 @@ pub const SETUP_BUILTIN: &[(&str, &str)] = &[
     ("nl", include_str!("../lang/setup/nl.yaml")),
     ("pt", include_str!("../lang/setup/pt.yaml")),
     ("pl", include_str!("../lang/setup/pl.yaml")),
+    ("ru", include_str!("../lang/setup/ru.yaml")),
     ("ja", include_str!("../lang/setup/ja.yaml")),
     ("zh", include_str!("../lang/setup/zh.yaml")),
 ];
@@ -199,11 +201,23 @@ pub fn num(value: f64, decimals: usize) -> String {
 
 /// Translate a Home Assistant state string; unknown states pass through.
 pub fn state_label(raw: &str) -> String {
-    let key = match raw {
+    let lower = raw.trim().to_lowercase();
+    let key = match lower.as_str() {
         "on" => "on",
         "off" => "off",
         "unavailable" => "unavailable",
         "unknown" | "none" => "unknown",
+        "locked" => "locked",
+        "unlocked" => "unlocked",
+        "locking" => "locking",
+        "unlocking" => "unlocking",
+        "jammed" => "jammed",
+        "open" => "open",
+        "closed" => "closed",
+        "opening" => "opening",
+        "closing" => "closing",
+        "home" => "home",
+        "not_home" => "away",
         "run" | "running" => "running",
         "idle" | "ready" => "idle",
         "standby" => "standby",
@@ -219,6 +233,37 @@ pub fn state_label(raw: &str) -> String {
         _ => return raw.to_string(),
     };
     t(&format!("state.{}", key))
+}
+
+/// Translate a Home Assistant state string taking entity domain and `device_class`
+/// into account (e.g. `binary_sensor` with `device_class: "lock"` maps
+/// `on`/`off` to `Unlocked`/`Locked`).
+pub fn entity_state_label(domain: &str, device_class: Option<&str>, raw: &str) -> String {
+    let lower = raw.trim().to_lowercase();
+    if domain == "binary_sensor" && matches!(lower.as_str(), "on" | "off") {
+        let on = lower == "on";
+        let key = match device_class {
+            Some("lock") => if on { "unlocked" } else { "locked" },
+            Some("door" | "window" | "opening" | "garage_door") => if on { "open" } else { "closed" },
+            Some(
+                "motion" | "occupancy" | "presence" | "smoke" | "gas" | "carbon_monoxide" | "sound" | "vibration"
+                | "tamper" | "power" | "light",
+            ) => if on { "detected" } else { "clear" },
+            Some("moisture") => if on { "wet" } else { "dry" },
+            Some("connectivity") => if on { "connected" } else { "disconnected" },
+            Some("plug") => if on { "plugged_in" } else { "unplugged" },
+            Some("battery") => if on { "low" } else { "normal" },
+            Some("battery_charging") => if on { "charging" } else { "not_charging" },
+            Some("running") => if on { "running" } else { "not_running" },
+            Some("problem" | "safety") => if on { "problem" } else { "ok" },
+            Some("heat") => if on { "hot" } else { "normal" },
+            Some("cold") => if on { "cold" } else { "normal" },
+            Some("update") => if on { "update_available" } else { "up_to_date" },
+            _ => if on { "on" } else { "off" },
+        };
+        return t(&format!("state.{}", key));
+    }
+    state_label(raw)
 }
 
 /// Font family required by a language (e.g. "NotoSansSC"), if any.
@@ -324,5 +369,37 @@ mod tests {
         assert_eq!(normalize("pt-BR"), "pt");
         assert_eq!(font_for("zh").as_deref(), Some("NotoSansSC"));
         assert_eq!(font_for("de"), None);
+        assert_eq!(font_for("ru"), None);
+        set_language("ru");
+        assert_eq!(t("state.on"), "Вкл");
+        assert_eq!(nth("date.months", 9), "октября");
+        assert_eq!(num(21.56, 1), "21,6");
+        set_language("en");
+    }
+
+    #[test]
+    fn entity_state_localization() {
+        let _guard = TEST_LANGUAGE_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        set_language("en");
+        assert_eq!(entity_state_label("binary_sensor", Some("lock"), "off"), "Locked");
+        assert_eq!(entity_state_label("binary_sensor", Some("lock"), "on"), "Unlocked");
+        assert_eq!(entity_state_label("binary_sensor", Some("door"), "on"), "Open");
+        assert_eq!(entity_state_label("binary_sensor", Some("door"), "off"), "Closed");
+        assert_eq!(entity_state_label("binary_sensor", Some("motion"), "on"), "Detected");
+        assert_eq!(entity_state_label("binary_sensor", Some("motion"), "off"), "Clear");
+        assert_eq!(entity_state_label("binary_sensor", Some("moisture"), "on"), "Wet");
+        assert_eq!(entity_state_label("binary_sensor", Some("connectivity"), "off"), "Disconnected");
+        assert_eq!(entity_state_label("binary_sensor", None, "on"), "On");
+        assert_eq!(entity_state_label("binary_sensor", Some("lock"), "unavailable"), "Unavailable");
+        assert_eq!(entity_state_label("lock", None, "locked"), "Locked");
+        assert_eq!(entity_state_label("lock", None, "unlocked"), "Unlocked");
+        assert_eq!(entity_state_label("sensor", None, "CustomValue"), "CustomValue");
+
+        set_language("ru");
+        assert_eq!(entity_state_label("binary_sensor", Some("lock"), "off"), "Закрыто");
+        assert_eq!(entity_state_label("binary_sensor", Some("lock"), "on"), "Открыто");
+        assert_eq!(entity_state_label("lock", None, "locked"), "Закрыто");
+        assert_eq!(entity_state_label("lock", None, "unlocked"), "Открыто");
+        set_language("en");
     }
 }

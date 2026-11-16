@@ -508,7 +508,7 @@ async function setUiLang(code) {
 
 // Card schemas: which entity domains fit, and which fields to edit.
 const TOGGLE_DOMAINS = ["switch", "fan", "input_boolean", "automation", "light", "cover", "climate", "media_player", "humidifier", "siren"];
-const SENSOR_DOMAINS = ["sensor", "binary_sensor", "input_number", "number", "counter", "input_text", "input_select", "select", "text"];
+const SENSOR_DOMAINS = ["sensor", "binary_sensor", "lock", "input_number", "number", "counter", "input_text", "input_select", "select", "text"];
 const ACTION_DOMAINS = ["scene", "script", "button", "input_button", "switch", "light", "input_boolean", "automation"];
 const CARD_TYPES = {
   weather: { icon: "sun", domains: ["weather"], defaults: { forecast_days: 5 },

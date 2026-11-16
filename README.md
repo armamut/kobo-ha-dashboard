@@ -15,9 +15,9 @@ A touch-friendly [Home Assistant](https://www.home-assistant.io/) dashboard for 
 ## Features
 
 - **Made for e-ink:** large type for 300 ppi screens, saturated colours that survive the Kaleido colour filter, and partial refreshes that only redraw what changed.
-- **Cards:** lights, switches, fans, thermostats (with +/- buttons), sensors with 24-hour graphs, sensor grids, media players, weather with forecast, scene/script buttons, section headings, bar charts of Home Assistant's statistics, and pictures from `image` entities (a chart or snapshot Home Assistant renders).
+- **Cards:** lights, switches, fans, thermostats (with +/- buttons), sensors with 24-hour graphs (door, motion and other binary sensors and locks read *Open / Closed*, *Detected / Clear* and so on), sensor grids, media players, weather with forecast, scene/script buttons, section headings, bar charts of Home Assistant's statistics, and pictures from `image` entities (a chart or snapshot Home Assistant renders).
 - **Setup tool:** connect Home Assistant, get a starter dashboard generated from your areas, or import an existing Lovelace dashboard and let its cards be translated to native ones. Rearrange it with a live, pixel-exact preview, and install with one click.
-- **11 languages:** English, Türkçe, Deutsch, Français, Español, Italiano, Nederlands, Português, Polski, 日本語 and 简体中文, for both the dashboard and the setup tool. The setup tool asks for your language when it first opens.
+- **12 languages:** English, Türkçe, Deutsch, Français, Español, Italiano, Nederlands, Português, Polski, Русский, 日本語 and 简体中文, for both the dashboard and the setup tool. The setup tool asks for your language when it first opens.
 - **Portrait or landscape**, and four themes: colour, high-contrast black & white, warm paper, and dark.
 - **Safe exit:** the Kobo's reading software is paused while the dashboard runs and resumed afterwards. Tap the exit icon to go back to your books. Connecting the Kobo to a computer also returns to the reader, so it can offer to connect; a plain charger doesn't.
 
@@ -31,7 +31,8 @@ A touch-friendly [Home Assistant](https://www.home-assistant.io/) dashboard for 
 |---|---|
 | Kobo Clara Colour | ✅ Tested |
 | Kobo Clara BW, Libra Colour, Elipsa 2E (MediaTek) | 🟡 Should work, untested |
-| Older Kobos (NXP i.MX: Clara HD, Clara 2E, Libra 2, Libra H2O, Sage, Forma, Elipsa) | 🟡 Experimental |
+| Kobo Libra 2 | ✅ Tested by [@Luca2103](https://github.com/Luca2103) ([#8](https://github.com/armamut/kobo-ha-dashboard/pull/8)) and [@truburt](https://github.com/truburt) ([#11](https://github.com/armamut/kobo-ha-dashboard/pull/11)) |
+| Older Kobos (NXP i.MX: Clara HD, Clara 2E, Libra H2O, Sage, Forma, Elipsa) | 🟡 Experimental |
 | Kobo Glo | ✅ Tested by [@dikkechill](https://github.com/dikkechill) ([#1](https://github.com/armamut/kobo-ha-dashboard/issues/1)) |
 | Kobo Aura | ✅ Tested by [@digt100](https://github.com/digt100) ([#2](https://github.com/armamut/kobo-ha-dashboard/issues/2)), touch by [@suzakuprod](https://github.com/suzakuprod) ([#5](https://github.com/armamut/kobo-ha-dashboard/issues/5)) |
 | Kobo Nia | ✅ Tested by [@qpeten](https://github.com/qpeten) ([#4](https://github.com/armamut/kobo-ha-dashboard/issues/4)) |
@@ -127,8 +128,8 @@ The setup tool writes `config.yaml` for you. If you prefer editing it by hand, [
 - **Log file:** each start writes `.kobo-ha/dashboard.log` on the Kobo (the previous run is kept as `dashboard.log.old`). It shows the screen format, the e-ink refresh method and the touch device that were detected.
 - **The Kobo freezes and then reboots:** Kobo firmware has a watchdog (`sickel`) that restarts the device when the reading app stops responding. The launcher pauses it together with the reading app. If you see this, reinstall with the setup tool to get the current launcher.
 - **The picture is rotated or upside down:** set `device.fb_rotation` to `0`, `90`, `180` or `270`.
-- **Taps land in the wrong place:** adjust `swap_touch_xy`, `invert_touch_x` and `invert_touch_y`.
-- **The clock is wrong:** the launcher starts the dashboard in the zone set at the top of `.kobo-ha/launch.sh` (`TZ=CET-1CEST,M3.5.0,M10.5.0`, Central Europe). Change that line for your own zone; the POSIX form needs no timezone database and follows daylight saving. Leave the setup tool's timezone field **empty** so that rule applies: a value there (`theme.utc_offset` in `config.yaml`) is a fixed offset that wins over `launch.sh`, and it is an hour off after the next clock change. The Kobo keeps its system clock in UTC and Nickel never exports its zone, which is why a clock in a NickelMenu `cmd_output` item or in NickelClock shows an hour less in winter and two in summer.
+- **Taps land in the wrong place:** adjust `swap_touch_xy`, `invert_touch_x` and `invert_touch_y`. The log lists every tap with its screen position and what it hit (`Tap at (973, 475) -> Some(…)`), so you can see which way the axes are off.
+- **The clock is wrong:** set `theme.utc_offset` (the setup tool's **Use mine** button fills it in). The Kobo keeps its system clock in UTC.
 - **"Offline":** check the URL from another device on the same Wi-Fi. If Home Assistant sits behind a reverse proxy or Cloudflare, HTTPS usually runs on the default port, so leave out `:8123`.
 - **Battery drains fast:** turn on sleep mode (see [Battery life](#battery-life)), or keep the Kobo on a charger if you use it as a wall panel. The log records the battery level every 10 minutes, so you can compare settings.
 - **Sleep mode doesn't start:** the log says why (`Sleep mode: unavailable, …`). It never sleeps while the Kobo is plugged in, by design. If the Kobo hangs while asleep, hold the power button for about 15 seconds to restart it, set sleep mode to **Never**, and please open an issue with `dashboard.log.old`.

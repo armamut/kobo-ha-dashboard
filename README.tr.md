@@ -13,9 +13,9 @@ Kobo e-okuyucular için dokunmatik bir [Home Assistant](https://www.home-assista
 ## Özellikler
 
 - **E-ink için tasarlandı:** 300 ppi ekran için büyük yazılar, Kaleido renk filtresinde kaybolmayan canlı renkler, sadece değişen bölgeyi yenileyen kısmi güncelleme.
-- **Kartlar:** ışık, anahtar, fan, termostat (+/- butonlu), 24 saatlik grafikli sensör, sensör ızgarası, medya oynatıcı, tahminli hava durumu, sahne/script butonları.
+- **Kartlar:** ışık, anahtar, fan, termostat (+/- butonlu), 24 saatlik grafikli sensör (kapı, hareket gibi ikili sensörler ve kilitler *Açık / Kapalı*, *Algılandı / Temiz* gibi durumlarla görünür), sensör ızgarası, medya oynatıcı, tahminli hava durumu, sahne/script butonları.
 - **Kurulum aracı:** Home Assistant'a bağlanır, alanlarınıza göre başlangıç paneli oluşturur, kartları canlı önizlemeyle düzenletir ve tek tıkla kurar. Önizleme, Kobo'nun göstereceğiyle birebir aynıdır.
-- **11 dil:** English, Türkçe, Deutsch, Français, Español, Italiano, Nederlands, Português, Polski, 日本語, 简体中文. Hem panel hem kurulum aracı çevrili; araç ilk açılışta dilinizi sorar.
+- **12 dil:** English, Türkçe, Deutsch, Français, Español, Italiano, Nederlands, Português, Polski, Русский, 日本語, 简体中文. Hem panel hem kurulum aracı çevrili; araç ilk açılışta dilinizi sorar.
 - **Model desteği:** Clara Colour, Clara BW, Libra Colour, Tolino modelleri ve eski Glo, Aura, Nia, Glo HD, Aura HD, Aura H2O, Touch ve Mini bağlanınca otomatik tanınır; diğerleri listeden seçilir. Cihazda her zaman gerçek ekran çözünürlüğü kullanılır.
 - Dikey veya yatay kullanım ve dört tema: renkli, yüksek kontrast siyah-beyaz, sıcak kağıt, koyu.
 - **Güvenli çıkış:** Kobo'nun okuma yazılımı dashboard açıkken duraklatılır, çıkınca devam eder. Çıkış simgesine dokunun. Kobo'yu bilgisayara bağlayınca da okuma ekranına dönülür, böylece bağlanmayı sorabilir; sadece şarj cihazına takmak paneli kapatmaz.
