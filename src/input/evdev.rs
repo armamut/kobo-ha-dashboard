@@ -476,7 +476,9 @@ mod linux {
                     last_report_us = ev.time_us;
 
                     // Fire once per touch, as soon as we know where the finger went down.
-                    if !emitted && moved && ev.time_us - last_tap_us < TAP_DEBOUNCE_US {
+                    // A range, not just "< debounce": event times are wall-clock, and
+                    // after the clock is set back the difference would be negative.
+                    if !emitted && moved && (0..TAP_DEBOUNCE_US).contains(&(ev.time_us - last_tap_us)) {
                         // Bounce of the previous tap: wait for a real new touch.
                         emitted = true;
                     }
