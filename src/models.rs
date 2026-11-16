@@ -29,7 +29,7 @@ pub const MODELS: &[KoboModel] = &[
     m("libra_colour", "Kobo Libra Colour", Some("390"), 1264, 1680, true, false),
     m("elipsa_2e", "Kobo Elipsa 2E", None, 1404, 1872, false, false),
     m("clara_2e", "Kobo Clara 2E", None, 1072, 1448, false, false),
-    m("libra_2", "Kobo Libra 2", None, 1264, 1680, false, false),
+    m("libra_2", "Kobo Libra 2", None, 1264, 1680, false, true),
     m("sage", "Kobo Sage", None, 1440, 1920, false, false),
     m("elipsa", "Kobo Elipsa", None, 1404, 1872, false, false),
     m("clara_hd", "Kobo Clara HD", None, 1072, 1448, false, false),
