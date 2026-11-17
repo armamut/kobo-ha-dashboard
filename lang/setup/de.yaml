@@ -282,6 +282,7 @@ install:
     font_download: "Die Sprache benötigt die Schriftart {family}; sie wird heruntergeladen, falls nicht vorhanden…"
     binary: "Dashboard-Programm kopiert"
     launcher: "launch.sh geschrieben"
+    timezone: "Zeitzone des Starters auf {zone} gesetzt"
     backup: "Vorherige Konfiguration als config.yaml.bak gesichert"
     config: "config.yaml geschrieben"
     font: "Schriftart {name} kopiert"

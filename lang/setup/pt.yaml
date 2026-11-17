@@ -282,6 +282,7 @@ install:
     font_download: "O idioma precisa da fonte {family}; baixando se não estiver em cache…"
     binary: "Programa do painel copiado"
     launcher: "launch.sh gravado"
+    timezone: "Fuso horário do lançador definido como {zone}"
     backup: "Configuração anterior salva como config.yaml.bak"
     config: "config.yaml gravado"
     font: "Fonte {name} copiada"

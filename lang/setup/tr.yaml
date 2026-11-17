@@ -282,6 +282,7 @@ install:
     font_download: "Dil {family} fontunu gerektiriyor; önbellekte yoksa indiriliyor…"
     binary: "Panel programı kopyalandı"
     launcher: "launch.sh yazıldı"
+    timezone: "Başlatıcının saat dilimi {zone} olarak ayarlandı"
     backup: "Önceki config, config.yaml.bak olarak yedeklendi"
     config: "config.yaml yazıldı"
     font: "{name} fontu kopyalandı"

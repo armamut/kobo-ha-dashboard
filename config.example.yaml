@@ -86,8 +86,10 @@ theme:
   # en, tr, de, fr, es, it, nl, pt, pl, ja, zh
   # (ja/zh need an extra font, which the setup tool copies to the Kobo)
   language: "en"
-  # The Kobo keeps its system clock in UTC, so set your offset here.
-  utc_offset: "+00:00"
+  # The Kobo keeps its system clock in UTC. The setup tool writes your zone into
+  # launch.sh as a POSIX TZ rule, which follows daylight saving; set a fixed
+  # offset here only to override that, as it is an hour off after a clock change.
+  # utc_offset: "+01:00"
 
 # ------------------------------------------------------------------------------
 # Pages are shown as tabs. Small cards (light, switch, climate, sensor, scene)

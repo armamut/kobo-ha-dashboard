@@ -282,6 +282,7 @@ install:
     font_download: "この言語には {family} フォントが必要です。キャッシュになければダウンロードします…"
     binary: "ダッシュボードのプログラムをコピーしました"
     launcher: "launch.sh を書き込みました"
+    timezone: "起動スクリプトのタイムゾーンを {zone} に設定しました"
     backup: "以前の設定を config.yaml.bak にバックアップしました"
     config: "config.yaml を書き込みました"
     font: "フォント {name} をコピーしました"

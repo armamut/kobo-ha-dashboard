@@ -282,6 +282,7 @@ install:
     font_download: "Język wymaga czcionki {family}; pobieranie, jeśli nie ma jej w pamięci podręcznej…"
     binary: "Skopiowano program panelu"
     launcher: "Zapisano launch.sh"
+    timezone: "Ustawiono strefę czasową programu startowego na {zone}"
     backup: "Poprzednią konfigurację zapisano jako config.yaml.bak"
     config: "Zapisano config.yaml"
     font: "Skopiowano czcionkę {name}"

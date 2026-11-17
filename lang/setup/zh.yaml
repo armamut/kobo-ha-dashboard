@@ -282,6 +282,7 @@ install:
     font_download: "此语言需要 {family} 字体；如未缓存，正在下载…"
     binary: "已复制仪表板程序"
     launcher: "已写入 launch.sh"
+    timezone: "启动脚本的时区已设为 {zone}"
     backup: "已将之前的配置备份为 config.yaml.bak"
     config: "已写入 config.yaml"
     font: "已复制字体 {name}"
