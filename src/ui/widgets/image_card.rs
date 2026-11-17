@@ -4,6 +4,7 @@
 //! `/api/image_proxy/<entity_id>`; the client fetches the bytes and decodes them
 //! once, so this widget only has to place them.
 
+use crate::display::canvas::ImageIssue;
 use crate::display::{Canvas, TextAlign};
 use crate::ui::layout::{InteractiveTarget, Rect, UiAction};
 use crate::ui::theme::Theme;
@@ -26,7 +27,7 @@ pub fn render_image_card(
     rect: Rect,
     entity_id: &str,
     title: Option<&str>,
-    image: Option<&Pixmap>,
+    image: Option<Result<&Pixmap, ImageIssue>>,
     targets: &mut Vec<InteractiveTarget>,
 ) {
     draw_card(canvas, theme, rect, None);
@@ -35,7 +36,7 @@ pub fn render_image_card(
         canvas.draw_text_fit(title, rect.x + PAD, rect.y + PAD, type_scale::BODY, true, theme.text_muted, TextAlign::Left, area.w);
     }
     match image {
-        Some(pixmap) => {
+        Some(Ok(pixmap)) => {
             // The pixmap is in device pixels; the layout is in UI units.
             let w = pixmap.width() as f32 / canvas.scale;
             let h = pixmap.height() as f32 / canvas.scale;
@@ -43,7 +44,7 @@ pub fn render_image_card(
             let y = area.y + (area.h - h) / 2.0;
             canvas.draw_image(pixmap, x, y);
         }
-        None => {
+        missing => {
             canvas.draw_text_fit(
                 "--",
                 area.x + area.w / 2.0,
@@ -54,9 +55,17 @@ pub fn render_image_card(
                 TextAlign::Center,
                 area.w,
             );
-            // Say which entity is missing, so a wrong id is visible on the device.
+            // Say why: a picture too large for the Kobo, one it can't read, or
+            // (not fetched yet) which entity, so a wrong id is visible on the device.
+            let note = match missing {
+                Some(Err(ImageIssue::TooLarge(w, h))) => {
+                    crate::i18n::tf("image.too_large", &[("size", &format!("{}×{}", w, h))])
+                }
+                Some(Err(ImageIssue::Unreadable)) => crate::i18n::t("image.unreadable"),
+                _ => entity_id.to_string(),
+            };
             canvas.draw_text_fit(
-                entity_id,
+                &note,
                 area.x + area.w / 2.0,
                 area.y + area.h - 30.0,
                 type_scale::LABEL,
@@ -99,8 +108,8 @@ mod tests {
 
     #[test]
     fn rubbish_is_not_an_image() {
-        assert!(crate::display::canvas::fit_image(b"not an image", 100, 100).is_none());
-        assert!(crate::display::canvas::fit_image(&png(10, 10, [0, 0, 0]), 0, 100).is_none());
+        assert!(crate::display::canvas::fit_image(b"not an image", 100, 100).is_err());
+        assert!(crate::display::canvas::fit_image(&png(10, 10, [0, 0, 0]), 0, 100).is_err());
     }
 
     #[test]
@@ -114,7 +123,10 @@ mod tests {
         bytes[29..33].copy_from_slice(&crc.to_be_bytes());
         let reader = image::ImageReader::new(std::io::Cursor::new(&bytes)).with_guessed_format().unwrap();
         assert_eq!(reader.into_dimensions().unwrap(), (4000, 3000), "the header is valid");
-        assert!(crate::display::canvas::fit_image(&bytes, 400, 300).is_none());
+        assert_eq!(
+            crate::display::canvas::fit_image(&bytes, 400, 300).err(),
+            Some(crate::display::canvas::ImageIssue::TooLarge(4000, 3000))
+        );
         // 4K itself is still allowed
         assert!(3840 * 2160 <= crate::display::canvas::MAX_IMAGE_PIXELS);
     }
@@ -141,7 +153,7 @@ mod tests {
 
         let pixmap = crate::display::canvas::fit_image(&png(400, 200, [10, 120, 30]), 712, 292).unwrap();
         let mut canvas = Canvas::new(800, 400);
-        render_image_card(&mut canvas, &theme, rect, "image.price", Some("Stroomprijs"), Some(&pixmap), &mut targets);
+        render_image_card(&mut canvas, &theme, rect, "image.price", Some("Stroomprijs"), Some(Ok(&pixmap)), &mut targets);
         // The picture is drawn inside the card, and the title does not overlap it
         let data = canvas.raw_rgba_data();
         let green = (0..400 * 800)

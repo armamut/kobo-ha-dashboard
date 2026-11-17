@@ -105,3 +105,7 @@ sleep:
   wake_hint: "Appuyez sur le bouton d'alimentation pour réveiller le tableau de bord"
   battery_empty: "Batterie vide"
   charge_hint: "Branchez la Kobo pour continuer"
+
+image:
+  too_large: "Trop grande pour la Kobo ({size}, 4K max.)"
+  unreadable: "Image illisible pour la Kobo"

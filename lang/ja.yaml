@@ -105,3 +105,7 @@ sleep:
   wake_hint: "電源ボタンを押すとダッシュボードが復帰します"
   battery_empty: "バッテリー切れ"
   charge_hint: "続けるには Kobo を充電してください"
+
+image:
+  too_large: "Koboには大きすぎます（{size}、最大4K）"
+  unreadable: "Koboで読み込めない画像です"

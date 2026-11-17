@@ -236,6 +236,7 @@ async fn run_device(
 
     // Live updates over WebSocket; the loop below only polls when that is
     // down, and otherwise just refreshes forecasts/graph history now and then.
+    ha_client.set_redraw(wake_tx.clone());
     ha_client.spawn_live_updates(wake_tx.clone());
     {
         let ha = ha_client.clone();

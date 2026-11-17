@@ -121,19 +121,28 @@ pub fn ui_size(w: u32, h: u32) -> (f32, f32) {
 /// reading app, so a bigger camera snapshot is refused instead of risking it.
 pub const MAX_IMAGE_PIXELS: u64 = 3840 * 2160;
 
+/// Why a picture is not shown.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum ImageIssue {
+    /// Larger than [`MAX_IMAGE_PIXELS`]: its size in pixels.
+    TooLarge(u32, u32),
+    /// Not a PNG or JPEG this build can decode.
+    Unreadable,
+}
+
 /// Decode a PNG or JPEG and scale it to fit a `box_w` x `box_h` box, keeping
-/// its aspect ratio. `None` when the bytes are not a decodable image or the
-/// picture is larger than [`MAX_IMAGE_PIXELS`] (the reason goes to the log).
-pub fn fit_image(bytes: &[u8], box_w: u32, box_h: u32) -> Option<Pixmap> {
+/// its aspect ratio. Fails when the bytes are not a decodable image or the
+/// picture is larger than [`MAX_IMAGE_PIXELS`] (the reason also goes to the log).
+pub fn fit_image(bytes: &[u8], box_w: u32, box_h: u32) -> Result<Pixmap, ImageIssue> {
     if box_w == 0 || box_h == 0 {
-        return None;
+        return Err(ImageIssue::Unreadable);
     }
-    let reader = || image::ImageReader::new(std::io::Cursor::new(bytes)).with_guessed_format().ok();
+    let reader = || image::ImageReader::new(std::io::Cursor::new(bytes)).with_guessed_format().map_err(|_| ImageIssue::Unreadable);
     // The header alone gives the size: check it before anything is allocated.
-    let (w, h) = reader()?.into_dimensions().ok()?;
+    let (w, h) = reader()?.into_dimensions().map_err(|_| ImageIssue::Unreadable)?;
     if w as u64 * h as u64 > MAX_IMAGE_PIXELS {
         tracing::warn!("Picture is {}x{}, larger than 4K: not shown, to keep the Kobo's memory safe. Make it smaller in Home Assistant.", w, h);
-        return None;
+        return Err(ImageIssue::TooLarge(w, h));
     }
     let mut reader = reader()?;
     let mut limits = image::Limits::default();
@@ -143,12 +152,12 @@ pub fn fit_image(bytes: &[u8], box_w: u32, box_h: u32) -> Option<Pixmap> {
         Ok(img) => img.to_rgba8(),
         Err(e) => {
             tracing::warn!("Picture could not be decoded: {}", e);
-            return None;
+            return Err(ImageIssue::Unreadable);
         }
     };
     let (w, h) = decoded.dimensions();
     if w == 0 || h == 0 {
-        return None;
+        return Err(ImageIssue::Unreadable);
     }
     let scale = (box_w as f32 / w as f32).min(box_h as f32 / h as f32);
     let tw = ((w as f32 * scale).round() as u32).clamp(1, box_w);
@@ -169,7 +178,7 @@ pub fn fit_image(bytes: &[u8], box_w: u32, box_h: u32) -> Option<Pixmap> {
             }
         }
     }
-    Pixmap::from_vec(data, IntSize::from_wh(tw, th)?)
+    Pixmap::from_vec(data, IntSize::from_wh(tw, th).ok_or(ImageIssue::Unreadable)?).ok_or(ImageIssue::Unreadable)
 }
 
 pub struct Canvas {

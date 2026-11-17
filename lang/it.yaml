@@ -105,3 +105,7 @@ sleep:
   wake_hint: "Premi il tasto di accensione per riattivare la dashboard"
   battery_empty: "Batteria scarica"
   charge_hint: "Collega il Kobo per continuare"
+
+image:
+  too_large: "Troppo grande per il Kobo ({size}, max 4K)"
+  unreadable: "Immagine non leggibile dal Kobo"

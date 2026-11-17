@@ -105,3 +105,7 @@ sleep:
   wake_hint: "Pressione o botão liga/desliga para despertar o painel"
   battery_empty: "Bateria esgotada"
   charge_hint: "Ligue o Kobo à energia para continuar"
+
+image:
+  too_large: "Grande demais para o Kobo ({size}, máx. 4K)"
+  unreadable: "O Kobo não consegue ler esta imagem"

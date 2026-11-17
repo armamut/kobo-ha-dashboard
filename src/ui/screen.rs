@@ -11,6 +11,7 @@ use crate::ui::widgets::sensor_card::{sensor_grid_columns, sensor_grid_height, T
 use crate::ui::widgets::*;
 use chrono::{DateTime, Utc};
 use std::collections::HashMap;
+use crate::display::canvas::ImageIssue;
 use std::sync::Arc;
 
 const GAP: f32 = 18.0;
@@ -224,7 +225,7 @@ pub struct ScreenRenderer {
     images: HashMap<String, Arc<Vec<u8>>>,
     /// Decoded and scaled copies, so a redraw does not decode again. Keyed by
     /// entity and box size; the `Arc` identity says whether the bytes changed.
-    image_cache: HashMap<String, (Arc<Vec<u8>>, Option<Arc<tiny_skia::Pixmap>>)>,
+    image_cache: HashMap<String, (Arc<Vec<u8>>, Result<Arc<tiny_skia::Pixmap>, ImageIssue>)>,
 }
 
 impl ScreenRenderer {
@@ -248,9 +249,9 @@ impl ScreenRenderer {
         self.images = images;
     }
 
-    /// Decoded picture for one card, scaled to its box. `None` while it is
-    /// missing or cannot be decoded.
-    fn image_pixmap(&mut self, entity_id: &str, rect: Rect, titled: bool, scale: f32) -> Option<Arc<tiny_skia::Pixmap>> {
+    /// Decoded picture for one card, scaled to its box, or why it can't be
+    /// shown. `None` while it has not been fetched.
+    fn image_pixmap(&mut self, entity_id: &str, rect: Rect, titled: bool, scale: f32) -> Option<Result<Arc<tiny_skia::Pixmap>, ImageIssue>> {
         let bytes = self.images.get(entity_id)?.clone();
         let area = image_card::picture_box(rect, titled);
         let bw = ((area.w * scale).round() as i32).clamp(1, 4096) as u32;
@@ -258,14 +259,14 @@ impl ScreenRenderer {
         let key = format!("{}@{}x{}", entity_id, bw, bh);
         if let Some((cached, pixmap)) = self.image_cache.get(&key) {
             if Arc::ptr_eq(cached, &bytes) {
-                return pixmap.clone();
+                return Some(pixmap.clone());
             }
         }
         // A failure is cached too: a picture that is too large or broken is not
         // decoded again (and logged again) on every redraw.
         let pixmap = crate::display::canvas::fit_image(&bytes, bw, bh).map(Arc::new);
         self.image_cache.insert(key, (bytes, pixmap.clone()));
-        pixmap
+        Some(pixmap)
     }
 
     pub fn render(
@@ -321,7 +322,7 @@ impl ScreenRenderer {
 
         // Pictures are decoded before drawing: the widget only places them.
         let scale = canvas.scale;
-        let prepared: Vec<Option<Arc<tiny_skia::Pixmap>>> = placements
+        let prepared: Vec<Option<Result<Arc<tiny_skia::Pixmap>, ImageIssue>>> = placements
             .iter()
             .map(|(card, rect)| match card {
                 CardConfig::Image { entity_id, title } => self.image_pixmap(entity_id, *rect, title.is_some(), scale),
@@ -330,7 +331,7 @@ impl ScreenRenderer {
             .collect();
 
         for (i, (card, rect)) in placements.into_iter().enumerate() {
-            let image = prepared.get(i).and_then(|p| p.as_deref());
+            let image = prepared.get(i).and_then(|p| p.as_ref()).map(|r| r.as_deref().map_err(|e| *e));
             self.render_card(canvas, card, rect, states, image);
         }
 
@@ -394,7 +395,7 @@ impl ScreenRenderer {
         card: &CardConfig,
         rect: Rect,
         states: &HashMap<String, EntityState>,
-        image: Option<&tiny_skia::Pixmap>,
+        image: Option<Result<&tiny_skia::Pixmap, ImageIssue>>,
     ) {
         let theme = &self.theme;
         let targets = &mut self.targets;

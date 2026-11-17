@@ -105,3 +105,7 @@ sleep:
   wake_hint: "Ein-/Aus-Taste drücken, um das Dashboard aufzuwecken"
   battery_empty: "Akku leer"
   charge_hint: "Kobo zum Fortfahren ans Ladegerät anschließen"
+
+image:
+  too_large: "Zu groß für den Kobo ({size}, max. 4K)"
+  unreadable: "Kein Bild, das der Kobo lesen kann"

@@ -105,3 +105,7 @@ sleep:
   wake_hint: "按电源键唤醒仪表板"
   battery_empty: "电池电量已耗尽"
   charge_hint: "请为 Kobo 充电以继续使用"
+
+image:
+  too_large: "对 Kobo 来说太大（{size}，最大 4K）"
+  unreadable: "Kobo 无法读取此图片"

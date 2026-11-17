@@ -114,3 +114,7 @@ sleep:
   wake_hint: "Press the power button to wake the dashboard"
   battery_empty: "Battery empty"
   charge_hint: "Plug in the Kobo to continue"
+
+image:
+  too_large: "Too large for the Kobo ({size}, max 4K)"
+  unreadable: "Not a picture the Kobo can read"

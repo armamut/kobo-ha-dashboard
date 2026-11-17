@@ -105,3 +105,7 @@ sleep:
   wake_hint: "Paneli uyandırmak için güç tuşuna basın"
   battery_empty: "Pil bitti"
   charge_hint: "Devam etmek için Kobo'yu şarja takın"
+
+image:
+  too_large: "Kobo için fazla büyük ({size}, en çok 4K)"
+  unreadable: "Kobo'nun okuyabildiği bir resim değil"

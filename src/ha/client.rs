@@ -46,6 +46,9 @@ pub struct HaClient {
     image_retry: Arc<AtomicBool>,
     /// True while a picture fetch runs, so refreshes never stack up.
     images_running: Arc<AtomicBool>,
+    /// Asks the dashboard to redraw once new pictures have arrived: they are
+    /// fetched in the background, after the refresh that started them.
+    redraw: Arc<std::sync::Mutex<Option<tokio::sync::mpsc::Sender<()>>>>,
     extras: Arc<RwLock<Extras>>,
     last_update: Arc<RwLock<Option<chrono::DateTime<chrono::Utc>>>>,
     /// Every entity the dashboard shows (the WebSocket subscription list)
@@ -121,6 +124,7 @@ impl HaClient {
             last_image_fetch: Arc::new(std::sync::Mutex::new(None)),
             image_retry: Arc::new(AtomicBool::new(false)),
             images_running: Arc::new(AtomicBool::new(false)),
+            redraw: Arc::new(std::sync::Mutex::new(None)),
             extras: Arc::new(RwLock::new(Extras::default())),
             last_update: Arc::new(RwLock::new(None)),
             entity_ids: Arc::new(Vec::new()),
@@ -396,7 +400,7 @@ impl HaClient {
     /// Nothing came back (a chart being regenerated, a restarting Home
     /// Assistant): remember that too, so the next try is a few minutes away.
     async fn refresh_images(&self) {
-        let images = self.fetch_images().await;
+        let (images, unreachable) = self.fetch_images().await;
         let empty = images.is_empty();
         if !empty {
             let mut map = self.images.write().await;
@@ -406,7 +410,22 @@ impl HaClient {
         }
         self.image_retry.store(empty, Ordering::Relaxed);
         if let Ok(mut t) = self.last_image_fetch.lock() {
-            *t = Some(Instant::now());
+            // Home Assistant was not reachable at all (no Wi-Fi yet): try again
+            // with the next refresh instead of in a few minutes.
+            *t = if unreachable && empty { None } else { Some(Instant::now()) };
+        }
+        if !empty {
+            let tx = self.redraw.lock().ok().and_then(|r| r.clone());
+            if let Some(tx) = tx {
+                let _ = tx.try_send(());
+            }
+        }
+    }
+
+    /// Where to ask for a redraw when pictures arrive in the background.
+    pub fn set_redraw(&self, tx: tokio::sync::mpsc::Sender<()>) {
+        if let Ok(mut r) = self.redraw.lock() {
+            *r = Some(tx);
         }
     }
 
@@ -420,8 +439,10 @@ impl HaClient {
 
     /// The pictures of the dashboard's `image` entities, fetched once in a
     /// while: they are rendered by Home Assistant, not by this dashboard.
-    async fn fetch_images(&self) -> Vec<(String, Arc<Vec<u8>>)> {
+    /// Also says whether a request could not reach Home Assistant at all.
+    async fn fetch_images(&self) -> (Vec<(String, Arc<Vec<u8>>)>, bool) {
         let mut out = Vec::new();
+        let mut unreachable = false;
         for entity in self.image_entities.iter() {
             let url = self.url(&format!("/api/image_proxy/{}", entity));
             match self.client.get(url).send().await {
@@ -434,10 +455,13 @@ impl HaClient {
                     Err(e) => tracing::warn!("Image {} could not be read: {}", entity, e),
                 },
                 Ok(resp) => tracing::warn!("Image {} failed: HTTP {}", entity, resp.status()),
-                Err(e) => tracing::warn!("Image {} failed: {}", entity, e),
+                Err(e) => {
+                    unreachable = true;
+                    tracing::warn!("Image {} failed: {}", entity, e)
+                }
             }
         }
-        out
+        (out, unreachable)
     }
 
     /// Pictures for `image` cards, keyed by entity id.

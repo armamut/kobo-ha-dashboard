@@ -105,3 +105,7 @@ sleep:
   wake_hint: "Naciśnij przycisk zasilania, aby wybudzić panel"
   battery_empty: "Bateria rozładowana"
   charge_hint: "Podłącz Kobo, aby kontynuować"
+
+image:
+  too_large: "Za duży dla Kobo ({size}, maks. 4K)"
+  unreadable: "Kobo nie potrafi odczytać tego obrazu"
