@@ -159,6 +159,18 @@ impl HaClient {
         let sub = json!({ "id": SUBSCRIPTION_ID, "type": "subscribe_entities", "entity_ids": *self.entity_ids });
         ws.send(Message::Text(sub.to_string())).await?;
         tracing::info!("Subscribed to {} entities over WebSocket", self.entity_ids.len());
+        // Home Assistant is reachable now (perhaps Wi-Fi just came up): fetch
+        // what is still missing (forecasts, graphs, pictures) right away
+        // instead of with the next regular refresh, up to a minute away.
+        {
+            let me = self.clone();
+            let notify = notify.clone();
+            tokio::spawn(async move {
+                if me.refresh_extras_only().await {
+                    let _ = notify.try_send(());
+                }
+            });
+        }
 
         let mut next_id = SUBSCRIPTION_ID + 1;
         let mut ping = tokio::time::interval(PING_EVERY);

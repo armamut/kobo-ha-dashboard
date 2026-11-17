@@ -46,6 +46,8 @@ pub struct HaClient {
     image_retry: Arc<AtomicBool>,
     /// True while a picture fetch runs, so refreshes never stack up.
     images_running: Arc<AtomicBool>,
+    /// True while forecasts, history and statistics are being fetched.
+    extras_running: Arc<AtomicBool>,
     /// Asks the dashboard to redraw once new pictures have arrived: they are
     /// fetched in the background, after the refresh that started them.
     redraw: Arc<std::sync::Mutex<Option<tokio::sync::mpsc::Sender<()>>>>,
@@ -124,6 +126,7 @@ impl HaClient {
             last_image_fetch: Arc::new(std::sync::Mutex::new(None)),
             image_retry: Arc::new(AtomicBool::new(false)),
             images_running: Arc::new(AtomicBool::new(false)),
+            extras_running: Arc::new(AtomicBool::new(false)),
             redraw: Arc::new(std::sync::Mutex::new(None)),
             extras: Arc::new(RwLock::new(Extras::default())),
             last_update: Arc::new(RwLock::new(None)),
@@ -235,11 +238,12 @@ impl HaClient {
     }
 
     /// With live updates running, only the slow extras need polling.
-    pub async fn refresh_extras_only(&self) {
+    /// True when something was fetched, so a redraw is worth it.
+    pub async fn refresh_extras_only(&self) -> bool {
         if self.is_demo() {
-            return;
+            return false;
         }
-        self.refresh_extras().await;
+        let fetched = self.refresh_extras().await;
         let ids: Vec<String> = self.states.read().await.keys().cloned().collect();
         for id in ids {
             let current = self.states.read().await.get(&id).cloned();
@@ -248,6 +252,7 @@ impl HaClient {
                 self.states.write().await.insert(id, state);
             }
         }
+        fetched
     }
 
     fn is_demo(&self) -> bool {
@@ -328,15 +333,31 @@ impl HaClient {
         crate::ha::read_json(resp).await
     }
 
+    /// Forecasts, history, statistics and pictures. One run at a time: the
+    /// WebSocket asks for one as soon as it connects, which can overlap with
+    /// the regular refresh.
+    async fn refresh_extras(&self) -> bool {
+        if self.extras_running.swap(true, Ordering::Relaxed) {
+            return false;
+        }
+        let fetched = self.refresh_extras_inner().await;
+        self.extras_running.store(false, Ordering::Relaxed);
+        fetched
+    }
+
     /// Forecasts (HA 2024.3+ removed the `forecast` attribute) and sensor history.
-    async fn refresh_extras(&self) {
+    /// True when forecasts, history or statistics were fetched (pictures
+    /// arrive on their own and ask for their own redraw).
+    async fn refresh_extras_inner(&self) -> bool {
         let (need_forecast, need_history, need_stats) = {
             let ex = self.extras.read().await;
             let stale = |t: Option<Instant>| t.map(|t| t.elapsed() > HISTORY_REFRESH).unwrap_or(true);
             (stale(ex.last_forecast_fetch), stale(ex.last_history_fetch), stale(ex.last_stats_fetch))
         };
 
+        let mut fetched = false;
         if need_forecast && !self.weather_entities.is_empty() {
+            fetched = true;
             let mut forecasts = HashMap::new();
             for entity in self.weather_entities.iter() {
                 match self.fetch_forecast(entity).await {
@@ -353,6 +374,7 @@ impl HaClient {
         }
 
         if need_history && !self.history_entities.is_empty() {
+            fetched = true;
             match self.fetch_history().await {
                 Ok(history) => {
                     let mut ex = self.extras.write().await;
@@ -364,6 +386,7 @@ impl HaClient {
         }
 
         if need_stats && !self.stat_requests.is_empty() {
+            fetched = true;
             match self.fetch_statistics().await {
                 Ok(stats) => {
                     let mut ex = self.extras.write().await;
@@ -394,6 +417,7 @@ impl HaClient {
                 this.images_running.store(false, Ordering::Relaxed);
             });
         }
+        fetched
     }
 
     /// Fetch the pictures of the dashboard's `image` entities and remember when.
