@@ -286,6 +286,7 @@ install:
     font_download: "Language needs the {family} font; downloading if not cached…"
     binary: "Copied the dashboard program"
     launcher: "Wrote launch.sh"
+    timezone: "Set the launcher's time zone to {zone}"
     backup: "Backed up the previous config to config.yaml.bak"
     config: "Wrote config.yaml"
     font: "Copied font {name}"

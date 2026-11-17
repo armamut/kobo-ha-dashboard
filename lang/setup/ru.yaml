@@ -269,6 +269,7 @@ install:
     font_download: "Для языка требуется шрифт {family}; загрузка, если не кэширован…"
     binary: "Программа панели скопирована"
     launcher: "Записан launch.sh"
+    timezone: "Часовой пояс загрузчика: {zone}"
     backup: "Предыдущая конфигурация сохранена в config.yaml.bak"
     config: "Записан config.yaml"
     font: "Скопирован шрифт {name}"

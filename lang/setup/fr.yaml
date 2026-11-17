@@ -282,6 +282,7 @@ install:
     font_download: "Cette langue nécessite la police {family} ; téléchargement si elle n'est pas en cache…"
     binary: "Programme du tableau de bord copié"
     launcher: "launch.sh écrit"
+    timezone: "Fuseau horaire du lanceur réglé sur {zone}"
     backup: "Ancienne configuration sauvegardée dans config.yaml.bak"
     config: "config.yaml écrit"
     font: "Police {name} copiée"

@@ -7,9 +7,20 @@ use serde::Serialize;
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
+use super::timezone;
+
 pub const LAUNCH_SH: &str = include_str!("../../deploy/launch.sh");
 pub const WIFI_SH: &str = include_str!("../../deploy/wifi.sh");
 pub const DEFAULT_MENU_NAME: &str = "Home Dashboard";
+
+/// The launcher with the given POSIX `TZ` rule in its `TZ=` line, so a Kobo
+/// installed from this computer shows local time and follows daylight saving.
+/// Without a rule the launcher keeps `UTC0`: the same clock the device itself
+/// runs on, instead of a zone that would be wrong for most of the world.
+pub fn launcher(tz_rule: Option<&str>) -> String {
+    let rule = tz_rule.unwrap_or("UTC0");
+    LAUNCH_SH.replace(r#"TZ="${TZ:-UTC0}""#, &format!(r#"TZ="${{TZ:-{rule}}}""#))
+}
 
 #[derive(Debug, Clone, Serialize)]
 pub struct KoboDevice {
@@ -238,9 +249,14 @@ pub fn install(
     std::fs::copy(kobo_binary, app.join("kobo-ha-dashboard")).map_err(|e| err("Copying the dashboard program", e))?;
     log.push(Msg::new("binary"));
 
-    std::fs::write(app.join("launch.sh"), LAUNCH_SH).map_err(|e| err("Writing launch.sh", e))?;
+    let tz_rule = timezone::posix_rule();
+    std::fs::write(app.join("launch.sh"), launcher(tz_rule.as_deref()))
+        .map_err(|e| err("Writing launch.sh", e))?;
     std::fs::write(app.join("wifi.sh"), WIFI_SH).map_err(|e| err("Writing wifi.sh", e))?;
     log.push(Msg::new("launcher"));
+    if let Some(rule) = tz_rule {
+        log.push(Msg::new("timezone").arg("zone", rule));
+    }
 
     let cfg_path = app.join("config.yaml");
     if cfg_path.exists() {
@@ -288,6 +304,27 @@ mod tests {
     }
 
     #[test]
+    fn the_launcher_carries_the_zone_of_this_computer() {
+        let rule = "<+01>-1<+02>-2,M3.5.0/2:00,M10.5.0/3:00";
+        let text = launcher(Some(rule));
+        assert!(
+            text.contains(&format!(r#"TZ="${{TZ:-{rule}}}""#)),
+            "the launcher does not carry the rule:\n{text}"
+        );
+        assert!(!text.contains("UTC0"), "the fallback stayed behind");
+        assert!(!text.contains('\r'), "launch.sh has CRLF line endings");
+    }
+
+    #[test]
+    fn without_a_rule_the_launcher_stays_on_utc() {
+        // A computer whose zone cannot be written as a rule must not get a zone
+        // that is wrong for the rest of the world: UTC is what the Kobo itself
+        // runs on, and the user can set TZ in the NickelMenu item.
+        assert!(LAUNCH_SH.contains(r#"TZ="${TZ:-UTC0}""#), "the fallback line changed");
+        assert!(launcher(None).contains(r#"TZ="${TZ:-UTC0}""#));
+    }
+
+    #[test]
     fn install_writes_everything_and_backs_up() {
         let root = std::env::temp_dir().join(format!("kobo-ha-test-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&root);
@@ -306,6 +343,15 @@ mod tests {
         assert!(root.join(".kobo-ha/wifi.sh").is_file());
         assert!(!root.join(".adds/nm/._kobo-ha").exists());
         assert_eq!(read_menu_name(&root).as_deref(), Some("My  Home"));
+
+        // The launcher that lands on the device carries a zone, not the
+        // placeholder, so the clock shows local time without any config.
+        let installed = std::fs::read_to_string(root.join(".kobo-ha/launch.sh")).unwrap();
+        let rule = timezone::posix_rule().unwrap_or_else(|| "UTC0".to_string());
+        assert!(
+            installed.contains(&format!(r#"TZ="${{TZ:-{rule}}}""#)),
+            "launch.sh on the device has no zone:\n{installed}"
+        );
 
         // Our menu entry created .adds/nm, but NickelMenu itself is not installed
         assert_eq!(nickelmenu_status(&root, Some("4.38.21908")), "missing");

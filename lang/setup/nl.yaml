@@ -282,6 +282,7 @@ install:
     font_download: "De taal heeft lettertype {family} nodig; downloaden als het nog niet in de cache staat…"
     binary: "Dashboardprogramma gekopieerd"
     launcher: "launch.sh geschreven"
+    timezone: "Tijdzone van de launcher op {zone} gezet"
     backup: "Vorige configuratie bewaard als config.yaml.bak"
     config: "config.yaml geschreven"
     font: "Lettertype {name} gekopieerd"

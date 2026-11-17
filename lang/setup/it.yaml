@@ -282,6 +282,7 @@ install:
     font_download: "La lingua richiede il font {family}; download in corso se non è in cache…"
     binary: "Programma della dashboard copiato"
     launcher: "launch.sh scritto"
+    timezone: "Fuso orario dell'avvio impostato su {zone}"
     backup: "Configurazione precedente salvata come config.yaml.bak"
     config: "config.yaml scritto"
     font: "Font {name} copiato"

@@ -19,6 +19,15 @@ WIFI_MARKER="/tmp/kobo-ha-wifi-off"
 WIFI_USED="/tmp/kobo-ha-wifi-used"
 IFACE="${INTERFACE:-wlan0}"
 
+# The Kobo keeps its clock in UTC and Nickel never exports its zone, so anything
+# started from the menu draws UTC. The setup tool writes the zone of the computer
+# it ran on here as a POSIX rule, which needs no timezone database on the device
+# and follows daylight saving. The numbers count the hours *west* of Greenwich,
+# so Central Europe is -1 in winter: change them for another zone, or set TZ in
+# the NickelMenu item. `theme.utc_offset` in config.yaml still wins over it.
+TZ="${TZ:-UTC0}"
+export TZ
+
 # Only one instance at a time (a double tap in NickelMenu would otherwise
 # start two copies fighting over the screen).
 if ! mkdir "$LOCK" 2>/dev/null; then

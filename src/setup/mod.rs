@@ -4,6 +4,7 @@
 pub mod generate;
 pub mod kobo;
 pub mod lovelace;
+pub mod timezone;
 pub mod versions;
 
 use crate::config::AppConfig;
