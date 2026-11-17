@@ -143,6 +143,15 @@ fn layout_zone(cards: &[&CardConfig], x: f32, y: f32, w: f32, avail_h: f32) -> V
         if cur_y + h > y + avail_h + 1.0 {
             let hidden: usize = rows.iter().skip(shown).map(|r| r.len()).sum();
             tracing::debug!("Page content does not fit the screen; {} card(s) hidden", hidden);
+            // A heading whose cards were all cut off would stand alone at the
+            // bottom: it goes with them.
+            while let Some(&(last, _)) = out.last() {
+                let card: &CardConfig = cards[last];
+                if !matches!(card, CardConfig::Heading { .. }) {
+                    break;
+                }
+                out.pop();
+            }
             break;
         }
         shown += 1;
@@ -519,6 +528,27 @@ fn sleep_line(canvas: &Canvas, time: &str, max_w: f32, size: f32) -> (String, f3
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_heading_does_not_stay_behind_when_its_cards_are_cut_off() {
+        let heading = CardConfig::Heading { title: "Pictures".into(), icon: None };
+        let sensor = |id: &str| CardConfig::Sensor {
+            entity_id: id.into(),
+            title: None,
+            unit: None,
+            icon: None,
+            show_graph: true,
+            large_value: false,
+        };
+        let cards = [sensor("sensor.a"), sensor("sensor.b"), heading.clone(), sensor("sensor.c")];
+        let refs: Vec<&CardConfig> = cards.iter().collect();
+        // Room for the first three rows only: the heading's card is cut off.
+        let full = layout_zone(&refs, 0.0, 0.0, 600.0, 10_000.0);
+        let h2 = full[2].1.y;
+        let cut = layout_zone(&refs, 0.0, 0.0, 600.0, h2 + 1.0 + (full[2].1.h));
+        assert!(cut.iter().all(|&(i, _)| !matches!(cards[i], CardConfig::Heading { .. })), "{:?}", cut);
+        assert_eq!(cut.len(), 2);
+    }
 
     #[test]
     fn renders_an_image_card_from_fetched_bytes() {
