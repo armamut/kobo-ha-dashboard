@@ -24,8 +24,10 @@ use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 use ui::layout::UiAction;
 use ui::ScreenRenderer;
 
-/// Log timestamps in local time (the Kobo's TZ, as the clock on screen),
-/// with the offset, so they line up with launch.sh's `date` line.
+/// Log timestamps in local time, with the offset, so they line up with
+/// launch.sh's `date` line. This follows `TZ`, which the launcher sets; the clock
+/// on screen is `theme.utc_offset` when that is configured, so the two can differ
+/// by an hour for someone who pinned an offset.
 struct LocalTime;
 
 impl tracing_subscriber::fmt::time::FormatTime for LocalTime {

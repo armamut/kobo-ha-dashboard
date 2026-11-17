@@ -250,12 +250,19 @@ pub fn install(
     log.push(Msg::new("binary"));
 
     let tz_rule = timezone::posix_rule();
-    std::fs::write(app.join("launch.sh"), launcher(tz_rule.as_deref()))
+    std::fs::write(app.join("launch.sh"), launcher(tz_rule.as_ref().map(|r| r.text.as_str())))
         .map_err(|e| err("Writing launch.sh", e))?;
     std::fs::write(app.join("wifi.sh"), WIFI_SH).map_err(|e| err("Writing wifi.sh", e))?;
     log.push(Msg::new("launcher"));
-    if let Some(rule) = tz_rule {
-        log.push(Msg::new("timezone").arg("zone", rule));
+    match tz_rule {
+        Some(rule) => {
+            log.push(Msg::new("timezone").arg("zone", rule.text.clone()));
+            if !rule.repeats {
+                log.push(Msg::new("timezone_approx"));
+            }
+        }
+        // No rule means the launcher stays on UTC, which is easy to miss: say so.
+        None => log.push(Msg::new("timezone_utc")),
     }
 
     let cfg_path = app.join("config.yaml");
@@ -347,7 +354,7 @@ mod tests {
         // The launcher that lands on the device carries a zone, not the
         // placeholder, so the clock shows local time without any config.
         let installed = std::fs::read_to_string(root.join(".kobo-ha/launch.sh")).unwrap();
-        let rule = timezone::posix_rule().unwrap_or_else(|| "UTC0".to_string());
+        let rule = timezone::posix_rule().map(|r| r.text).unwrap_or_else(|| "UTC0".to_string());
         assert!(
             installed.contains(&format!(r#"TZ="${{TZ:-{rule}}}""#)),
             "launch.sh on the device has no zone:\n{installed}"
