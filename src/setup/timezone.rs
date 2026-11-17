@@ -13,6 +13,11 @@ use chrono::{DateTime, Datelike, Duration, Local, NaiveDate, TimeZone, Timelike,
 /// How far apart the clock changes of the year are sampled.
 const STEP_HOURS: i64 = 6;
 
+/// How far ahead the rule has to keep producing the same dates before it counts
+/// as exact. One year is not enough: a zone such as Israel's gives the same rule
+/// in 2026 and 2027 and a different one in 2028. Four also spans a leap year.
+const YEARS_AHEAD: i32 = 4;
+
 /// The rule for this computer, or `None` when its zone cannot be expressed (a
 /// year with three offsets, for instance).
 pub fn posix_rule() -> Option<Rule> {
@@ -23,9 +28,10 @@ pub fn posix_rule() -> Option<Rule> {
     for start in [year, year + 1] {
         let Some(text) = rule_for(start) else { continue };
         // A POSIX rule repeats every year. Where the real zone does not (Israel
-        // starts on the Friday before the last Sunday of March, which moves), the
-        // rule is right for now and drifts later; the install log says so.
-        let repeats = rule_for(start + 1).as_deref() == Some(text.as_str());
+        // starts on the Friday before the last Sunday of March, which is the last
+        // Friday in some years and the fourth in others), the rule is right for
+        // now and drifts later; the install log says so.
+        let repeats = (1..=YEARS_AHEAD).all(|n| rule_for(start + n).as_deref() == Some(text.as_str()));
         return Some(Rule { text, repeats });
     }
     None
