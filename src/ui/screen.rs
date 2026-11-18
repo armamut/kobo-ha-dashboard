@@ -1649,6 +1649,81 @@ mod tests {
     }
 
 
+    /// The pictures in the README, from a page that shows the newer cards:
+    /// `README_IMAGES=docs/images cargo test readme_images -- --ignored`
+    #[test]
+    #[ignore]
+    fn readme_images() {
+        let Ok(dir) = std::env::var("README_IMAGES") else { return };
+        let mut states = crate::ha::mock::generate_mock_states();
+        let now = chrono::Utc::now();
+        let ms = now.timestamp_millis() as f64;
+        let rows: Vec<[f64; 4]> = (0..96)
+            .map(|i| {
+                let target = if i < 28 { 20.5 } else { 22.5 };
+                let room = target - 0.6 + ((i as f64) * 0.55).sin() * 0.9;
+                [ms - (96 - i) as f64 * 900_000.0, (room * 10.0f64).round() / 10.0, target, if room < target { 1.0 } else { 0.0 }]
+            })
+            .collect();
+        if let Some(c) = states.get_mut("climate.living_room") {
+            c.attributes.insert(crate::ui::widgets::climate_card::CLIMATE_HISTORY_ATTR.into(), serde_json::json!(rows));
+        }
+        let mut add = |id: &str, state: &str, attrs: serde_json::Value| {
+            let attributes = attrs.as_object().unwrap().iter().map(|(k, v)| (k.clone(), v.clone())).collect();
+            states.insert(id.into(), EntityState { entity_id: id.into(), state: state.into(), attributes, last_changed: None, last_updated: None });
+        };
+        add("sensor.printer_progress", "64", serde_json::json!({ "unit_of_measurement": "%" }));
+        let end = (now + chrono::Duration::minutes(47)).to_rfc3339();
+        add("sensor.printer_end", &end, serde_json::json!({ "device_class": "timestamp" }));
+        add("cover.living_room", "open", serde_json::json!({ "current_position": 70, "device_class": "shutter", "friendly_name": "Blinds" }));
+        add("binary_sensor.front_door", "off", serde_json::json!({ "device_class": "door", "friendly_name": "Front door" }));
+
+        let pages = |landscape: bool| -> String {
+            let at = |p: (u8, u8, u8, u8)| format!("{{x: {}, y: {}, w: {}, h: {}}}", p.0, p.1, p.2, p.3);
+            let (grid, weather, l1, l2, climate, print, cover, s1, s2, s3) = if landscape {
+                ("{columns: 12, rows: 8}", (0, 0, 5, 4), (0, 4, 3, 2), (3, 4, 2, 2), (5, 0, 7, 4), (0, 6, 5, 2), (5, 4, 7, 2), (5, 6, 3, 2), (8, 6, 2, 2), (10, 6, 2, 2))
+            } else {
+                ("{columns: 6, rows: 12}", (0, 0, 6, 3), (0, 3, 3, 2), (3, 3, 3, 2), (0, 5, 6, 4), (0, 9, 3, 2), (3, 9, 3, 2), (0, 11, 2, 1), (2, 11, 2, 1), (4, 11, 2, 1))
+            };
+            format!(
+                r#"
+- id: home
+  title: Home
+  icon: home
+  grid: {grid}
+  cards:
+    - {{type: weather, entity_id: weather.home, forecast_days: 5, pos: {}}}
+    - {{type: light, entity_id: light.ceiling, title: Ceiling, pos: {}}}
+    - {{type: light, entity_id: light.dining_table, title: Table, pos: {}}}
+    - {{type: climate, entity_id: climate.living_room, title: Living room, show_graph: true, pos: {}}}
+    - {{type: progress, entity_id: sensor.printer_progress, title: 3D print, icon: printer, secondary_entity: sensor.printer_end, pos: {}}}
+    - {{type: cover, entity_id: cover.living_room, title: Blinds, pos: {}}}
+    - {{type: sensor, entity_id: sensor.temperature, title: Kitchen, icon: thermometer, pos: {}}}
+    - {{type: sensor, entity_id: sensor.humidity, title: Humidity, icon: droplet, pos: {}}}
+    - {{type: sensor, entity_id: sensor.power, title: Power, icon: zap, pos: {}}}
+- id: energy
+  title: Energy
+  icon: zap
+  cards: []
+"#,
+                at(weather), at(l1), at(l2), at(climate), at(print), at(cover), at(s1), at(s2), at(s3)
+            )
+        };
+        for (name, w, h, landscape) in [("dashboard-portrait", 1072u32, 1448u32, false), ("dashboard-landscape", 1448, 1072, true)] {
+            let mut config = AppConfig::default();
+            config.home_assistant.token = "readme".into();
+            config.pages = serde_yaml::from_str(&pages(landscape)).unwrap();
+            let mut renderer = ScreenRenderer::new(&config);
+            renderer.frontlight = Some(true);
+            renderer.device_status = Some((Some(82), false, Some(true)));
+            renderer.last_update = Some(now);
+            let mut canvas = Canvas::for_screen(w, h);
+            renderer.render(&mut canvas, &config, 0, &states, true);
+            assert_eq!(renderer.hidden_cards, 0, "{name}: a card has no room");
+            std::fs::write(format!("{dir}/{name}.png"), canvas.to_png_bytes().unwrap()).unwrap();
+        }
+    }
+
     /// The page with the new-version button, and the release notes screen:
     /// `UPDATE_SCREEN=/tmp/u.png cargo test update_screen -- --ignored`
     #[test]

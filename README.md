@@ -16,9 +16,10 @@ A touch-friendly [Home Assistant](https://www.home-assistant.io/) dashboard for 
 
 - **Made for e-ink:** large type for 300 ppi screens, saturated colours that survive the Kaleido colour filter, and partial refreshes that only redraw what changed.
 - **Cards:** lights, switches, fans, thermostats (with +/- buttons), sensors with 24-hour graphs (door, motion and other binary sensors and locks read *Open / Closed*, *Detected / Clear* and so on), sensor grids, media players, weather with forecast, scene/script buttons, blinds and other covers (open, stop, close and position), progress bars (a print or a wash, with the time it ends), status strips (many entities at a glance), breakdown rings (how a total splits between devices), thermostats with a graph of room and target temperature and when they heated, section headings, charts of Home Assistant's statistics (bars, horizontal bars or a line, over hours or days), and pictures: from `image` and `camera` entities, or a file of your own added in the setup tool.
-- **Setup tool:** connect Home Assistant, get a starter dashboard generated from your areas, or import an existing Lovelace dashboard and let its cards be translated to native ones. Rearrange it with a live, pixel-exact preview, and install with one click.
+- **Setup tool:** connect Home Assistant, get a starter dashboard generated from your areas, or import an existing Lovelace dashboard and let its cards be translated to native ones. Lay it out on a grid in a drag-and-drop designer with a live, pixel-exact preview, and install with one click.
 - **12 languages:** English, Türkçe, Deutsch, Français, Español, Italiano, Nederlands, Português, Polski, Русский, 日本語 and 简体中文, for both the dashboard and the setup tool. The setup tool asks for your language when it first opens.
 - **Portrait or landscape**, and four themes: colour, high-contrast black & white, warm paper, and dark.
+- **New versions:** once a day the dashboard and the setup tool look for a new release and show its notes; skip one you don't want (see [Updates](#updates)).
 - **Safe exit:** the Kobo's reading software is paused while the dashboard runs and resumed afterwards. Tap the exit icon to go back to your books. Connecting the Kobo to a computer also returns to the reader, so it can offer to connect; a plain charger doesn't.
 
 <p align="center">
@@ -57,7 +58,7 @@ If you try it on another model, please open an issue with your `dashboard.log` (
 4. Click **Quit** (top right) to close the setup tool. You can choose to save your changes or quit without saving.
 
 > **Nothing is written until you click Save.** Changes show up in the preview right away, but your config file only changes when you click **Save** (or install to a Kobo). **Undo/Redo** (Ctrl+Z / Ctrl+Shift+Z, or ⌘ on a Mac) step through this session's edits, and **History** can discard unsaved changes or bring back one of the last 20 saved versions.
-5. Eject the Kobo. If NickelMenu was just added, the Kobo installs it and restarts by itself; otherwise restart it. Open the menu at the bottom right of the home screen and choose **Home Dashboard**. You can change this name in step 3.
+5. Eject the Kobo (the setup tool's **Eject** button next to it does this). If NickelMenu was just added, the Kobo installs it and restarts by itself; otherwise restart it. Open the menu at the bottom right of the home screen and choose **Home Dashboard**. You can change this name in step 3.
 
 > **Use an address the Kobo can reach.** The Kobo cannot resolve `.local` names (mDNS), so use Home Assistant's IP address, for example `http://192.168.1.10:8123`. The setup tool warns you and suggests the IP. Giving Home Assistant a fixed IP (a DHCP reservation in your router) keeps it from changing.
 
@@ -82,6 +83,7 @@ If you prefer to install it by hand, follow the [official instructions](https://
 - The **light** button switches the Kobo's frontlight on or off. In the setup tool you can also have the light turn off automatically after a period without taps (30 seconds to 10 minutes), which saves a lot of battery on a desk; a tap brings it back. The original brightness is restored when you leave the dashboard.
 - The **exit** button (top right) returns to the Kobo reader. The **power button** puts the dashboard to sleep when sleep mode is on; while charging, with Bluetooth on or with sleep mode off it switches the light off and on.
 - The status line shows **Live** with the time of the last update, **Offline**, or **Demo mode** (no token configured).
+- When a new version is out, a button with a dot appears in the header: it shows the release notes, and can skip that version.
 
 ## Battery life
 
@@ -95,6 +97,15 @@ Sleep mode switches Wi-Fi off before suspending (suspending with Wi-Fi on can cr
 When the battery reaches 3% without a charger (`battery_critical_percent` in `config.yaml`, 0 turns this off), the dashboard replaces the screen with "Battery empty" and suspends, even if sleep mode is off. E-ink keeps the message without power. It checks for a charger every 5 minutes and whenever the power button is pressed, and comes back by itself once the Kobo is plugged in.
 
 **Battery level in Home Assistant (optional):** turn on *Send the Kobo's battery level to Home Assistant* in the setup tool, and the dashboard writes it to a sensor (`sensor.kobo_battery` by default, with a `charging` attribute), for example for an automation that switches a smart plug on at 20% and off at 85%. It is sent when the level changes (at least every 10 minutes), right after the cable goes in or out, before "Battery empty", and in sleep mode at each wake-up. The token must belong to an admin user. Home Assistant forgets such a sensor when it restarts, until the next update.
+
+## Updates
+
+Once a day the dashboard (when Wi-Fi is up) and the setup tool ask GitHub for the latest release. Only a plain client name goes with the request, nothing about you or your Home Assistant. When a newer version is out:
+
+- the setup tool shows a bar with the release notes and a **Download** button for your system's package;
+- the Kobo shows a button in the header that opens the notes.
+
+Both can **skip this version**: it is not offered again, though a later one is. To install, download the new package, run its setup tool and install to the Kobo as before; your settings stay. Turn the check off with *Look for new versions* in the setup tool, or `updates.check: false` in `config.yaml`.
 
 ## Languages
 
@@ -125,7 +136,7 @@ The setup tool writes `config.yaml` for you. If you prefer editing it by hand, [
 
 ## Troubleshooting
 
-- **Log file:** each start writes `.kobo-ha/dashboard.log` on the Kobo (the previous run is kept as `dashboard.log.old`). It shows the screen format, the e-ink refresh method and the touch device that were detected.
+- **Log file:** each start writes `.kobo-ha/dashboard.log` on the Kobo (the previous run is kept as `dashboard.log.old`). It shows the screen format, the e-ink refresh method and the touch device that were detected. A log over 1 MB is moved to `dashboard.log.old` and started again, so the two never take more than about 2 MB; the setup tool's install step can delete the old logs.
 - **The Kobo freezes and then reboots:** Kobo firmware has a watchdog (`sickel`) that restarts the device when the reading app stops responding. The launcher pauses it together with the reading app. If you see this, reinstall with the setup tool to get the current launcher.
 - **The picture is rotated or upside down:** set `device.fb_rotation` to `0`, `90`, `180` or `270`.
 - **Taps land in the wrong place:** adjust `swap_touch_xy`, `invert_touch_x` and `invert_touch_y`. The log lists every tap with its screen position and what it hit (`Tap at (973, 475) -> Some(…)`), so you can see which way the axes are off.
@@ -146,7 +157,7 @@ cargo test                     # unit tests, including translation completeness
 ./deploy/install.sh            # copy the build + ./config.yaml to a connected Kobo
 ```
 
-When run from the project folder, the setup tool picks up the ARM build from `target/armv7-unknown-linux-musleabihf/release/` automatically.
+When run from the project folder, the setup tool picks up the ARM build from `target/armv7-unknown-linux-musleabihf/release/` automatically. `cargo run` does not rebuild it: run `./deploy/build-kobo.sh` again after changing code the Kobo runs. The install step warns when the ARM build comes from another commit than the setup tool.
 
 Releases are built by GitHub Actions: pushing a tag like `v0.2.0` produces packages for macOS (Apple silicon and Intel), Windows and Linux. Each package contains the Kobo program in its `kobo/` folder.
 
@@ -166,6 +177,7 @@ This project was built with [Claude Code](https://claude.com/claude-code), Anthr
 
 - [NickelMenu](https://pgaskin.net/NickelMenu/) by Patrick Gaskin, for the menu entry.
 - [KOReader](https://github.com/koreader/koreader) and [FBInk](https://github.com/NiLuJe/FBInk), whose documented device knowledge (touch layouts, e-ink ioctls, the Nickel watchdog) made this possible.
+- [gridstack.js](https://gridstackjs.com/) (MIT), for dragging and resizing cards in the setup tool's designer.
 - Fonts: [Roboto](https://github.com/googlefonts/roboto) (embedded) and [Noto Sans CJK](https://github.com/notofonts/noto-cjk) (downloaded on demand, SIL Open Font License).
 
 Not affiliated with Rakuten Kobo or Home Assistant.

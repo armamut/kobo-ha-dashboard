@@ -8,17 +8,24 @@ Kobo e-okuyucular için dokunmatik bir [Home Assistant](https://www.home-assista
 
 <p align="center">
   <img src="docs/images/dashboard-portrait.png" width="380" alt="Kobo Clara Colour üzerinde panel">
+  &nbsp;
+  <img src="docs/images/dashboard-landscape.png" width="470" alt="Yatay yerleşim">
 </p>
 
 ## Özellikler
 
 - **E-ink için tasarlandı:** 300 ppi ekran için büyük yazılar, Kaleido renk filtresinde kaybolmayan canlı renkler, sadece değişen bölgeyi yenileyen kısmi güncelleme.
 - **Kartlar:** ışık, anahtar, fan, termostat (+/- butonlu), 24 saatlik grafikli sensör (kapı, hareket gibi ikili sensörler ve kilitler *Açık / Kapalı*, *Algılandı / Temiz* gibi durumlarla görünür), sensör ızgarası, medya oynatıcı, tahminli hava durumu, sahne/script butonları, panjur ve perdeler (aç, durdur, kapat ve konum), ilerleme çubukları (bir baskı ya da yıkama, bitiş saatiyle), toplu durum şeritleri (birçok varlık bir bakışta), dağılım halkaları (bir toplamın cihazlara dağılımı), oda ve hedef sıcaklığı ile ısıtmanın çalıştığı zamanları gösteren grafikli termostatlar, bölüm başlıkları, Home Assistant istatistiklerinden grafikler (dikey ya da yatay çubuk veya çizgi, saatler ya da günler boyunca) ve resimler: `image` ile `camera` entity'lerinden ya da kurulum aracında eklediğiniz kendi dosyanızdan.
-- **Kurulum aracı:** Home Assistant'a bağlanır, alanlarınıza göre başlangıç paneli oluşturur ya da mevcut bir Lovelace dashboard'unu içe aktarıp kartlarını panelin kendi kartlarına çevirir, kartları canlı önizlemeyle düzenletir ve tek tıkla kurar. Önizleme, Kobo'nun göstereceğiyle birebir aynıdır.
+- **Kurulum aracı:** Home Assistant'a bağlanır, alanlarınıza göre başlangıç paneli oluşturur ya da mevcut bir Lovelace dashboard'unu içe aktarıp kartlarını panelin kendi kartlarına çevirir, kartları sürükle-bırak tasarımcıda bir ızgaraya yerleştirtir ve tek tıkla kurar. Önizleme, Kobo'nun göstereceğiyle birebir aynıdır.
 - **12 dil:** English, Türkçe, Deutsch, Français, Español, Italiano, Nederlands, Português, Polski, Русский, 日本語, 简体中文. Hem panel hem kurulum aracı çevrili; araç ilk açılışta dilinizi sorar.
 - **Model desteği:** Clara Colour, Clara BW, Libra Colour, Tolino modelleri ve eski Glo, Aura, Nia, Glo HD, Aura HD, Aura H2O, Touch ve Mini bağlanınca otomatik tanınır; diğerleri listeden seçilir. Cihazda her zaman gerçek ekran çözünürlüğü kullanılır.
 - Dikey veya yatay kullanım ve dört tema: renkli, yüksek kontrast siyah-beyaz, sıcak kağıt, koyu.
+- **Yeni sürümler:** panel ve kurulum aracı günde bir kez yeni sürüm olup olmadığına bakar ve sürüm notlarını gösterir; istemediğiniz bir sürümü atlayabilirsiniz (bkz. [Güncellemeler](#güncellemeler)).
 - **Güvenli çıkış:** Kobo'nun okuma yazılımı dashboard açıkken duraklatılır, çıkınca devam eder. Çıkış simgesine dokunun. Kobo'yu bilgisayara bağlayınca da okuma ekranına dönülür, böylece bağlanmayı sorabilir; sadece şarj cihazına takmak paneli kapatmaz.
+
+<p align="center">
+  <img src="docs/images/setup-design.png" width="860" alt="Kurulum aracı">
+</p>
 
 ## Hızlı başlangıç
 
@@ -33,7 +40,7 @@ Kobo e-okuyucular için dokunmatik bir [Home Assistant](https://www.home-assista
 4. Sağ üstteki **Çıkış** ile kurulum aracını kapatın. Değişiklikleri kaydedip ya da kaydetmeden çıkabilirsiniz.
 
 > **Kaydet'e basmadan hiçbir şey dosyaya yazılmaz.** Değişiklikler önizlemede hemen görünür, ama config dosyanız yalnızca **Kaydet**'e bastığınızda (ya da Kobo'ya kurduğunuzda) değişir. **Geri al / Yinele** (Ctrl+Z / Ctrl+Shift+Z, Mac'te ⌘) bu oturumdaki adımlar arasında gezer; **Geçmiş** kaydedilmemiş değişiklikleri atar ya da son 20 kayıtlı sürümden birini geri getirir.
-5. Kobo'yu çıkarın. NickelMenu yeni eklendiyse Kobo onu kurup kendiliğinden yeniden başlar; değilse siz yeniden başlatın. Ana ekranın sağ altındaki menüden **Home Dashboard**'u seçin. Bu adı 3. adımda değiştirebilirsiniz.
+5. Kobo'yu çıkarın (kurulum aracında Kobo'nun yanındaki **Kobo'yu çıkar** düğmesi bunu yapar). NickelMenu yeni eklendiyse Kobo onu kurup kendiliğinden yeniden başlar; değilse siz yeniden başlatın. Ana ekranın sağ altındaki menüden **Home Dashboard**'u seçin. Bu adı 3. adımda değiştirebilirsiniz.
 
 > Kobo `.local` adreslerini çözemez. Home Assistant'ın IP adresini kullanın (ör. `http://192.168.1.10:8123`); kurulum aracı bunu otomatik önerir.
 
@@ -42,6 +49,7 @@ Kobo e-okuyucular için dokunmatik bir [Home Assistant](https://www.home-assista
 - Bir karta dokunmak onu açıp kapatır; termostatlarda **−** / **+**, medya oynatıcıda oynatma butonları vardır.
 - Üst çubuktaki **ışık** butonu Kobo'nun ön ışığını açıp kapatır. Kurulum aracında ışığın, belirli bir süre dokunulmayınca (30 saniye – 10 dakika) otomatik kapanmasını da seçebilirsiniz; masaüstünde pilden çok tasarruf sağlar. Bir dokunuş ışığı geri açar. Panelden çıkınca ışık eski parlaklığına döner.
 - **Çıkış** butonu (sağ üst) okuma ekranına geri döndürür. **Güç tuşu**, uyku modu açıksa paneli uyutur; şarjdayken, Bluetooth açıkken ya da uyku modu kapalıyken ışığı kapatıp açar.
+- Yeni bir sürüm çıktığında üst çubukta noktalı bir düğme belirir: sürüm notlarını gösterir ve o sürümü atlamanızı sağlar.
 
 ## Pil ömrü
 
@@ -51,6 +59,15 @@ Kobo e-okuyucular için dokunmatik bir [Home Assistant](https://www.home-assista
 - Şarj kablosu takılı değilken pil %3'e inince (`config.yaml` içinde `battery_critical_percent`, 0 kapatır) panel, uyku modu kapalı olsa bile ekrana "Pil bitti" yazar ve uykuya geçer. E-ink yazıyı güç harcamadan korur. 5 dakikada bir ve güç tuşuna her basıldığında şarja takılıp takılmadığına bakar, takılınca kendiliğinden geri gelir.
 - **Pil seviyesi Home Assistant'ta (isteğe bağlı):** kurulum aracında *Kobo'nun pil seviyesini Home Assistant'a gönder* seçeneğini açınca panel pil seviyesini bir sensöre yazar (varsayılan `sensor.kobo_battery`, `charging` özelliğiyle). Örneğin %20'de akıllı prizi açıp %85'te kapatan bir otomasyon kurabilirsiniz. Seviye değişince (en az 10 dakikada bir), kablo takılıp çıkarılınca hemen, "Pil bitti"den önce ve uyku modunda her uyanışta gönderilir. Token admin kullanıcıya ait olmalı. Home Assistant yeniden başlayınca sensör bir sonraki güncellemeye kadar kaybolur.
 - **Uyku modu çalışmıyorsa:** `dashboard.log` nedenini yazar. Uykudayken takılırsa güç tuşuna yaklaşık 15 saniye basılı tutarak yeniden başlatın, uyku modunu **Hiçbir zaman** yapın ve `dashboard.log.old` ile bir sorun bildirin.
+
+## Güncellemeler
+
+Panel (Wi-Fi açıkken) ve kurulum aracı günde bir kez GitHub'a en son sürümü sorar. İstekle yalnızca genel bir program adı gider; sizin ya da Home Assistant'ınız hakkında bir bilgi gitmez. Daha yeni bir sürüm çıktıysa:
+
+- kurulum aracında sürüm notlarını ve sisteminize uygun paketi indiren bir **İndir** düğmesini içeren bir bant görünür;
+- Kobo'da üst çubukta notları açan bir düğme belirir.
+
+İkisinde de **Bu sürümü atla** denebilir; o sürüm bir daha önerilmez, ama sonraki sürümler önerilir. Kurmak için yeni paketi indirip kurulum aracını çalıştırın ve her zamanki gibi Kobo'ya kurun; ayarlarınız korunur. Denetimi kurulum aracındaki *Yeni sürümleri denetle* kutusuyla ya da `config.yaml` içinde `updates.check: false` ile kapatabilirsiniz.
 
 ## NickelMenu hakkında
 
@@ -66,10 +83,10 @@ Kobo kendi başına üçüncü parti uygulama çalıştıramaz. Panel, Patrick G
 
 ## Sorun giderme
 
-- **Günlük dosyası:** Kobo'daki `.kobo-ha/dashboard.log`.
+- **Günlük dosyası:** Kobo'daki `.kobo-ha/dashboard.log` (bir önceki çalıştırmanınki `dashboard.log.old`). 1 MB'ı geçen günlük `.old` olarak saklanıp yeniden başlar, böylece ikisi birlikte 2 MB'ı geçmez; kurulum aracının Kur adımı eski günlükleri silebilir.
 - **Cihaz donup yeniden başlıyorsa:** Kobo'nun `sickel` watchdog'u, okuma yazılımı yanıt vermeyince cihazı yeniden başlatır. Güncel başlatıcı onu da duraklatır; kurulum aracıyla yeniden kurun.
 - **Görüntü ters veya yan çıkıyorsa:** `device.fb_rotation` değerini `0`, `90`, `180` veya `270` yapın.
-- **Saat yanlışsa:** `theme.utc_offset` ayarlayın (kurulum aracındaki **Use mine** butonu doldurur).
+- **Saat yanlışsa:** kurulum aracı, çalıştığı bilgisayarın saat dilimini yaz/kış saatine uyan bir kural olarak `.kobo-ha/launch.sh`'a yazar; Kobo'ya kurulum aracıyla yeniden kurmak genellikle yeter. `theme.utc_offset` sabit bir fark verir ve bu kuralın önüne geçer; sabitlemek istemiyorsanız boş bırakın.
 - **"Bağlantı yok":** reverse proxy veya Cloudflare arkasında HTTPS genelde varsayılan porttadır; `:8123` yazmayın.
 
 Ayrıntılar, çeviri ekleme ve kaynaktan derleme için [İngilizce README](README.md)'ye bakın.
