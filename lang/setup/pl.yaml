@@ -132,6 +132,16 @@ report:
   battery_not_admin: "Home Assistant nie pozwolił zapisać czujnika baterii (wymagany jest token administratora). Utwórz token, będąc zalogowanym jako administrator, albo wyłącz wysyłanie poziomu baterii."
   battery_failed: "Nie udało się utworzyć czujnika baterii: {error}"
 
+layout:
+  title: "Układ"
+  hint: "Przeciągnij kartę, aby ją przesunąć, albo jej krawędź lub róg, aby zmienić rozmiar; pozostałe karty zrobią miejsce. Kliknij kartę, aby ją edytować. Strzałki przesuwają zaznaczoną kartę, Shift + strzałki zmieniają jej rozmiar."
+  grid: "Siatka"
+  columns: "Kolumny"
+  rows: "Wiersze"
+  compact: "Zamknij luki"
+  compact_title: "Przesuń karty w górę w puste miejsca"
+  auto: "Ułóż automatycznie"
+  auto_title: "Ułóż tę stronę od nowa z jej kart"
 design:
   pages: "Strony"
   add_page: "+ Dodaj stronę"
@@ -148,7 +158,7 @@ design:
   cards: "Karty"
   add_card: "+ Dodaj kartę"
   no_cards: "Na tej stronie nie ma jeszcze kart. Dodaj kartę powyżej."
-  cards_hint: "Przeciągaj wiersze, aby zmienić kolejność. Dwie małe karty dzielą wiersz; karty na pełną szerokość (pogoda, sceny, siatka czujników, multimedia) zawsze zajmują własny wiersz."
+  cards_hint: "Miejsce i rozmiar każdej karty ustawiasz w układzie powyżej. Karta, dla której zabrakło miejsca, jest tu oznaczona i nie jest wyświetlana."
   drag: "Przeciągnij, aby zmienić kolejność"
   edit: "Edytuj"
   done: "Gotowe"

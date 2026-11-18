@@ -132,6 +132,16 @@ report:
   battery_not_admin: "Home Assistant non ha permesso di scrivere il sensore della batteria (serve il token di un utente amministratore). Crea il token con un accesso da amministratore oppure disattiva l'invio della batteria."
   battery_failed: "Impossibile creare il sensore della batteria: {error}"
 
+layout:
+  title: "Disposizione"
+  hint: "Trascina una scheda per spostarla, o il suo bordo o angolo per ridimensionarla; le altre schede fanno spazio. Fai clic su una scheda per modificarla. Le frecce spostano la scheda selezionata, Maiusc + frecce la ridimensionano."
+  grid: "Griglia"
+  columns: "Colonne"
+  rows: "Righe"
+  compact: "Chiudi i vuoti"
+  compact_title: "Sposta le schede verso l'alto negli spazi vuoti"
+  auto: "Disponi automaticamente"
+  auto_title: "Ridisponi questa pagina a partire dalle sue schede"
 design:
   pages: "Pagine"
   add_page: "+ Aggiungi pagina"
@@ -148,7 +158,7 @@ design:
   cards: "Schede"
   add_card: "+ Aggiungi scheda"
   no_cards: "Nessuna scheda in questa pagina. Aggiungine una qui sopra."
-  cards_hint: "Trascina le righe per riordinarle. Due schede piccole condividono una riga; quelle a larghezza piena (meteo, scene, griglia sensori, media) occupano sempre una riga intera."
+  cards_hint: "Posizione e dimensione di ogni scheda si impostano nella disposizione qui sopra. Una scheda senza spazio è segnalata qui e non viene mostrata."
   drag: "Trascina per riordinare"
   edit: "Modifica"
   done: "Fatto"

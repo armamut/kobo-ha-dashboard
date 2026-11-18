@@ -132,6 +132,16 @@ report:
   battery_not_admin: "O Home Assistant não permitiu gravar o sensor de bateria (precisa do token de um usuário administrador). Crie o token com uma sessão de administrador ou desative o envio da bateria."
   battery_failed: "Não foi possível criar o sensor de bateria: {error}"
 
+layout:
+  title: "Disposição"
+  hint: "Arraste um cartão para movê-lo, ou a borda ou o canto para redimensioná-lo; os outros cartões abrem espaço. Clique num cartão para editá-lo. As setas movem o cartão selecionado e Shift + setas o redimensionam."
+  grid: "Grade"
+  columns: "Colunas"
+  rows: "Linhas"
+  compact: "Fechar espaços"
+  compact_title: "Subir os cartões para os espaços vazios"
+  auto: "Organizar automaticamente"
+  auto_title: "Organizar esta página de novo a partir dos cartões"
 design:
   pages: "Páginas"
   add_page: "+ Adicionar página"
@@ -148,7 +158,7 @@ design:
   cards: "Cartões"
   add_card: "+ Adicionar cartão"
   no_cards: "Ainda não há cartões nesta página. Adicione um acima."
-  cards_hint: "Arraste as linhas para reordenar. Dois cartões pequenos dividem uma linha; cartões de largura total (clima, cenas, grade de sensores, mídia) sempre ficam em uma linha própria."
+  cards_hint: "A posição e o tamanho de cada cartão são definidos na disposição acima. Um cartão sem espaço é marcado aqui e não é exibido."
   drag: "Arraste para reordenar"
   edit: "Editar"
   done: "Concluir"

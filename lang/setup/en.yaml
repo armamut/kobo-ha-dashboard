@@ -136,6 +136,16 @@ report:
   battery_not_admin: "Home Assistant didn't allow writing the battery sensor (it needs a token of an admin user). Create the token while signed in as an administrator, or turn off battery reporting."
   battery_failed: "Could not create the battery sensor: {error}"
 
+layout:
+  title: "Layout"
+  hint: "Drag a card to move it, drag its edge or corner to resize it; other cards make room. Click a card to edit it. Arrow keys move the selected card, Shift + arrow keys resize it."
+  grid: "Grid"
+  columns: "Columns"
+  rows: "Rows"
+  compact: "Close gaps"
+  compact_title: "Move cards up into empty space"
+  auto: "Arrange automatically"
+  auto_title: "Lay this page out again from its cards"
 design:
   pages: "Pages"
   add_page: "+ Add page"
@@ -152,7 +162,7 @@ design:
   cards: "Cards"
   add_card: "+ Add card"
   no_cards: "No cards on this page yet. Add one above."
-  cards_hint: "Drag rows to reorder. Two small cards in a row share the width; a full-width card (weather, scenes, sensor grid, media) always gets its own row."
+  cards_hint: "Where each card sits and how big it is is set in the layout above. A card with no room left is marked here and not shown."
   drag: "Drag to reorder"
   edit: "Edit"
   done: "Done"

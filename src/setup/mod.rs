@@ -13,7 +13,7 @@ use crate::display::Canvas;
 use crate::ha::HaClient;
 use crate::i18n;
 use crate::paths;
-use crate::ui::screen::{grid_pages, hidden_card_count};
+use crate::ui::screen::{grid_layout, grid_pages, hidden_card_count, GridLayout};
 use crate::ui::ScreenRenderer;
 use axum::extract::{Query, State};
 use axum::http::{header, StatusCode};
@@ -28,6 +28,10 @@ use std::sync::Arc;
 use tokio::sync::{Mutex, RwLock};
 
 const EDITOR_HTML: &str = include_str!("editor.html");
+/// Drag-and-drop grid for the layout editor (gridstack.js, MIT, see
+/// vendor/gridstack/LICENSE). Served from the binary: the editor works offline.
+const GRIDSTACK_JS: &str = include_str!("vendor/gridstack/gridstack-all.js");
+const GRIDSTACK_CSS: &str = include_str!("vendor/gridstack/gridstack.min.css");
 
 /// Icons offered in the editor's icon picker
 pub const ICONS: &[&str] = &[
@@ -89,6 +93,8 @@ pub async fn start_setup_server(
 
     let app = Router::new()
         .route("/", get(|| async { ([(axum::http::header::CACHE_CONTROL, "no-store")], Html(EDITOR_HTML)) }))
+        .route("/vendor/gridstack-all.js", get(|| async { ([(axum::http::header::CONTENT_TYPE, "text/javascript; charset=utf-8")], GRIDSTACK_JS) }))
+        .route("/vendor/gridstack.min.css", get(|| async { ([(axum::http::header::CONTENT_TYPE, "text/css; charset=utf-8")], GRIDSTACK_CSS) }))
         .route("/api/state", get(get_state))
         .route("/api/config", post(put_config))
         .route("/api/save", post(save_config))
@@ -171,6 +177,13 @@ fn with_grid(config: &mut AppConfig) -> bool {
     grid_pages(&mut config.pages, w, h, tabs)
 }
 
+/// For the layout editor: how each grid page is laid out on the screen.
+fn layouts(config: &AppConfig) -> Vec<Option<GridLayout>> {
+    let (w, h) = config.device.get_dimensions();
+    let tabs = config.pages.len() > 1;
+    config.pages.iter().map(|p| grid_layout(p, w, h, tabs)).collect()
+}
+
 fn hidden_per_page(config: &AppConfig) -> Vec<usize> {
     let (w, h) = config.device.get_dimensions();
     let tabs = config.pages.len() > 1;
@@ -188,6 +201,7 @@ async fn get_state(State(s): State<Shared>) -> Json<serde_json::Value> {
         "config": config,
         "config_path": s.config_path,
         "hidden": hidden_per_page(&config),
+        "layouts": layouts(&config),
         "languages": i18n::available(),
         "icons": ICONS,
         "models": crate::models::MODELS,
@@ -233,7 +247,7 @@ async fn is_dirty(s: &Shared) -> bool {
 
 async fn draft_status(s: &Shared) -> serde_json::Value {
     let draft = s.draft.read().await.clone();
-    serde_json::json!({ "hidden": hidden_per_page(&draft), "dirty": is_dirty(s).await })
+    serde_json::json!({ "hidden": hidden_per_page(&draft), "layouts": layouts(&draft), "dirty": is_dirty(s).await })
 }
 
 /// Write the draft to disk, keeping the previous file in `backups/`.

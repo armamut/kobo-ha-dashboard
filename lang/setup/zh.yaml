@@ -132,6 +132,16 @@ report:
   battery_not_admin: "Home Assistant 不允许写入电池传感器（需要管理员用户的令牌）。请以管理员身份登录后创建令牌，或关闭电池电量发送。"
   battery_failed: "无法创建电池传感器：{error}"
 
+layout:
+  title: "布局"
+  hint: "拖动卡片可移动它，拖动边缘或角落可调整大小；其他卡片会自动让位。点击卡片可编辑。方向键移动选中的卡片，Shift + 方向键调整大小。"
+  grid: "网格"
+  columns: "列"
+  rows: "行"
+  compact: "填补空隙"
+  compact_title: "把卡片上移到空位"
+  auto: "自动排列"
+  auto_title: "根据卡片重新排列此页"
 design:
   pages: "页面"
   add_page: "+ 添加页面"
@@ -148,7 +158,7 @@ design:
   cards: "卡片"
   add_card: "+ 添加卡片"
   no_cards: "此页面还没有卡片。请在上方添加。"
-  cards_hint: "拖动行以调整顺序。两张小卡片共用一行；全宽卡片（天气、场景、传感器网格、媒体）始终独占一行。"
+  cards_hint: "每张卡片的位置和大小在上方布局中设置。没有空间的卡片会在这里标出，且不会显示。"
   drag: "拖动以排序"
   edit: "编辑"
   done: "完成"

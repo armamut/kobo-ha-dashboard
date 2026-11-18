@@ -258,34 +258,140 @@ fn free_spot(taken: &[Vec<bool>], w: u8, h: u8) -> Option<(u8, u8)> {
     None
 }
 
-/// Cards on a grid page. Cards without a place go to the first free spot big
-/// enough for them; a card that finds none is not shown.
-fn grid_zones(cards: &[Card], grid: GridSize, area: Rect) -> Vec<(usize, Rect)> {
+/// Rows (or columns) of `pitch` that `len` units need, allowing `SHORT_BY`
+fn cells_for(len: f32, pitch: f32, max: u8) -> u8 {
+    (((len + GAP - SHORT_BY) / pitch).ceil().max(1.0) as u8).min(max.max(1))
+}
+
+/// Narrowest a card can be drawn: about the half-width cards of the smallest
+/// screens, and a little under the landscape weather column for the wide
+/// cards (that column comes out narrower once it is snapped to cells).
+fn min_width(card: &CardConfig) -> f32 {
+    match card {
+        CardConfig::Heading { .. } | CardConfig::Scene { .. } => 160.0,
+        _ => match span_of(card) {
+            Span::Full => LANDSCAPE_LEFT_W - 40.0,
+            Span::Half => 240.0,
+        },
+    }
+}
+
+/// Smallest size of `card` on `grid` over `area`, in cells, at a width of
+/// `w` cells (some cards need less height when wider).
+pub fn min_cells(card: &CardConfig, grid: GridSize, area: Rect, w: u8) -> (u8, u8) {
+    let grid = grid.clamped();
+    let pitch_x = (area.w + GAP) / grid.columns as f32;
+    let pitch_y = (area.h + GAP) / grid.rows as f32;
+    let min_w = cells_for(min_width(card), pitch_x, grid.columns);
+    let width = cell_rect(area, grid, GridPos { x: 0, y: 0, w: w.max(min_w).min(grid.columns), h: 1 }).w;
+    (min_w, cells_for(heights(card, width).1, pitch_y, grid.rows))
+}
+
+/// Where each card of a grid page goes, in cells. A card keeps its own place,
+/// grown to its smallest size and kept on the grid. One that would then sit
+/// on an earlier card moves down in its own columns, else to the first free
+/// spot; a card without a place goes to the first free spot big enough for
+/// it. A card that finds none gets `None` and is not shown.
+pub fn grid_places(cards: &[Card], grid: GridSize, area: Rect) -> Vec<Option<GridPos>> {
     let grid = grid.clamped();
     let mut taken = vec![vec![false; grid.columns as usize]; grid.rows as usize];
-    let mut placed: Vec<Option<GridPos>> = cards.iter().map(|c| c.pos.and_then(|p| clip(p, grid))).collect();
-    for pos in placed.iter().flatten() {
-        for row in &mut taken[pos.y as usize..(pos.y + pos.h) as usize] {
-            row[pos.x as usize..(pos.x + pos.w) as usize].fill(true);
+    let free = |taken: &[Vec<bool>], p: GridPos| {
+        (p.y..p.y + p.h).all(|r| (p.x..p.x + p.w).all(|c| !taken[r as usize][c as usize]))
+    };
+    let take = |taken: &mut [Vec<bool>], p: GridPos| {
+        for row in &mut taken[p.y as usize..(p.y + p.h) as usize] {
+            row[p.x as usize..(p.x + p.w) as usize].fill(true);
+        }
+    };
+    // Own place, at least the card's smallest size, inside the grid
+    let wanted: Vec<Option<GridPos>> = cards
+        .iter()
+        .map(|card| {
+            let p = card.pos.and_then(|p| clip(p, grid))?;
+            let (mw, mh) = min_cells(card, grid, area, p.w);
+            let (w, h) = (p.w.max(mw).min(grid.columns), p.h.max(mh).min(grid.rows));
+            Some(GridPos { x: p.x.min(grid.columns - w), y: p.y.min(grid.rows - h), w, h })
+        })
+        .collect();
+    let mut placed: Vec<Option<GridPos>> = vec![None; cards.len()];
+    let mut moved = Vec::new();
+    for (i, p) in wanted.iter().enumerate() {
+        let Some(p) = *p else { continue };
+        if free(&taken, p) {
+            take(&mut taken, p);
+            placed[i] = Some(p);
+        } else {
+            moved.push(i);
+        }
+    }
+    for i in moved {
+        let p = wanted[i].expect("only cards with a place move");
+        let below = (p.y + 1..=grid.rows - p.h).map(|y| GridPos { y, ..p }).find(|q| free(&taken, *q));
+        let spot = below.or_else(|| free_spot(&taken, p.w, p.h).map(|(x, y)| GridPos { x, y, ..p }));
+        if let Some(q) = spot {
+            take(&mut taken, q);
+            placed[i] = Some(q);
         }
     }
     for (i, card) in cards.iter().enumerate() {
-        if card.pos.is_some() {
+        if wanted[i].is_some() {
             continue;
         }
+        // Its natural size, or its smallest when that doesn't fit anywhere
         let (w, h) = natural_cells(card, grid, area);
-        if let Some((x, y)) = free_spot(&taken, w, h) {
-            for row in &mut taken[y as usize..(y + h) as usize] {
-                row[x as usize..(x + w) as usize].fill(true);
-            }
-            placed[i] = Some(GridPos { x, y, w, h });
+        let (mw, mh) = min_cells(card, grid, area, w);
+        let spot = [(w, h), (w.min(grid.columns).max(mw), mh)]
+            .into_iter()
+            .find_map(|(w, h)| free_spot(&taken, w, h).map(|(x, y)| GridPos { x, y, w, h }));
+        if let Some(p) = spot {
+            take(&mut taken, p);
+            placed[i] = Some(p);
         }
     }
+    placed
+}
+
+/// Cards on a grid page (see [`grid_places`])
+fn grid_zones(cards: &[Card], grid: GridSize, area: Rect) -> Vec<(usize, Rect)> {
+    let grid = grid.clamped();
+    let placed = grid_places(cards, grid, area);
     let shown = placed.iter().flatten().count();
     if shown < cards.len() {
         tracing::debug!("{} card(s) have no room on the grid", cards.len() - shown);
     }
     placed.into_iter().enumerate().filter_map(|(i, p)| p.map(|p| (i, cell_rect(area, grid, p)))).collect()
+}
+
+/// What the setup tool's layout editor needs to lay its grid over the preview:
+/// all in UI units, as the renderer uses them.
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct GridLayout {
+    /// The whole screen
+    pub screen: (f32, f32),
+    /// Where the cells are
+    pub area: Rect,
+    pub gap: f32,
+    pub grid: GridSize,
+    /// Where each card is drawn, `None` when it has no room
+    pub places: Vec<Option<GridPos>>,
+    /// Smallest size of each card, (columns, rows)
+    pub mins: Vec<(u8, u8)>,
+}
+
+/// The layout editor's view of a grid page on a `w`x`h` screen; `None` for a
+/// page without a grid.
+pub fn grid_layout(page: &PageConfig, w: u32, h: u32, with_tabs: bool) -> Option<GridLayout> {
+    let grid = page.grid?.clamped();
+    let (w, h) = ui_size(w, h);
+    let area = content_area(w, h, header_height(with_tabs));
+    let places = grid_places(&page.cards, grid, area);
+    let mins = page
+        .cards
+        .iter()
+        .zip(&places)
+        .map(|(c, p)| min_cells(c, grid, area, p.map_or(1, |p| p.w)))
+        .collect();
+    Some(GridLayout { screen: (w, h), area, gap: GAP, grid, places, mins })
 }
 
 /// Where each card of `page` goes on a `cw`x`ch` screen whose header ends at
@@ -367,9 +473,7 @@ fn pack_flow(page: &PageConfig, grid: GridSize, w: f32, h: f32, with_tabs: bool)
     let pitch_x = (area.w + GAP) / grid.columns as f32;
     let pitch_y = (area.h + GAP) / grid.rows as f32;
     let col = |v: f32| ((v / pitch_x).round().max(0.0) as u8).min(grid.columns);
-    // A card may come out a few pixels short of a height, rather than take
-    // a whole extra row for them.
-    let rows_for = |height: f32| (((height + GAP - SHORT_BY) / pitch_y).ceil().max(1.0) as u8).min(grid.rows);
+    let rows_for = |height: f32| cells_for(height, pitch_y, grid.rows);
 
     let mut zones = flow_zones(&cards, area);
     zones.sort_by(|a, b| a.1.y.total_cmp(&b.1.y).then(a.1.x.total_cmp(&b.1.x)));
@@ -991,7 +1095,7 @@ mod tests {
     }
 
     #[test]
-    fn places_outside_the_grid_are_cut_or_hidden() {
+    fn places_outside_the_grid_are_cut_or_moved() {
         let page = grid_page(
             4,
             4,
@@ -1002,7 +1106,9 @@ mod tests {
         );
         let area = content_area(1072.0, 1448.0, HEADER_WITH_TABS);
         let zones = page_zones(&page, 1072.0, 1448.0, HEADER_WITH_TABS);
-        assert_eq!(zones.len(), 1);
+        // The one starting outside goes to the first free spot instead
+        assert_eq!(zones.len(), 2);
+        assert_eq!(zones[1].1.y, area.y);
         let r = zones[0].1;
         assert!((r.x + r.w - (area.x + area.w)).abs() < 0.01 && (r.y + r.h - (area.y + area.h)).abs() < 0.01);
         // A zero-sized grid or place is read as one cell
@@ -1027,6 +1133,13 @@ mod tests {
                     card.pos = *pos;
                 }
                 let (uw, uh) = ui_size(w, h);
+                // The places stand as they are: nothing is grown or moved
+                let resolved = grid_places(&gridded.cards, grid, content_area(uw, uh, HEADER_WITH_TABS));
+                for (i, p) in places.iter().enumerate() {
+                    if p.is_some() {
+                        assert_eq!(resolved[i], *p, "{} {}x{}: card {}", page.id, w, h, i);
+                    }
+                }
                 let mut flow = page_zones(page, uw, uh, HEADER_WITH_TABS);
                 flow.sort_by_key(|z| z.0);
                 let all = page_zones(&gridded, uw, uh, HEADER_WITH_TABS);
@@ -1069,4 +1182,61 @@ mod tests {
             }
         }
     }
+
+    #[test]
+    fn a_card_on_top_of_another_moves_to_a_free_spot() {
+        let page = grid_page(
+            6,
+            12,
+            vec![
+                switch("switch.a", Some(GridPos { x: 0, y: 0, w: 3, h: 2 })),
+                switch("switch.b", Some(GridPos { x: 2, y: 1, w: 3, h: 2 })),
+            ],
+        );
+        let area = content_area(1072.0, 1448.0, HEADER_WITH_TABS);
+        let places = grid_places(&page.cards, page.grid.unwrap(), area);
+        assert_eq!(places[0], Some(GridPos { x: 0, y: 0, w: 3, h: 2 }));
+        // Same size and columns, just below the earlier card
+        assert_eq!(places[1], Some(GridPos { x: 2, y: 2, w: 3, h: 2 }));
+
+        // Smaller than it can be drawn: grown, and kept on the grid
+        let page = grid_page(6, 12, vec![switch("switch.a", Some(GridPos { x: 5, y: 11, w: 1, h: 1 }))]);
+        let (mw, mh) = min_cells(&page.cards[0], page.grid.unwrap(), area, 1);
+        assert!(mw > 1 && mh > 1, "{}x{}", mw, mh);
+        let p = grid_places(&page.cards, page.grid.unwrap(), area)[0].unwrap();
+        assert_eq!((p.w, p.h), (mw, mh));
+        assert_eq!((p.x + p.w, p.y + p.h), (6, 12));
+    }
+
+    #[test]
+    fn grid_pages_made_from_older_ones_respect_the_smallest_sizes() {
+        // Otherwise the layout editor would grow those cards when it opens
+        let config = AppConfig::default();
+        for (w, h) in [(1072, 1448), (1448, 1072), (758, 1024), (1024, 758), (1264, 1680)] {
+            let mut pages = config.pages.clone();
+            grid_pages(&mut pages, w, h, true);
+            for page in &pages {
+                let layout = grid_layout(page, w, h, true).unwrap();
+                for (i, (place, (mw, mh))) in layout.places.iter().zip(&layout.mins).enumerate() {
+                    // Hidden before too: the page is full on this screen
+                    let Some(place) = place else { continue };
+                    assert!(place.w >= *mw && place.h >= *mh, "{} {}x{}: card {} at {:?}, smallest {}x{}", page.id, w, h, i, place, mw, mh);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn a_new_card_takes_its_smallest_size_when_only_that_fits() {
+        // Everything but the last two rows is taken
+        let grid = GridSize { columns: 6, rows: 18 };
+        let area = content_area(1072.0, 1448.0, HEADER_WITH_TABS);
+        let new = switch("switch.new", None);
+        let (_, natural) = natural_cells(&new, grid, area);
+        assert!(natural > 2, "the test needs a card taller than the room left");
+        let page = grid_page(6, 18, vec![switch("switch.big", Some(GridPos { x: 0, y: 0, w: 6, h: 16 })), new]);
+        let p = grid_places(&page.cards, grid, area)[1].expect("the card fits at its smallest");
+        assert_eq!((p.y, p.h), (16, 2));
+    }
+
 }

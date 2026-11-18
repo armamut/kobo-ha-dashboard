@@ -4,6 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Kobo HA Dashboard Setup</title>
+<link rel="stylesheet" href="/vendor/gridstack.min.css">
+<script src="/vendor/gridstack-all.js"></script>
 <style>
 :root {
   --chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%235b6472' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
@@ -92,9 +94,8 @@ input[type=color] { width: 48px; height: 38px; padding: 2px; border: 1px solid v
 .chip .badge { background: var(--err); color: #fff; border-radius: 999px; font-size: 11px; padding: 0 6px; }
 
 /* Card list */
-.cardrow { display: grid; grid-template-columns: 18px 34px 1fr auto; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); margin-bottom: 8px; }
-.cardrow.dragging { opacity: .4; }
-.cardrow.over { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent) inset; }
+.cardrow { display: grid; grid-template-columns: 34px 1fr auto; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); margin-bottom: 8px; }
+.cardrow.selected { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
 .cardrow.offscreen { border-style: dashed; opacity: .75; }
 .handle { cursor: grab; color: var(--faint); user-select: none; text-align: center; }
 .ticon { width: 30px; height: 30px; }
@@ -118,6 +119,26 @@ aside.preview { position: sticky; top: 76px; align-self: start; }
 .device.landscape { padding: 16px 28px 16px 18px; }
 .preview-pages { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; margin: 12px 0 6px; }
 .preview-tools { display: flex; justify-content: space-between; align-items: center; color: var(--muted); font-size: 13px; }
+
+/* Layout editor: the page's grid laid over its preview */
+.layout-stage { position: relative; margin: 0 auto; max-width: 560px; border-radius: 6px; overflow: hidden; background: #e5e7eb; user-select: none; }
+.layout-stage.landscape { max-width: 100%; }
+.layout-stage > img { position: absolute; inset: 0; width: 100%; height: 100%; }
+.layout-box, .layout-lines { position: absolute; }
+.layout-lines { pointer-events: none; opacity: 0; transition: opacity .15s; }
+.layout-stage.moving .layout-lines { opacity: 1; }
+.layout-lines div { position: absolute; border: 1px dashed rgba(17, 24, 39, .22); border-radius: 4px; }
+.layout-box .grid-stack-item-content { border: 2px solid transparent; border-radius: 10px; cursor: move; overflow: visible; }
+.layout-box .grid-stack-item:hover > .grid-stack-item-content { border-color: var(--accent); background: rgba(217, 119, 6, .07); }
+.layout-box .grid-stack-item.selected > .grid-stack-item-content { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent); }
+.layout-box .grid-stack-item:focus { outline: none; }
+.layout-box .grid-stack-item:focus-visible > .grid-stack-item-content { box-shadow: 0 0 0 3px var(--accent); }
+.layout-box .lbl { position: absolute; top: 4px; left: 4px; max-width: calc(100% - 8px); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-size: 11px; font-weight: 700; color: #fff; background: var(--accent); padding: 1px 7px; border-radius: 6px; opacity: 0; transition: opacity .1s; }
+.layout-box .grid-stack-item:hover .lbl, .layout-box .grid-stack-item.selected .lbl { opacity: 1; }
+.layout-box .grid-stack-placeholder > .placeholder-content { background: rgba(217, 119, 6, .16); border: 2px dashed var(--accent); border-radius: 10px; }
+.layout-tools { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.layout-tools select { width: auto; }
 
 /* Install */
 .device-list { display: flex; flex-direction: column; gap: 10px; }
@@ -387,6 +408,27 @@ a.btn.primary { color: var(--accent-ink); }
       <div id="pageSettings" class="grid2"></div>
     </div>
 
+    <div class="card" id="layoutCard">
+      <div class="row" style="margin-bottom:10px">
+        <h2 style="margin:0" data-i18n="layout.title"></h2>
+        <span class="spacer"></span>
+        <div class="layout-tools">
+          <span class="hint" style="margin:0" data-i18n="layout.grid"></span>
+          <select id="gridCols" class="compact" data-i18n-title="layout.columns"></select>
+          <span>×</span>
+          <select id="gridRows" class="compact" data-i18n-title="layout.rows"></select>
+          <button class="btn small" id="layoutCompact" data-i18n="layout.compact" data-i18n-title="layout.compact_title"></button>
+          <button class="btn small" id="layoutAuto" data-i18n="layout.auto" data-i18n-title="layout.auto_title"></button>
+        </div>
+      </div>
+      <p class="hint" data-i18n="layout.hint"></p>
+      <div class="layout-stage" id="layoutStage">
+        <img id="layoutImg" alt="">
+        <div class="layout-lines" id="layoutLines"></div>
+        <div class="layout-box" id="layoutBox"></div>
+      </div>
+    </div>
+
     <div class="card">
       <div class="row" style="margin-bottom:12px">
         <h2 style="margin:0" data-i18n="design.cards"></h2>
@@ -464,6 +506,9 @@ let icons = [];
 let models = [];
 let languages = [];
 let hidden = [];
+// Per page, from the server: the grid over the screen, where each card is
+// drawn and its smallest size (see GridLayout in ui/screen.rs)
+let layouts = [];
 let page = 0;
 let openCard = null;
 let kobosTimer = null;
@@ -598,9 +643,11 @@ async function pushDraft(record) {
       renderDesign();
     }
     hidden = r.hidden || [];
+    layouts = r.layouts || [];
     setDirty(r.dirty);
     renderPageChips();
     renderOverflow();
+    renderLayout();
     refreshPreview();
   } catch (e) {
     $("saveStatus").textContent = T("app.not_saved", { error: e.message });
@@ -1044,6 +1091,7 @@ function renderDesign() {
   if (page >= cfg.pages.length) page = Math.max(0, cfg.pages.length - 1);
   renderPageChips();
   renderPageSettings();
+  renderLayout();
   renderCards();
   renderOverflow();
 }
@@ -1119,21 +1167,19 @@ function renderCards() {
   const p = cfg.pages[page];
   const cards = p ? p.cards : [];
   $("emptyCards").classList.toggle("hidden", cards.length > 0);
-  const offFrom = cards.length - (hidden[page] || 0);
   list.replaceChildren(...cards.map((c, i) => {
     const { t, title, sub, tags } = cardSummary(c);
-    const row = el("div", { class: "cardrow" + (i >= offFrom ? " offscreen" : ""), draggable: "true" },
-      el("span", { class: "handle", title: T("design.drag") }, "⋮⋮"),
+    const off = isOffscreen(i);
+    const row = el("div", { class: "cardrow" + (off ? " offscreen" : "") + (openCard === i ? " selected" : ""), "data-card": i },
       el("img", { class: "ticon", src: iconUrl(c.icon || t.icon), alt: "" }),
       el("div", { style: "min-width:0" },
         el("div", { class: "title" }, title),
-        el("div", { class: "sub" }, ...tags, i >= offFrom ? el("span", { class: "tag warn" }, T("design.doesnt_fit")) : null, sub)),
+        el("div", { class: "sub" }, ...tags, off ? el("span", { class: "tag warn" }, T("design.doesnt_fit")) : null, sub)),
       el("div", { class: "row", style: "gap:6px" },
         moveToSelect(i),
-        el("button", { class: "btn small", onclick: () => { openCard = openCard === i ? null : i; renderCards(); } }, T(openCard === i ? "design.done" : "design.edit")),
+        el("button", { class: "btn small", onclick: () => { openCard = openCard === i ? null : i; renderCards(); markSelected(); } }, T(openCard === i ? "design.done" : "design.edit")),
         el("button", { class: "btn small icon danger", title: T("design.delete_card"), onclick: () => { cards.splice(i, 1); openCard = null; renderCards(); sync(); } }, "✕")));
     if (openCard === i) row.append(cardForm(c));
-    addDrag(row, i, cards);
     return row;
   }));
 }
@@ -1152,24 +1198,6 @@ function moveToSelect(i) {
     openCard = null; renderCards(); sync();
   };
   return sel;
-}
-
-let dragFrom = null;
-function addDrag(row, i, cards) {
-  row.addEventListener("dragstart", (ev) => {
-    if (ev.target.closest("input,select,button")) { ev.preventDefault(); return; }
-    dragFrom = i; row.classList.add("dragging");
-  });
-  row.addEventListener("dragend", () => { row.classList.remove("dragging"); dragFrom = null; });
-  row.addEventListener("dragover", (ev) => { ev.preventDefault(); row.classList.add("over"); });
-  row.addEventListener("dragleave", () => row.classList.remove("over"));
-  row.addEventListener("drop", (ev) => {
-    ev.preventDefault(); row.classList.remove("over");
-    if (dragFrom == null || dragFrom === i) return;
-    const [c] = cards.splice(dragFrom, 1);
-    cards.splice(i, 0, c);
-    openCard = null; renderCards(); sync();
-  });
 }
 
 function entityInput(value, domains, onchange) {
@@ -1292,12 +1320,166 @@ function renderOverflow() {
     $(id).textContent = msg;
     $(id).classList.toggle("hidden", !n);
   }
-  document.querySelectorAll("#cardList .cardrow").forEach((row, i, all) => row.classList.toggle("offscreen", i >= all.length - n));
+  document.querySelectorAll("#cardList .cardrow").forEach((row, i) => row.classList.toggle("offscreen", isOffscreen(i)));
 }
+
+/// Whether card `i` of the current page has no room and isn't shown
+function isOffscreen(i) {
+  const L = layouts[page];
+  if (L) return !L.places[i];
+  return i >= (cfg.pages[page]?.cards.length || 0) - (hidden[page] || 0);
+}
+
+// ---------- Layout editor ----------
+// The page's grid is laid over its preview. Cards are gridstack widgets the
+// size of the cards on the preview: dragging or resizing one writes `pos` for
+// every card; the server then redraws the preview and sends back where each
+// card ended up (`layouts`), which the grid is rebuilt from.
+let gs = null;
+let layoutKey = "";
+
+function renderLayout(force = false) {
+  const p = cfg && cfg.pages[page];
+  const L = layouts[page];
+  $("layoutCard").classList.toggle("hidden", !p || !L);
+  const stage = $("layoutStage");
+  if (!p || !L || !stage.offsetParent) return;
+  // Not under the pointer: rebuilt when the drag or resize ends
+  if (stage.classList.contains("moving")) return;
+  stage.classList.toggle("landscape", L.screen[0] > L.screen[1]);
+  const s = stage.clientWidth / L.screen[0];
+  const labels = p.cards.map((c) => cardSummary(c).title);
+  const key = JSON.stringify([page, L, s, labels]);
+  if (!force && key === layoutKey && gs) return;
+  layoutKey = key;
+  const hadFocus = document.activeElement?.closest?.("#layoutBox .grid-stack-item")?.getAttribute("gs-id");
+
+  fillGridSelects(L.grid);
+  const img = $("layoutImg");
+  if (img.dataset.page !== String(page)) { img.dataset.page = page; img.src = `/api/preview.png?page=${page}&t=${Date.now()}`; }
+  stage.style.height = L.screen[1] * s + "px";
+  const half = L.gap / 2;
+  const frame = { left: (L.area.x - half) * s + "px", top: (L.area.y - half) * s + "px", width: (L.area.w + L.gap) * s + "px", height: (L.area.h + L.gap) * s + "px" };
+  Object.assign($("layoutBox").style, frame);
+  Object.assign($("layoutLines").style, frame);
+
+  // Faint cell outlines, where cards can go
+  const cw = (L.area.w + L.gap) / L.grid.columns * s, ch = (L.area.h + L.gap) / L.grid.rows * s, m = half * s;
+  const lines = [];
+  for (let y = 0; y < L.grid.rows; y++) for (let x = 0; x < L.grid.columns; x++) {
+    lines.push(el("div", { style: `left:${x * cw + m}px;top:${y * ch + m}px;width:${cw - 2 * m}px;height:${ch - 2 * m}px` }));
+  }
+  $("layoutLines").replaceChildren(...lines);
+
+  if (gs) { gs.destroy(true); gs = null; }
+  const host = el("div", { class: "grid-stack" });
+  $("layoutBox").replaceChildren(host);
+  p.cards.forEach((c, i) => {
+    const pl = L.places[i];
+    if (!pl) return;
+    // The server keeps places at least this big; never more than the place,
+    // or gridstack grows cards into each other
+    const [mw, mh] = [Math.min(L.mins[i][0], pl.w), Math.min(L.mins[i][1], pl.h)];
+    const item = el("div", { class: "grid-stack-item" + (openCard === i ? " selected" : ""), tabindex: "0", "aria-label": labels[i],
+        "gs-id": String(i), "gs-x": pl.x, "gs-y": pl.y, "gs-w": pl.w, "gs-h": pl.h, "gs-min-w": mw, "gs-min-h": mh },
+      el("div", { class: "grid-stack-item-content" }, el("span", { class: "lbl" }, labels[i])));
+    item.addEventListener("pointerdown", () => selectCard(i, false));
+    // Gridstack blurs on pointer down; the arrow keys need the focus
+    item.addEventListener("pointerup", () => item.focus({ preventScroll: true }));
+    item.addEventListener("keydown", (ev) => onLayoutKey(ev, item));
+    host.append(item);
+  });
+  try {
+    gs = GridStack.init({
+      column: L.grid.columns, maxRow: L.grid.rows, minRow: L.grid.rows,
+      cellHeight: ch, margin: m, mode: "float", animate: false,
+      resizable: { handles: "e,se,s,sw,w" },
+    }, host);
+  } catch (e) {
+    // Shown, not editable: better than a frozen page
+    console.error("layout editor:", e);
+    gs = null;
+    return;
+  }
+  gs.on("change", writePlaces);
+  gs.on("dragstart resizestart", () => stage.classList.add("moving"));
+  gs.on("dragstop resizestop", () => { stage.classList.remove("moving"); setTimeout(() => renderLayout(), 0); });
+  if (hadFocus != null) host.querySelector(`[gs-id="${hadFocus}"]`)?.focus();
+}
+
+/// Every card's place, as the grid shows it now
+function writePlaces() {
+  const p = cfg.pages[page];
+  if (!gs || !p) return;
+  for (const n of gs.engine.nodes) {
+    const c = p.cards[+n.id];
+    if (c) c.pos = { x: n.x, y: n.y, w: n.w, h: n.h };
+  }
+  sync();
+}
+
+function selectCard(i, scroll = true) {
+  if (openCard === i) return;
+  openCard = i;
+  renderCards();
+  markSelected();
+  if (scroll) document.querySelector(`#cardList [data-card="${i}"]`)?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+}
+
+function markSelected() {
+  document.querySelectorAll("#layoutBox .grid-stack-item").forEach((n) => n.classList.toggle("selected", +n.getAttribute("gs-id") === openCard));
+}
+
+/// Arrow keys move the focused card a cell, Shift + arrows resize it.
+function onLayoutKey(ev, item) {
+  const d = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }[ev.key];
+  const n = item.gridstackNode;
+  if (ev.key === "Enter") { selectCard(+item.getAttribute("gs-id")); return; }
+  if (!d || !n || !gs) return;
+  ev.preventDefault();
+  if (ev.shiftKey) gs.update(item, { w: Math.max(n.minW || 1, n.w + d[0]), h: Math.max(n.minH || 1, n.h + d[1]) });
+  else gs.update(item, { x: Math.max(0, n.x + d[0]), y: Math.max(0, n.y + d[1]) });
+}
+
+function fillGridSelects(grid) {
+  const opts = (from, to, v) => Array.from({ length: to - from + 1 }, (_, k) => el("option", { value: from + k, selected: from + k === v }, String(from + k)));
+  $("gridCols").replaceChildren(...opts(1, 12, grid.columns));
+  $("gridRows").replaceChildren(...opts(2, 24, grid.rows));
+}
+
+/// A new grid size keeps each card on the same share of the screen, as near
+/// as the new cells allow; the server moves cards that then overlap.
+function resizeGrid() {
+  const p = cfg.pages[page], L = layouts[page];
+  if (!p || !L) return;
+  const cols = +$("gridCols").value, rows = +$("gridRows").value;
+  const sx = cols / L.grid.columns, sy = rows / L.grid.rows;
+  p.cards.forEach((c, i) => {
+    const pl = L.places[i];
+    if (!pl) { delete c.pos; return; }
+    // Sizes round up: a card never gets smaller than its share of the screen
+    const x = Math.min(cols - 1, Math.round(pl.x * sx)), y = Math.min(rows - 1, Math.round(pl.y * sy));
+    c.pos = { x, y, w: Math.max(1, Math.min(cols - x, Math.ceil(pl.w * sx - 0.01))), h: Math.max(1, Math.min(rows - y, Math.ceil(pl.h * sy - 0.01))) };
+  });
+  p.grid = { columns: cols, rows };
+  sync();
+}
+
+/// Lay the page out again from its cards: the server does it for a page
+/// without a grid.
+function autoLayout() {
+  const p = cfg.pages[page];
+  if (!p) return;
+  delete p.grid;
+  p.cards.forEach((c) => delete c.pos);
+  sync();
+}
+
 
 // ---------- Preview ----------
 function refreshPreview() {
   if (!cfg) return;
+  if (!$("layoutCard").classList.contains("hidden")) $("layoutImg").src = `/api/preview.png?page=${page}&t=${Date.now()}`;
   $("deviceFrame").classList.toggle("landscape", cfg.device.orientation === "landscape");
   $("previewImg").src = `/api/preview.png?page=${page}&bw=${$("bw").checked}&sleep=${$("sleepPreview").checked}&t=${Date.now()}`;
 }
@@ -1439,6 +1621,7 @@ async function boot() {
   models = s.models;
   languages = s.languages;
   hidden = s.hidden || [];
+  layouts = s.layouts || [];
 
   // ?lang=xx picks the interface language directly (handy for shared links).
   const fromUrl = new URLSearchParams(location.search).get("lang");
@@ -1471,6 +1654,12 @@ async function boot() {
     page = cfg.pages.length - 1;
     renderDesign(); sync();
   };
+  $("gridCols").onchange = resizeGrid;
+  $("gridRows").onchange = resizeGrid;
+  $("layoutCompact").onclick = () => gs && gs.compact();
+  $("layoutAuto").onclick = autoLayout;
+  let resizeTimer = null;
+  window.addEventListener("resize", () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(() => renderLayout(), 150); });
   $("bw").onchange = refreshPreview;
   $("sleepPreview").onchange = refreshPreview;
   $("reloadPreview").onclick = refreshPreview;

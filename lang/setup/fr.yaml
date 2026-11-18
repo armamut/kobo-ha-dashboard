@@ -132,6 +132,16 @@ report:
   battery_not_admin: "Home Assistant n'a pas autorisé l'écriture du capteur de batterie (il faut le jeton d'un utilisateur administrateur). Créez le jeton en étant connecté comme administrateur, ou désactivez l'envoi de la batterie."
   battery_failed: "Impossible de créer le capteur de batterie : {error}"
 
+layout:
+  title: "Disposition"
+  hint: "Faites glisser une carte pour la déplacer, ou son bord ou son coin pour la redimensionner ; les autres cartes se décalent. Cliquez sur une carte pour la modifier. Les flèches déplacent la carte sélectionnée, Maj + flèches la redimensionnent."
+  grid: "Grille"
+  columns: "Colonnes"
+  rows: "Lignes"
+  compact: "Combler les vides"
+  compact_title: "Remonter les cartes dans les espaces vides"
+  auto: "Disposer automatiquement"
+  auto_title: "Redisposer cette page à partir de ses cartes"
 design:
   pages: "Pages"
   add_page: "+ Ajouter une page"
@@ -148,7 +158,7 @@ design:
   cards: "Cartes"
   add_card: "+ Ajouter une carte"
   no_cards: "Aucune carte sur cette page. Ajoutez-en une ci-dessus."
-  cards_hint: "Faites glisser les lignes pour les réorganiser. Deux petites cartes partagent une ligne ; les cartes pleine largeur (météo, scènes, grille de capteurs, média) ont toujours leur propre ligne."
+  cards_hint: "La place et la taille de chaque carte se règlent dans la disposition ci-dessus. Une carte sans place est signalée ici et n'est pas affichée."
   drag: "Glisser pour réorganiser"
   edit: "Modifier"
   done: "Terminé"

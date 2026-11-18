@@ -52,7 +52,7 @@ If you try it on another model, please open an issue with your `dashboard.log` (
    - **Windows:** if SmartScreen warns you, click **More info**, then **Run anyway**.
 3. **Follow the three steps:**
    1. **Connect:** enter your Home Assistant URL and a long-lived access token (your HA profile → **Security** → **Long-lived access tokens**). The **?** next to the token field walks you through it and opens the right page in your Home Assistant. Pick a language, orientation and theme, then click **Create from Home Assistant**.
-   2. **Design:** rename pages, add, remove and reorder cards, and move cards between pages. The preview on the right is exactly what the Kobo will show.
+   2. **Design:** rename pages, add and remove cards, and move cards between pages. Each page is a grid: drag cards to place them anywhere on it, drag an edge or corner to resize them, and choose how many columns and rows the page has. The preview is exactly what the Kobo will show.
    3. **Install:** connect the Kobo with USB, tap **Connect** on the Kobo, and click **Install**. If the Kobo doesn't have [NickelMenu](#about-nickelmenu) yet, the button reads **Install NickelMenu and dashboard** and does both.
 4. Click **Quit** (top right) to close the setup tool. You can choose to save your changes or quit without saving.
 

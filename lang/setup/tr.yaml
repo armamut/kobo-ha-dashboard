@@ -132,6 +132,16 @@ report:
   battery_not_admin: "Home Assistant pil sensörünün yazılmasına izin vermedi (admin kullanıcının token'ı gerekir). Token'ı yönetici olarak giriş yapmışken oluşturun ya da pil bildirimini kapatın."
   battery_failed: "Pil sensörü oluşturulamadı: {error}"
 
+layout:
+  title: "Yerleşim"
+  hint: "Bir kartı taşımak için sürükleyin, boyutunu değiştirmek için kenarını ya da köşesini sürükleyin; diğer kartlar yer açar. Düzenlemek için karta tıklayın. Seçili kartı ok tuşlarıyla taşıyabilir, Shift + ok tuşlarıyla boyutlandırabilirsiniz."
+  grid: "Izgara"
+  columns: "Sütun"
+  rows: "Satır"
+  compact: "Boşlukları kapat"
+  compact_title: "Kartları yukarıdaki boş yerlere taşı"
+  auto: "Otomatik yerleştir"
+  auto_title: "Bu sayfayı kartlarından yeniden yerleştir"
 design:
   pages: "Sayfalar"
   add_page: "+ Sayfa ekle"
@@ -148,7 +158,7 @@ design:
   cards: "Kartlar"
   add_card: "+ Kart ekle"
   no_cards: "Bu sayfada henüz kart yok. Yukarıdan ekleyin."
-  cards_hint: "Sıralamak için satırları sürükleyin. Bir satırdaki iki küçük kart genişliği paylaşır; tam genişlikteki kartlar (hava durumu, sahneler, sensör ızgarası, medya) her zaman kendi satırını alır."
+  cards_hint: "Her kartın yeri ve boyutu yukarıdaki yerleşimden ayarlanır. Yer kalmayan kart burada işaretlenir ve gösterilmez."
   drag: "Sıralamak için sürükleyin"
   edit: "Düzenle"
   done: "Tamam"

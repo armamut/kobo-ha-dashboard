@@ -132,6 +132,16 @@ report:
   battery_not_admin: "Home Assistant stond het schrijven van de batterijsensor niet toe (er is een token van een beheerder nodig). Maak de token aan terwijl je als beheerder bent ingelogd, of zet het sturen van het batterijniveau uit."
   battery_failed: "De batterijsensor kon niet worden aangemaakt: {error}"
 
+layout:
+  title: "Indeling"
+  hint: "Sleep een kaart om hem te verplaatsen, of de rand of hoek om het formaat te wijzigen; andere kaarten maken plaats. Klik op een kaart om hem te bewerken. Pijltjestoetsen verplaatsen de geselecteerde kaart, Shift + pijltjestoetsen wijzigen het formaat."
+  grid: "Raster"
+  columns: "Kolommen"
+  rows: "Rijen"
+  compact: "Gaten dichten"
+  compact_title: "Kaarten omhoog schuiven naar lege plekken"
+  auto: "Automatisch indelen"
+  auto_title: "Deze pagina opnieuw indelen vanuit de kaarten"
 design:
   pages: "Pagina's"
   add_page: "+ Pagina toevoegen"
@@ -148,7 +158,7 @@ design:
   cards: "Kaarten"
   add_card: "+ Kaart toevoegen"
   no_cards: "Nog geen kaarten op deze pagina. Voeg er hierboven een toe."
-  cards_hint: "Sleep rijen om ze te ordenen. Twee kleine kaarten delen een rij; kaarten over de volle breedte (weer, scènes, sensorraster, media) krijgen altijd een eigen rij."
+  cards_hint: "Plaats en formaat van elke kaart stel je in de indeling hierboven in. Een kaart zonder ruimte wordt hier gemarkeerd en niet getoond."
   drag: "Slepen om te ordenen"
   edit: "Bewerken"
   done: "Klaar"
