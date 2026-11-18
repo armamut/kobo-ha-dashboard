@@ -590,6 +590,13 @@ async function pushDraft(record) {
   else lastSnapshot = snapshot();
   try {
     const r = await api("/api/config", { method: "POST", body: cfg });
+    // A page without a grid (a new one) came back with one: take it over,
+    // as part of the same edit rather than an undo step of its own.
+    if (r.config) {
+      cfg.pages = r.config.pages;
+      lastSnapshot = snapshot();
+      renderDesign();
+    }
     hidden = r.hidden || [];
     setDirty(r.dirty);
     renderPageChips();
@@ -1139,6 +1146,8 @@ function moveToSelect(i) {
   sel.onchange = () => {
     if (sel.value === "") return;
     const [c] = cfg.pages[page].cards.splice(i, 1);
+    // Its place was on the old page; it takes the first free one on the new.
+    delete c.pos;
     cfg.pages[+sel.value].cards.push(c);
     openCard = null; renderCards(); sync();
   };

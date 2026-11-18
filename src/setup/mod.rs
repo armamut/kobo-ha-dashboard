@@ -13,7 +13,7 @@ use crate::display::Canvas;
 use crate::ha::HaClient;
 use crate::i18n;
 use crate::paths;
-use crate::ui::screen::hidden_card_count;
+use crate::ui::screen::{grid_pages, hidden_card_count};
 use crate::ui::ScreenRenderer;
 use axum::extract::{Query, State};
 use axum::http::{header, StatusCode};
@@ -69,10 +69,14 @@ pub async fn start_setup_server(
     };
     let ha = HaClient::for_app(&config);
     spawn_refresh(ha.clone());
+    // The file keeps its old layout until the user saves.
+    let saved = serde_yaml::to_string(&config).unwrap_or_default();
+    let mut config = config;
+    with_grid(&mut config);
 
     let state: Shared = Arc::new(Inner {
         config_path,
-        saved: RwLock::new(serde_yaml::to_string(&config).unwrap_or_default()),
+        saved: RwLock::new(saved),
         draft: RwLock::new(config),
         ha: RwLock::new(ha),
         entities: RwLock::new(Vec::new()),
@@ -159,10 +163,18 @@ fn bad_request_key(key: &str, english: &str, args: serde_json::Value) -> Respons
     (StatusCode::BAD_REQUEST, Json(serde_json::json!({ "error": english, "key": key, "args": args }))).into_response()
 }
 
+/// Pages from before the grid get one, so the editor only sees grid pages.
+/// Returns whether anything changed.
+fn with_grid(config: &mut AppConfig) -> bool {
+    let (w, h) = config.device.get_dimensions();
+    let tabs = config.pages.len() > 1;
+    grid_pages(&mut config.pages, w, h, tabs)
+}
+
 fn hidden_per_page(config: &AppConfig) -> Vec<usize> {
     let (w, h) = config.device.get_dimensions();
     let tabs = config.pages.len() > 1;
-    config.pages.iter().map(|p| hidden_card_count(&p.cards, w, h, tabs)).collect()
+    config.pages.iter().map(|p| hidden_card_count(p, w, h, tabs)).collect()
 }
 
 async fn get_state(State(s): State<Shared>) -> Json<serde_json::Value> {
@@ -189,9 +201,16 @@ async fn get_state(State(s): State<Shared>) -> Json<serde_json::Value> {
 
 /// Replace the draft. Nothing is written to disk until Save; the HA client
 /// is rebuilt when the connection settings change.
-async fn put_config(State(s): State<Shared>, Json(config): Json<AppConfig>) -> Response {
-    set_draft(&s, config).await;
-    Json(draft_status(&s).await).into_response()
+/// A page sent without a grid gets one; the reply then carries the config, for
+/// the editor to take over.
+async fn put_config(State(s): State<Shared>, Json(mut config): Json<AppConfig>) -> Response {
+    let changed = with_grid(&mut config);
+    set_draft(&s, config.clone()).await;
+    let mut status = draft_status(&s).await;
+    if changed {
+        status["config"] = serde_json::to_value(config).unwrap_or_default();
+    }
+    Json(status).into_response()
 }
 
 async fn set_draft(s: &Shared, config: AppConfig) {
@@ -236,7 +255,8 @@ async fn save_config(State(s): State<Shared>) -> Response {
 async fn revert_config(State(s): State<Shared>) -> Response {
     let saved = s.saved.read().await.clone();
     match serde_yaml::from_str::<AppConfig>(&saved) {
-        Ok(config) => {
+        Ok(mut config) => {
+            with_grid(&mut config);
             set_draft(&s, config.clone()).await;
             let mut status = draft_status(&s).await;
             status["config"] = serde_json::to_value(config).unwrap_or_default();
@@ -258,7 +278,8 @@ struct RestoreRequest {
 /// Load an earlier version into the draft (saved only when the user saves).
 async fn restore_version(State(s): State<Shared>, Json(req): Json<RestoreRequest>) -> Response {
     match versions::load(&s.config_path, &req.id) {
-        Ok(config) => {
+        Ok(mut config) => {
+            with_grid(&mut config);
             set_draft(&s, config.clone()).await;
             let mut status = draft_status(&s).await;
             status["config"] = serde_json::to_value(config).unwrap_or_default();
@@ -275,7 +296,7 @@ fn entity_set(c: &AppConfig) -> Vec<String> {
     c.pages
         .iter()
         .flat_map(|p| p.cards.iter())
-        .filter_map(|card| match card {
+        .filter_map(|card| match &card.kind {
             CardConfig::Weather { entity_id, .. } => Some(entity_id.clone()),
             CardConfig::Sensor { entity_id, show_graph: true, .. } => Some(entity_id.clone()),
             // A chart's period and range decide what is fetched, so they are
@@ -364,6 +385,8 @@ async fn import_lovelace(State(s): State<Shared>, Json(req): Json<LovelaceImport
             for page in &mut result.pages {
                 page.imported_from = Some(source.clone());
             }
+            let (w, h) = config.device.get_dimensions();
+            grid_pages(&mut result.pages, w, h, true);
             let cards: usize = result.pages.iter().map(|p| p.cards.len()).sum();
             tracing::info!(
                 "Lovelace import: {} pages, {} cards, {} skipped kinds",
@@ -432,7 +455,9 @@ async fn generate_pages(State(s): State<Shared>) -> Response {
     };
     let _guard = s.render_lock.lock().await;
     i18n::set_language(&lang);
-    Json(generate::generate(&entities, dims)).into_response()
+    let mut pages = generate::generate(&entities, dims);
+    grid_pages(&mut pages, dims.0, dims.1, true);
+    Json(pages).into_response()
 }
 
 /// Load the fallback font a language needs (if downloaded) before rendering.
@@ -589,7 +614,10 @@ struct ImportRequest {
 async fn import_kobo(Json(req): Json<ImportRequest>) -> Response {
     let path = Path::new(&req.path).join(".kobo-ha/config.yaml");
     match AppConfig::load_from_file(&path) {
-        Ok(config) => Json(config).into_response(),
+        Ok(mut config) => {
+            with_grid(&mut config);
+            Json(config).into_response()
+        }
         Err(e) => bad_request_key(
             "import_failed",
             "Could not read the config",
@@ -674,5 +702,24 @@ mod tests {
         ] {
             assert!(strings.contains_key(&format!("card_types.{}", t)), "card_types.{} missing", t);
         }
+    }
+
+    #[test]
+    fn the_editor_only_sees_grid_pages() {
+        // An older config: no page has a grid
+        let mut config = AppConfig::default();
+        let before = serde_yaml::to_string(&config).unwrap();
+        assert!(!before.contains("grid:"));
+        assert!(with_grid(&mut config));
+        for page in &config.pages {
+            assert!(page.grid.is_some(), "{} has no grid", page.id);
+            assert!(page.cards.iter().all(|c| c.pos.is_some()), "{}: a card has no place", page.id);
+        }
+        // What is shown does not change, nothing more is hidden
+        assert_eq!(hidden_per_page(&config), vec![0; config.pages.len()]);
+        // A second pass leaves grid pages alone
+        let once = serde_yaml::to_string(&config).unwrap();
+        assert!(!with_grid(&mut config));
+        assert_eq!(serde_yaml::to_string(&config).unwrap(), once);
     }
 }

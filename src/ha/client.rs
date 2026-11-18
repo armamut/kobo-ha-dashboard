@@ -147,7 +147,7 @@ impl HaClient {
         let mut stats = Vec::new();
         let mut images = Vec::new();
         let mut all = Vec::new();
-        for card in app.pages.iter().flat_map(|p| p.cards.iter()) {
+        for card in app.pages.iter().flat_map(|p| p.cards.iter()).map(|c| &c.kind) {
             match card {
                 CardConfig::Weather { entity_id, .. } => weather.push(entity_id.clone()),
                 CardConfig::Sensor { entity_id, show_graph: true, .. } => history.push(entity_id.clone()),

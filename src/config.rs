@@ -325,8 +325,12 @@ pub struct PageConfig {
     pub title: String,
     #[serde(default = "default_page_icon")]
     pub icon: String,
+    /// Cells the page is divided into. Without it (configs from before the
+    /// grid), cards flow into rows by themselves.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub grid: Option<GridSize>,
     #[serde(default)]
-    pub cards: Vec<CardConfig>,
+    pub cards: Vec<Card>,
     /// Where the page came from, e.g. `lovelace:energie`. An import only
     /// replaces and removes pages with its own mark, so your own pages survive.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -335,6 +339,63 @@ pub struct PageConfig {
 
 fn default_page_icon() -> String {
     "home".to_string()
+}
+
+/// Largest number of columns or rows a page grid may have
+pub const MAX_GRID: u8 = 24;
+
+/// A page grid: the area below the header split into equal cells. Cells are
+/// a share of the screen, not pixels, so a page fits every Kobo model.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct GridSize {
+    pub columns: u8,
+    pub rows: u8,
+}
+
+impl GridSize {
+    /// Within 1..=MAX_GRID, whatever the config says
+    pub fn clamped(self) -> Self {
+        Self { columns: self.columns.clamp(1, MAX_GRID), rows: self.rows.clamp(1, MAX_GRID) }
+    }
+}
+
+/// Where a card sits on its page grid: first column and row, and how many of
+/// each it covers.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct GridPos {
+    pub x: u8,
+    pub y: u8,
+    pub w: u8,
+    pub h: u8,
+}
+
+/// A card on a page: what it shows, and where it sits on the grid.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Card {
+    #[serde(flatten)]
+    pub kind: CardConfig,
+    /// Without it the card is placed in the first free spot
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pos: Option<GridPos>,
+}
+
+impl From<CardConfig> for Card {
+    fn from(kind: CardConfig) -> Self {
+        Self { kind, pos: None }
+    }
+}
+
+impl std::ops::Deref for Card {
+    type Target = CardConfig;
+    fn deref(&self) -> &CardConfig {
+        &self.kind
+    }
+}
+
+impl std::ops::DerefMut for Card {
+    fn deref_mut(&mut self) -> &mut CardConfig {
+        &mut self.kind
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -524,7 +585,8 @@ pub fn default_demo_pages() -> Vec<PageConfig> {
             title: "Home".to_string(),
             icon: "home".to_string(),
             imported_from: None,
-            cards: vec![
+            grid: None,
+            cards: into_cards(vec![
                 CardConfig::Weather {
                     entity_id: "weather.home".to_string(),
                     title: Some("Weather".to_string()),
@@ -608,14 +670,15 @@ pub fn default_demo_pages() -> Vec<PageConfig> {
                     entity_id: "media_player.speaker".to_string(),
                     title: Some("Speaker".to_string()),
                 },
-            ],
+            ]),
         },
         PageConfig {
             id: "climate".to_string(),
             title: "Climate".to_string(),
             icon: "thermometer".to_string(),
             imported_from: None,
-            cards: vec![
+            grid: None,
+            cards: into_cards(vec![
                 CardConfig::Climate {
                     entity_id: "climate.lounge".to_string(),
                     title: Some("Living room".to_string()),
@@ -640,9 +703,14 @@ pub fn default_demo_pages() -> Vec<PageConfig> {
                     subtitle: Some("Auto mode".to_string()),
                     icon: Some("wind".to_string()),
                 },
-            ],
+            ]),
         },
     ]
+}
+
+/// Cards without a place on the grid
+pub fn into_cards(cards: Vec<CardConfig>) -> Vec<Card> {
+    cards.into_iter().map(Card::from).collect()
 }
 
 impl AppConfig {
@@ -721,4 +789,30 @@ mod tests {
         let back: AppConfig = serde_yaml::from_str(&yaml).unwrap();
         assert_eq!(back.pages.len(), AppConfig::default().pages.len());
     }
+
+    #[test]
+    fn grid_places_round_trip_and_older_pages_have_none() {
+        let yaml = "id: home\ntitle: Home\ngrid: { columns: 6, rows: 9 }\ncards:\n  - type: switch\n    entity_id: switch.a\n    pos: { x: 4, y: 7, w: 2, h: 2 }\n  - type: switch\n    entity_id: switch.b\n";
+        let page: PageConfig = serde_yaml::from_str(yaml).expect("grid page parses");
+        assert_eq!(page.grid, Some(GridSize { columns: 6, rows: 9 }));
+        assert_eq!(page.cards[0].pos, Some(GridPos { x: 4, y: 7, w: 2, h: 2 }));
+        assert_eq!(page.cards[1].pos, None);
+        assert!(matches!(&page.cards[0].kind, CardConfig::Switch { entity_id, .. } if entity_id == "switch.a"));
+
+        let out = serde_yaml::to_string(&page).unwrap();
+        let back: PageConfig = serde_yaml::from_str(&out).unwrap();
+        assert_eq!(back.cards[0].pos, page.cards[0].pos);
+        assert_eq!(out.matches("pos:").count(), 1, "a card without a place writes none:\n{}", out);
+        // The card's type still comes first, as in hand-written configs
+        assert!(out.contains("- type: switch"), "{}", out);
+
+        let old: PageConfig = serde_yaml::from_str("id: home\ntitle: Home\ncards:\n  - type: switch\n    entity_id: switch.a\n").unwrap();
+        assert_eq!(old.grid, None);
+        assert!(!serde_yaml::to_string(&old).unwrap().contains("grid"));
+        // The setup tool talks JSON: the place is a field of the card there too
+        let json = serde_json::to_value(&page).unwrap();
+        assert_eq!(json["cards"][0]["pos"]["x"], 4);
+        assert_eq!(json["cards"][0]["type"], "switch");
+    }
 }
+

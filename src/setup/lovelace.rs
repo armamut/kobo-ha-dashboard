@@ -6,6 +6,8 @@
 //! screen is split into several pages.
 
 use crate::config::{CardConfig, PageConfig};
+use crate::ui::screen::flow_hidden_count;
+#[cfg(test)]
 use crate::ui::screen::hidden_card_count;
 use serde::Serialize;
 use serde_json::Value;
@@ -134,7 +136,7 @@ pub fn import_with(
     // A chart without an explicit type gets the one its entity supports.
     for page in &mut pages {
         for card in &mut page.cards {
-            if let CardConfig::Statistics { entity_id, stat, .. } = card {
+            if let CardConfig::Statistics { entity_id, stat, .. } = &mut card.kind {
                 if stat.is_empty() {
                     *stat = stat_for(entity_id, state_classes);
                 }
@@ -459,7 +461,7 @@ fn paginate(
     let mut part = 1;
     for card in cards {
         chunk.push(card);
-        if hidden_card_count(&chunk, w, h, with_tabs) > 0 && chunk.len() > 1 {
+        if flow_hidden_count(&chunk, w, h, with_tabs) > 0 && chunk.len() > 1 {
             let overflow = chunk.pop().expect("chunk has the card we just pushed");
             pages.push(page(title, part, icon, std::mem::take(&mut chunk), used));
             part += 1;
@@ -486,7 +488,7 @@ fn page(title: &str, part: usize, icon: &str, cards: Vec<CardConfig>, used: &mut
         id = format!("{}_{}", base, n);
         n += 1;
     }
-    PageConfig { id, title, icon: icon.to_string(), cards, imported_from: None }
+    PageConfig { id, title, icon: icon.to_string(), grid: None, cards: crate::config::into_cards(cards), imported_from: None }
 }
 
 /// "living-room" -> "Living room"
@@ -730,7 +732,7 @@ views:
         let _guard = crate::i18n::TEST_LANGUAGE_LOCK.lock().unwrap_or_else(|e| e.into_inner());
         crate::i18n::set_language("en");
         let result = import(&as_config(ENERGIE), (1072, 1448), false).expect("imports");
-        let cards: Vec<&CardConfig> = result.pages.iter().flat_map(|p| p.cards.iter()).collect();
+        let cards: Vec<&CardConfig> = result.pages.iter().flat_map(|p| p.cards.iter().map(|c| &c.kind)).collect();
 
         assert_eq!(result.pages[0].title, "Energy");
         assert_eq!(result.pages[0].icon, "home");
@@ -761,7 +763,7 @@ views:
         assert_eq!(result.pages[1].title, "Energy 2");
         assert_eq!(cards.len(), 14);
         for page in &result.pages {
-            assert_eq!(hidden_card_count(&page.cards, 1072, 1448, false), 0, "{} overflows", page.title);
+            assert_eq!(hidden_card_count(page, 1072, 1448, false), 0, "{} overflows", page.title);
         }
     }
 
@@ -783,7 +785,7 @@ views:
             { "type": "entities", "entities": ["switch.kettle", { "entity": "lock.front_door" }] }
         ]}]});
         let result = import(&config, (1072, 1448), false).expect("imports");
-        let cards: Vec<&CardConfig> = result.pages.iter().flat_map(|p| p.cards.iter()).collect();
+        let cards: Vec<&CardConfig> = result.pages.iter().flat_map(|p| p.cards.iter().map(|c| &c.kind)).collect();
         assert!(cards.iter().any(|c| matches!(c, CardConfig::Light { entity_id, .. } if entity_id == "light.desk")));
         assert!(cards.iter().any(|c| matches!(c, CardConfig::Switch { entity_id, .. } if entity_id == "switch.kettle")));
         assert_eq!(result.skipped[0], Skipped { card: "gauge".into(), count: 2 });
@@ -802,7 +804,7 @@ views:
         assert_eq!(result.pages[0].title, "Alles");
         assert_eq!(result.pages[1].title, "Alles 2");
         for page in &result.pages {
-            assert_eq!(hidden_card_count(&page.cards, 1072, 1448, false), 0, "{} overflows", page.title);
+            assert_eq!(hidden_card_count(page, 1072, 1448, false), 0, "{} overflows", page.title);
         }
     }
 
@@ -833,7 +835,7 @@ views:
             { "type": "statistics-graph", "entities": ["sensor.gas"], "stat_types": ["change", "max"] }
         ]}]});
         let result = import(&config, (1072, 1448), false).expect("imports");
-        let stats: Vec<&CardConfig> = result.pages.iter().flat_map(|p| p.cards.iter()).filter(|c| matches!(c, CardConfig::Statistics { .. })).collect();
+        let stats: Vec<&CardConfig> = result.pages.iter().flat_map(|p| p.cards.iter().map(|c| &c.kind)).filter(|c| matches!(c, CardConfig::Statistics { .. })).collect();
         assert_eq!(stats.len(), 2);
         // A year of months is a month chart
         assert!(matches!(stats[0], CardConfig::Statistics { period, days: 400, .. } if period == "month"));
@@ -862,7 +864,7 @@ views:
         let stats: Vec<String> = result
             .pages
             .iter()
-            .flat_map(|p| p.cards.iter())
+            .flat_map(|p| p.cards.iter().map(|c| &c.kind))
             .filter_map(|c| match c {
                 CardConfig::Statistics { stat, .. } => Some(stat.clone()),
                 _ => None,
@@ -881,7 +883,7 @@ views:
         let classes: BTreeMap<String, String> =
             [("sensor.living_room_temperature".to_string(), "measurement".to_string())].into_iter().collect();
         let result = import_with(&config, (1072, 1448), false, &classes).expect("imports");
-        assert!(matches!(&result.pages[0].cards[0], CardConfig::Statistics { stat, .. } if stat == "change"));
+        assert!(matches!(&result.pages[0].cards[0].kind, CardConfig::Statistics { stat, .. } if stat == "change"));
     }
 
     #[test]
@@ -898,7 +900,7 @@ views:
             { "type": "entities", "entity": "sensor.power", "entities": [{ "type": "attribute", "attribute": "x" }] }
         ]}]});
         let result = import(&config, (1072, 1448), false).expect("imports");
-        let cards: Vec<&CardConfig> = result.pages.iter().flat_map(|p| p.cards.iter()).collect();
+        let cards: Vec<&CardConfig> = result.pages.iter().flat_map(|p| p.cards.iter().map(|c| &c.kind)).collect();
         assert!(cards.iter().any(|c| matches!(c, CardConfig::Sensor { entity_id, .. } if entity_id == "sensor.power")));
         assert!(result.skipped.is_empty(), "{:?}", result.skipped);
     }

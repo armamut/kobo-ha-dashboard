@@ -3,6 +3,8 @@
 use crate::config::{CardConfig, PageConfig, SceneItemConfig, SensorItemConfig};
 use crate::setup::kobo::Msg;
 use crate::i18n;
+use crate::ui::screen::flow_hidden_count;
+#[cfg(test)]
 use crate::ui::screen::hidden_card_count;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashSet};
@@ -352,7 +354,7 @@ pub fn generate(entities: &[EntityInfo], screen: (u32, u32)) -> Vec<PageConfig> 
         overview.extend(card_for(m));
     }
     if !overview.is_empty() {
-        pages.push(PageConfig { id: "home".into(), title: i18n::t("generated.overview"), icon: "home".into(), cards: overview, imported_from: None });
+        pages.push(PageConfig { id: "home".into(), title: i18n::t("generated.overview"), icon: "home".into(), grid: None, cards: crate::config::into_cards(overview), imported_from: None });
     }
 
     // Per area, biggest areas first; entities without an area go to "Other".
@@ -422,7 +424,7 @@ pub fn generate(entities: &[EntityInfo], screen: (u32, u32)) -> Vec<PageConfig> 
         let mut part = 1;
         for card in cards {
             chunk.push(card);
-            if hidden_card_count(&chunk, w, h, true) > 0 && chunk.len() > 1 {
+            if flow_hidden_count(&chunk, w, h, true) > 0 && chunk.len() > 1 {
                 let overflow = chunk.pop().expect("chunk has the card we just pushed");
                 pages.push(page(&area, part, icon, std::mem::take(&mut chunk)));
                 part += 1;
@@ -444,7 +446,7 @@ fn page(area: &str, part: usize, icon: &str, cards: Vec<CardConfig>) -> PageConf
         .chars()
         .map(|c| if c.is_alphanumeric() { c } else { '_' })
         .collect();
-    PageConfig { id, title, icon: icon.to_string(), cards, imported_from: None }
+    PageConfig { id, title, icon: icon.to_string(), grid: None, cards: crate::config::into_cards(cards), imported_from: None }
 }
 
 #[cfg(test)]
@@ -481,7 +483,7 @@ mod tests {
         let pages = generate(&entities, (1072, 1448));
         let ids: Vec<String> = pages
             .iter()
-            .flat_map(|p| p.cards.iter())
+            .flat_map(|p| p.cards.iter().map(|c| &c.kind))
             .filter_map(|c| match c {
                 CardConfig::Light { entity_id, .. }
                 | CardConfig::Switch { entity_id, .. }
@@ -498,7 +500,7 @@ mod tests {
         // Kitchen has a single card, so it is folded into "Other"
         assert!(pages.iter().any(|p| p.title == "Other"));
         assert!(!pages.iter().any(|p| p.title == "Kitchen"));
-        let salon_light = pages.iter().find(|p| p.title == "Salon").unwrap().cards.iter().find_map(|c| match c {
+        let salon_light = pages.iter().find(|p| p.title == "Salon").unwrap().cards.iter().find_map(|c| match &c.kind {
             CardConfig::Light { title, .. } => title.clone(),
             _ => None,
         });
@@ -515,7 +517,7 @@ mod tests {
         let big: Vec<&PageConfig> = pages.iter().filter(|p| p.title.starts_with("Big")).collect();
         assert!(big.len() >= 2);
         for p in big {
-            assert_eq!(hidden_card_count(&p.cards, 1072, 1448, true), 0, "{} overflows", p.title);
+            assert_eq!(hidden_card_count(p, 1072, 1448, true), 0, "{} overflows", p.title);
         }
     }
 
