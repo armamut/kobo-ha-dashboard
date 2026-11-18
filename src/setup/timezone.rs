@@ -151,7 +151,9 @@ fn zone_name(offset: i32) -> String {
     if minutes == 0 {
         format!("<{}{:02}>", sign, hours)
     } else {
-        format!("<{}{:02}:{:02}>", sign, hours, minutes)
+        // POSIX allows only letters, digits, '+' and '-' between the brackets
+        // (glibc rejects anything else), so no colon: `<+0530>`, as tzdata writes it.
+        format!("<{}{:02}{:02}>", sign, hours, minutes)
     }
 }
 
@@ -224,7 +226,8 @@ mod tests {
     #[test]
     fn a_half_hour_offset_keeps_its_minutes() {
         assert_eq!(posix_offset(19800), "-5:30");
-        assert_eq!(zone_name(19800), "<+05:30>");
+        assert_eq!(zone_name(19800), "<+0530>");
+        assert_eq!(zone_name(-9000), "<-0230>");
         assert_eq!(posix_offset(-12600), "+3:30");
     }
 

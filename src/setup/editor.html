@@ -640,10 +640,26 @@ async function redo() {
   await pushDraft(false);
 }
 
+/// This computer's offset right now, as utc_offset writes it ("+03:00").
+function currentOffset() {
+  const m = -new Date().getTimezoneOffset();
+  return (m >= 0 ? "+" : "-") + String(Math.floor(Math.abs(m) / 60)).padStart(2, "0") + ":" + String(Math.abs(m) % 60).padStart(2, "0");
+}
+
+/// Earlier versions filled utc_offset in with this computer's offset whenever it
+/// was empty, so most configs carry one nobody chose. It wins over the zone the
+/// launcher now follows and is an hour off after the next clock change, so an
+/// offset equal to this computer's is taken as that automatic value and dropped.
+/// An offset that differs (a Kobo in another zone) was set on purpose and stays.
+function dropAutomaticOffset(c) {
+  if (c?.theme?.utc_offset && c.theme.utc_offset.trim() === currentOffset()) c.theme.utc_offset = null;
+  return c;
+}
+
 /// Replace the whole config (revert, restore, import) as one undoable step.
 async function replaceConfig(next) {
   recordPending();
-  cfg = next;
+  cfg = dropAutomaticOffset(next);
   reloadUi();
   await pushDraft(true);
 }
@@ -782,8 +798,7 @@ function bindConnect() {
     updateTokenButton();
   };
   $("useTz").onclick = () => {
-    const m = -new Date().getTimezoneOffset();
-    const s = (m >= 0 ? "+" : "-") + String(Math.floor(Math.abs(m) / 60)).padStart(2, "0") + ":" + String(Math.abs(m) % 60).padStart(2, "0");
+    const s = currentOffset();
     $("utcOffset").value = s;
     cfg.theme.utc_offset = s;
     sync();
@@ -1409,7 +1424,8 @@ function bindAllFields() {
 
 async function boot() {
   const s = await api("/api/state");
-  cfg = s.config;
+  const pinned = s.config?.theme?.utc_offset;
+  cfg = dropAutomaticOffset(s.config);
   icons = s.icons;
   models = s.models;
   languages = s.languages;
@@ -1431,6 +1447,9 @@ async function boot() {
   $("menuName").value = s.menu_name;
   bindConnect();
   bindAllFields();
+  // Hand the dropped automatic offset to the setup tool's copy as well, as the
+  // old automatic fill did, so saving and installing write the config without it.
+  if (pinned && !cfg.theme.utc_offset) sync();
   updateTokenButton();
   applyDetectedModel(s.devices || []);
 
