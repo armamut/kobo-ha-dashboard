@@ -211,6 +211,14 @@ pages:
       #   hours: 24            # a range in hours instead of days
       # - type: "image"
       #   entity_id: "camera.garden"   # a camera snapshot, every 10 minutes
+      # - type: "breakdown"    # how a total splits, as a ring
+      #   entities:
+      #     - { entity_id: "sensor.washer_power", title: "Washer" }
+      #     - { entity_id: "sensor.oven_power", title: "Oven" }
+      # - type: "climate"
+      #   entity_id: "climate.living_room"
+      #   show_graph: true     # room and target temperature, and when it heated
+      #   graph_hours: 24
 
 # Available icons: lightbulb, lightbulb_on, lamp, power, plug, fan, thermometer,
 # flame, radiator, snowflake, droplet, wind, zap, sun, moon, cloud, leaf, plant,

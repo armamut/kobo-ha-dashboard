@@ -78,10 +78,13 @@ pub fn render_cover_card(
     } else {
         // [badge] name ........ (^) (■) (v), the position below if there is room
         let with_bar = position.is_some() && rect.h >= 150.0;
-        let row_h = if with_bar { (rect.h - 2.0 * p - 26.0).min(72.0) } else { rect.h - 2.0 * p };
+        let row_h = if with_bar { (rect.h - 2.0 * p - 26.0).min(72.0) } else { (rect.h - 2.0 * p).min(72.0) };
         let btn = row_h.clamp(36.0, 64.0);
         let total = 3.0 * btn + 2.0 * gap;
-        let cy = rect.y + p + row_h / 2.0;
+        // On a tall card the row and the bar sit in the middle, together
+        let block = row_h + if with_bar { 26.0 } else { 0.0 };
+        let top = rect.y + (rect.h - block) / 2.0;
+        let cy = top + row_h / 2.0;
         let x0 = rect.x + rect.w - p - total;
         let fits = x0 - (rect.x + p) >= 0.0;
         let x0 = if fits { x0 } else { rect.x + (rect.w - total) / 2.0 };
@@ -102,7 +105,7 @@ pub fn render_cover_card(
             }
         }
         if let (true, Some(pos)) = (with_bar, position) {
-            let by = rect.y + rect.h - p - 12.0;
+            let by = top + row_h + 14.0;
             canvas.draw_progress_bar(rect.x + p, by, rect.w - 2.0 * p, 12.0, 6.0, pos / 100.0, theme.surface, tone.solid);
             canvas.stroke_rounded_rect(rect.x + p, by, rect.w - 2.0 * p, 12.0, 6.0, 1.5, tone.solid);
         }

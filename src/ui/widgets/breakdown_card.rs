@@ -84,15 +84,17 @@ pub fn render_breakdown_card(
 
     let (lx, ly, lw) = if side { (area.x + d + 24.0, cy - items.len() as f32 * ROW_H / 2.0, area.w - d - 24.0) } else { (area.x, area.y + d + 12.0, area.w) };
     let size = type_scale::LABEL;
+    let pct_of = |v: f64| if total > 0.0 { format!("{:.0}%", v / total * 100.0) } else { "--".into() };
+    // Values and shares where every row has room for both, else the shares alone
+    let both = values.iter().all(|v| canvas.measure_text(&format!("{}  {}", with_unit(*v), pct_of(*v)), size, true).0 <= lw * 0.5);
     for (k, (item, v)) in items.iter().zip(&values).enumerate() {
         let y = ly + k as f32 * ROW_H;
         if y + ROW_H > rect.y + rect.h - PAD + 6.0 {
             break;
         }
         canvas.fill_rounded_rect(lx, y + 6.0, 16.0, 16.0, 4.0, tones[k % tones.len()].solid);
-        let pct = if total > 0.0 { format!("{:.0}%", v / total * 100.0) } else { "--".into() };
-        let right = format!("{}  {}", with_unit(*v), pct);
-        let rw = canvas.draw_text_fit(&right, lx + lw, y + 3.0, size, true, theme.text, TextAlign::Right, lw * 0.55);
+        let right = if both { format!("{}  {}", with_unit(*v), pct_of(*v)) } else { pct_of(*v) };
+        let rw = canvas.draw_text_fit(&right, lx + lw, y + 3.0, size, true, theme.text, TextAlign::Right, lw * 0.5);
         canvas.draw_text_fit(&item.title, lx + 26.0, y + 3.0, size, false, theme.text_muted, TextAlign::Left, lw - 26.0 - rw - 10.0);
     }
     targets.push(InteractiveTarget { rect, action: UiAction::Refresh });
