@@ -635,6 +635,9 @@ pub struct ScreenRenderer {
     pub sleep_until: Option<String>,
     /// Draw the "battery empty" screen instead of the dashboard
     pub battery_empty: bool,
+    /// Battery, charging and Wi-Fi to show instead of the device's own (the
+    /// setup tool's preview runs on a computer)
+    pub device_status: Option<(Option<u8>, bool, Option<bool>)>,
     /// Pixels per UI unit on the last rendered canvas
     scale: f32,
     /// Raw images of `image.*` entities, as fetched from Home Assistant
@@ -654,6 +657,7 @@ impl ScreenRenderer {
             frontlight: None,
             sleep_until: None,
             battery_empty: false,
+            device_status: None,
             scale: 1.0,
             images: HashMap::new(),
             image_cache: HashMap::new(),
@@ -702,7 +706,7 @@ impl ScreenRenderer {
             return;
         }
 
-        let (battery, charging, wifi_up) = read_device_status();
+        let (battery, charging, wifi_up) = self.device_status.unwrap_or_else(read_device_status);
         let wifi_up = crate::ui::widgets::header::shown_wifi(wifi_up, self.sleep_until.is_some(), crate::power::wifi_switched_off());
         let status = HeaderStatus {
             is_live,

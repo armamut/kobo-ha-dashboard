@@ -189,7 +189,9 @@ body.ws-on aside.preview { display: none; }
 .ws.previewing .layout-box { display: none; }
 .ws.previewing .ws-device { background: #2b2f36; border-radius: 26px; padding: 18px 16px 28px; box-shadow: 0 10px 30px rgba(0,0,0,.18); }
 .ws.previewing .ws-device.landscape { padding: 16px 28px 16px 18px; }
-.ws.previewing .layout-stage { box-shadow: none; border-radius: 4px; }
+.ws.previewing .layout-stage { box-shadow: none; border-radius: 4px; cursor: pointer; }
+/* The frontlight switched off: the screen a little darker, as on the Kobo */
+.ws.previewing .layout-stage.dim > img { filter: brightness(.8) saturate(.9); }
 .seg { display: inline-flex; border: 1px solid var(--border-strong); border-radius: 8px; overflow: hidden; }
 .seg button { border: 0; background: var(--surface); padding: 5px 12px; font-size: 13px; font-weight: 600; cursor: pointer; color: var(--muted); }
 .seg button + button { border-left: 1px solid var(--border-strong); }
@@ -546,6 +548,8 @@ a.btn.primary { color: var(--accent-ink); }
           <div class="layout-tools preview-only">
             <label class="check"><input type="checkbox" id="wsBw"> <span data-i18n="preview.grayscale"></span></label>
             <label class="check"><input type="checkbox" id="wsSleep"> <span data-i18n="preview.sleep"></span></label>
+            <span class="hint" style="margin:0" data-i18n="ws.preview_taps"></span>
+            <button class="btn small" id="previewReset" type="button" data-i18n="ws.preview_reset" data-i18n-title="ws.preview_reset_title"></button>
           </div>
           <span class="spacer"></span>
           <div class="seg" role="group">
@@ -1860,6 +1864,22 @@ function tabAt(x, y) {
   return Math.min(cfg.pages.length - 1, Math.floor((ux - b.x) / (b.w / cfg.pages.length)));
 }
 
+/// A tap on the preview works as on the Kobo, without reaching Home
+/// Assistant: lights toggle, thermostats step, tabs open their page, the
+/// light button dims the screen.
+async function previewTap(ev) {
+  const img = $("layoutImg"), r = img.getBoundingClientRect();
+  if (!img.naturalWidth) return;
+  const x = (ev.clientX - r.left) / r.width * img.naturalWidth;
+  const y = (ev.clientY - r.top) / r.height * img.naturalHeight;
+  try {
+    const res = await api("/api/preview/tap", { method: "POST", body: { page, x, y } });
+    if (res.page != null && res.page !== page) showPage(res.page);
+    if (res.light_off != null) $("layoutStage").classList.toggle("dim", res.light_off);
+    if (res.light_off != null || res.redraw) refreshPreview();
+  } catch { /* the preview stays as it was */ }
+}
+
 function setPreviewing(on) {
   previewing = on;
   renderTray();
@@ -2311,9 +2331,15 @@ async function boot() {
   $("modeDesign").onclick = () => setPreviewing(false);
   $("modePreview").onclick = () => setPreviewing(true);
   $("wsBw").onchange = refreshPreview;
+  $("previewReset").onclick = async () => {
+    await api("/api/preview/reset", { method: "POST" }).catch(() => {});
+    $("layoutStage").classList.remove("dim");
+    refreshPreview();
+  };
   $("wsSleep").onchange = refreshPreview;
   // A click on the canvas outside the cards selects the page
   $("canvasWrap").addEventListener("pointerdown", (ev) => {
+    if (previewing) { if (ev.target.closest("#layoutStage")) previewTap(ev); return; }
     if (ev.target.closest(".grid-stack-item")) return;
     // The page tabs drawn in the header switch pages, as on the Kobo
     const tab = tabAt(ev.clientX, ev.clientY);

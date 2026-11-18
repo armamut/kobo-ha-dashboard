@@ -58,6 +58,15 @@ struct Inner {
     loaded_font: Mutex<Option<String>>,
     /// Fired by the "Quit" button to stop the server.
     shutdown: tokio::sync::Notify,
+    /// What taps on the preview changed. Nothing reaches Home Assistant.
+    preview: Mutex<PreviewState>,
+}
+
+/// The preview's own world: the frontlight and the states taps changed
+#[derive(Default)]
+struct PreviewState {
+    light_off: bool,
+    states: std::collections::HashMap<String, crate::ha::models::EntityState>,
 }
 
 type Shared = Arc<Inner>;
@@ -92,6 +101,7 @@ pub async fn start_setup_server(
         render_lock: Mutex::new(()),
         loaded_font: Mutex::new(None),
         shutdown: tokio::sync::Notify::new(),
+        preview: Mutex::new(PreviewState::default()),
     });
 
     let app = Router::new()
@@ -110,6 +120,8 @@ pub async fn start_setup_server(
         .route("/api/lovelace/dashboards", get(lovelace_dashboards))
         .route("/api/lovelace/import", post(import_lovelace))
         .route("/api/preview.png", get(preview))
+        .route("/api/preview/tap", post(preview_tap))
+        .route("/api/preview/reset", post(preview_reset))
         .route("/api/icon.png", get(icon_png))
         .route("/api/kobo", get(list_kobos))
         .route("/api/kobo/install", post(install_kobo))
@@ -508,7 +520,9 @@ struct PreviewQuery {
     sleep: bool,
 }
 
-async fn preview(State(s): State<Shared>, Query(q): Query<PreviewQuery>) -> Response {
+/// Draw a page as the Kobo would, with what taps on the preview changed,
+/// a Wi-Fi and a battery (the Kobo's, if Home Assistant has it).
+async fn draw_preview(s: &Shared, page: usize, sleep: bool) -> (Canvas, ScreenRenderer) {
     let config = s.draft.read().await.clone();
     let ha = s.ha.read().await.clone();
     // The setup tool has no live updates: states older than half a minute
@@ -517,24 +531,41 @@ async fn preview(State(s): State<Shared>, Query(q): Query<PreviewQuery>) -> Resp
     if stale {
         spawn_refresh(ha.clone());
     }
-    let states = ha.get_all_states().await;
+    let mut states = ha.get_all_states().await;
+    let (light_off, tapped) = {
+        let p = s.preview.lock().await;
+        (p.light_off, p.states.clone())
+    };
+    states.extend(tapped);
     let live = ha.is_connected().await;
     let (w, h) = config.device.get_dimensions();
+    let battery_entity = Some(config.home_assistant.battery_entity.clone()).filter(|e| !e.is_empty()).unwrap_or_else(|| "sensor.kobo_battery".into());
+    let battery = states
+        .get(&battery_entity)
+        .and_then(|b| b.state.parse::<f32>().ok())
+        .map(|v| v.clamp(0.0, 100.0) as u8)
+        .unwrap_or(80);
 
     let _guard = s.render_lock.lock().await;
     i18n::set_language(&config.theme.language);
-    prepare_font(&s, &config.theme.language).await;
+    prepare_font(s, &config.theme.language).await;
     let mut canvas = Canvas::for_screen(w, h);
     let mut renderer = ScreenRenderer::new(&config);
     renderer.last_update = ha.last_update().await;
     renderer.set_images(ha.images().await);
     // Most Kobos have a frontlight; show its button as on the device.
-    renderer.frontlight = Some(true);
-    if q.sleep {
+    renderer.frontlight = Some(!light_off);
+    renderer.device_status = Some((Some(battery), false, Some(true)));
+    if sleep {
         let next = crate::ui::widgets::header::now_local(&config.theme) + chrono::Duration::seconds(config.device.sleep_wake_secs.max(120) as i64);
         renderer.sleep_until = Some(crate::ui::widgets::header::format_time(&next, &config.theme));
     }
-    renderer.render(&mut canvas, &config, q.page.min(config.pages.len().saturating_sub(1)), &states, live);
+    renderer.render(&mut canvas, &config, page.min(config.pages.len().saturating_sub(1)), &states, live);
+    (canvas, renderer)
+}
+
+async fn preview(State(s): State<Shared>, Query(q): Query<PreviewQuery>) -> Response {
+    let (canvas, renderer) = draw_preview(&s, q.page, q.sleep).await;
     let hidden = renderer.hidden_cards;
     let png = if q.bw { canvas.to_grayscale_png_bytes() } else { canvas.to_png_bytes() };
     match png {
@@ -549,6 +580,72 @@ async fn preview(State(s): State<Shared>, Query(q): Query<PreviewQuery>) -> Resp
             .into_response(),
         Err(e) => bad_request(e.to_string()),
     }
+}
+
+/// Back to Home Assistant's states and the light on
+async fn preview_reset(State(s): State<Shared>) -> StatusCode {
+    *s.preview.lock().await = PreviewState::default();
+    StatusCode::NO_CONTENT
+}
+
+#[derive(Deserialize)]
+struct TapRequest {
+    page: usize,
+    /// Where on the screen, in the device's pixels
+    x: f32,
+    y: f32,
+}
+
+/// A tap on the preview does what it would on the Kobo, to the preview only:
+/// a light toggles, a thermostat steps, a tab opens its page.
+async fn preview_tap(State(s): State<Shared>, Json(t): Json<TapRequest>) -> Json<serde_json::Value> {
+    let (_, renderer) = draw_preview(&s, t.page, false).await;
+    let Some(action) = renderer.handle_touch(t.x, t.y) else {
+        return Json(serde_json::json!({}));
+    };
+    let states = s.ha.read().await.get_all_states().await;
+    let mut p = s.preview.lock().await;
+    let current = |id: &str| p.states.get(id).or_else(|| states.get(id)).cloned();
+    let changed = match action {
+        crate::ui::layout::UiAction::SwitchPage(i) => return Json(serde_json::json!({ "page": i })),
+        crate::ui::layout::UiAction::ToggleFrontlight => {
+            p.light_off = !p.light_off;
+            return Json(serde_json::json!({ "light_off": p.light_off }));
+        }
+        crate::ui::layout::UiAction::ToggleEntity(id) => current(&id).map(|mut e| {
+            e.state = if e.is_on() { "off" } else { "on" }.into();
+            e
+        }),
+        crate::ui::layout::UiAction::SetClimateTemp(id, delta) => current(&id).map(|mut e| {
+            let t = e.get_attr_f32("temperature").unwrap_or(21.0) + delta;
+            let (lo, hi) = (e.get_attr_f32("min_temp").unwrap_or(5.0), e.get_attr_f32("max_temp").unwrap_or(35.0));
+            e.attributes.insert("temperature".into(), serde_json::json!(((t * 2.0).round() / 2.0).clamp(lo, hi)));
+            e
+        }),
+        crate::ui::layout::UiAction::MediaPlayPause(id) => current(&id).map(|mut e| {
+            e.state = if e.state == "playing" { "paused" } else { "playing" }.into();
+            e
+        }),
+        crate::ui::layout::UiAction::CallService(_, service, id) => current(&id).map(|mut e| {
+            let (state, pos) = match service.as_str() {
+                "open_cover" => ("open", Some(100)),
+                "close_cover" => ("closed", Some(0)),
+                _ => (e.state.as_str(), None),
+            };
+            e.state = state.to_string();
+            if let (Some(pos), true) = (pos, e.attributes.contains_key("current_position")) {
+                e.attributes.insert("current_position".into(), serde_json::json!(pos));
+            }
+            e
+        }),
+        // A scene, a skip button, a refresh: nothing to show
+        _ => None,
+    };
+    let redraw = changed.is_some();
+    if let Some(e) = changed {
+        p.states.insert(e.entity_id.clone(), e);
+    }
+    Json(serde_json::json!({ "redraw": redraw }))
 }
 
 #[derive(Deserialize)]
