@@ -373,7 +373,7 @@ install:
   logs_cleaned: "古いログを削除しました：{size} を解放。"
   eject_title: "安全に取り外せるように Kobo を取り出します"
   ejected: "Kobo を取り出しました。ケーブルを抜いてかまいません。ダッシュボードは Kobo のメニューにあります。"
-  binary_stale: "このツールの横にある Kobo 用プログラムは、このセットアップツールとは別のコードからビルドされています。Kobo が新しいカードを認識できず省略する可能性があります。インストール前に再ビルドしてください（<code>deploy/build-kobo.sh</code>）。"
+  binary_stale: "このツールがインストールするKoboプログラムは、ツール自体とは異なるコードからビルドされています。<code>{path}</code> はコミット {kobo}、設定ツールは {tool} からです。これは設定ツールだけを再ビルドする <code>cargo run</code> の後に起こります。<code>deploy/build-kobo.sh</code> を実行してから、このページを再読み込みしてください。このままインストールすると、Koboには最新の変更を含まない古いプログラムが入ります（新しいカードが表示されないこともあります）。"
   devices: "接続中の Kobo"
   rescan: "再検索"
   none: "Kobo が見つかりません。USB で接続し、Kobo で「接続」をタップしてください。"

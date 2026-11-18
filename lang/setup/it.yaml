@@ -373,7 +373,7 @@ install:
   logs_cleaned: "Vecchi log eliminati: {size} liberati."
   eject_title: "Espelli il Kobo per scollegarlo in sicurezza"
   ejected: "Il Kobo è stato espulso: ora puoi scollegarlo. La dashboard è nel suo menu."
-  binary_stale: "Il programma Kobo accanto a questo strumento è stato compilato da codice diverso da questo strumento; il Kobo potrebbe non conoscere le schede più nuove e ometterle. Ricompilalo prima di installare (<code>deploy/build-kobo.sh</code>)."
+  binary_stale: "Il programma Kobo che questo strumento installerebbe è stato compilato da un codice diverso dallo strumento stesso: <code>{path}</code> viene dal commit {kobo}, lo strumento di configurazione da {tool}. Succede dopo <code>cargo run</code>, che ricompila solo lo strumento di configurazione. Esegui <code>deploy/build-kobo.sh</code> e ricarica questa pagina. Installato così, il Kobo riceve il vecchio programma senza le tue ultime modifiche (e può tralasciare le schede più recenti)."
   devices: "Dispositivi Kobo collegati"
   rescan: "Cerca di nuovo"
   none: "Nessun Kobo trovato. Collegalo via USB e tocca «Connetti» sul Kobo."

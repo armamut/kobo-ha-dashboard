@@ -373,7 +373,7 @@ install:
   logs_cleaned: "Anciens journaux supprimés : {size} libérés."
   eject_title: "Éjecter la Kobo pour la débrancher en toute sécurité"
   ejected: "La Kobo a été éjectée : vous pouvez la débrancher. Le tableau de bord est dans son menu."
-  binary_stale: "Le programme Kobo à côté de cet outil a été compilé à partir d'un autre code que cet outil ; la Kobo risque d'ignorer les cartes les plus récentes. Recompilez-le avant l'installation (<code>deploy/build-kobo.sh</code>)."
+  binary_stale: "Le programme Kobo que cet outil installerait a été compilé à partir d'un autre code que l'outil lui-même : <code>{path}</code> vient du commit {kobo}, l'outil de configuration de {tool}. Cela arrive après <code>cargo run</code>, qui ne recompile que l'outil de configuration. Lancez <code>deploy/build-kobo.sh</code>, puis rechargez cette page. Installé tel quel, la Kobo reçoit l'ancien programme, sans vos dernières modifications (il peut aussi omettre les cartes récentes)."
   devices: "Kobo connectées"
   rescan: "Rechercher à nouveau"
   none: "Aucune Kobo trouvée. Branchez-la en USB et touchez « Connecter » sur la Kobo."

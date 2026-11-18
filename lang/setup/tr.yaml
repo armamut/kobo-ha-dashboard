@@ -373,7 +373,7 @@ install:
   logs_cleaned: "Eski günlükler silindi: {size} yer açıldı."
   eject_title: "Güvenle çıkarabilmeniz için Kobo'yu bilgisayardan ayırır"
   ejected: "Kobo çıkarıldı, kabloyu çıkarabilirsiniz. Panel Kobo'nun menüsünde."
-  binary_stale: "Bu aracın yanındaki Kobo programı, bu kurulum aracından farklı bir kodla derlenmiş; Kobo en yeni kartları tanımayıp atlayabilir. Kurmadan önce yeniden derleyin (<code>deploy/build-kobo.sh</code>)."
+  binary_stale: "Kobo'ya kurulacak program, bu kurulum aracıyla aynı koddan derlenmemiş: <code>{path}</code> {kobo} commit'inden, kurulum aracı ise {tool} commit'inden. Bu, yalnızca kurulum aracını yeniden derleyen <code>cargo run</code> sonrasında olur. <code>deploy/build-kobo.sh</code> komutunu çalıştırıp bu sayfayı yenileyin. Böyle kurarsanız Kobo'ya son değişikliklerinizi içermeyen eski program gider (yeni kartları da atlayabilir)."
   devices: "Bağlı Kobo cihazları"
   rescan: "Yeniden tara"
   none: "Kobo bulunamadı. USB ile bağlayın ve Kobo ekranındaki “Bağlan”a dokunun."

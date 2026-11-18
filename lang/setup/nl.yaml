@@ -373,7 +373,7 @@ install:
   logs_cleaned: "Oude logboeken verwijderd: {size} vrijgemaakt."
   eject_title: "De Kobo uitwerpen zodat u hem veilig kunt loskoppelen"
   ejected: "De Kobo is uitgeworpen: u kunt hem nu loskoppelen. Het dashboard staat in zijn menu."
-  binary_stale: "Het Kobo-programma naast dit hulpmiddel is gebouwd uit andere code dan dit installatiehulpmiddel; de Kobo kent de nieuwste kaarten misschien niet en laat ze weg. Bouw het opnieuw voor het installeren (<code>deploy/build-kobo.sh</code>)."
+  binary_stale: "Het Kobo-programma dat dit hulpmiddel zou installeren is gebouwd uit andere code dan het hulpmiddel zelf: <code>{path}</code> komt uit commit {kobo}, het installatiehulpmiddel uit {tool}. Dat gebeurt na <code>cargo run</code>, dat alleen het installatiehulpmiddel opnieuw bouwt. Voer <code>deploy/build-kobo.sh</code> uit en laad deze pagina opnieuw. Zo geïnstalleerd krijgt de Kobo het oude programma zonder je laatste wijzigingen (nieuwere kaarten kunnen ontbreken)."
   devices: "Aangesloten Kobo-apparaten"
   rescan: "Opnieuw zoeken"
   none: "Geen Kobo gevonden. Sluit hem aan via USB en tik op de Kobo op 'Verbinden'."

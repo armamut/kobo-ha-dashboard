@@ -373,7 +373,7 @@ install:
   logs_cleaned: "Alte Protokolle gelöscht: {size} frei."
   eject_title: "Den Kobo auswerfen, damit Sie ihn sicher abziehen können"
   ejected: "Der Kobo wurde ausgeworfen: Sie können ihn jetzt abziehen. Das Dashboard finden Sie in seinem Menü."
-  binary_stale: "Das Kobo-Programm neben diesem Werkzeug wurde aus anderem Code gebaut als dieses Einrichtungswerkzeug; der Kobo kennt die neuesten Karten vielleicht nicht und lässt sie weg. Bauen Sie es vor der Installation neu (<code>deploy/build-kobo.sh</code>)."
+  binary_stale: "Das Kobo-Programm, das dieses Tool installieren würde, wurde aus anderem Code gebaut als das Tool selbst: <code>{path}</code> stammt aus Commit {kobo}, das Einrichtungstool aus {tool}. Das passiert nach <code>cargo run</code>, das nur das Einrichtungstool neu baut. Führe <code>deploy/build-kobo.sh</code> aus und lade diese Seite neu. So installiert bekommt der Kobo das alte Programm ohne deine neuesten Änderungen (neuere Karten können fehlen)."
   devices: "Angeschlossene Kobo-Geräte"
   rescan: "Erneut suchen"
   none: "Kein Kobo gefunden. Verbinde ihn per USB und tippe auf dem Kobo auf „Verbinden“."

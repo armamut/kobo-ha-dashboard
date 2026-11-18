@@ -680,7 +680,17 @@ async fn icon_png(Query(q): Query<IconQuery>) -> Response {
 
 async fn list_kobos(State(s): State<Shared>) -> Json<serde_json::Value> {
     let stale = s.kobo_binary.as_deref().is_some_and(kobo::binary_is_stale);
-    Json(serde_json::json!({ "devices": kobo::detect(), "kobo_binary": s.kobo_binary.is_some(), "kobo_binary_stale": stale }))
+    // For the warning: which program, and the two commits that differ
+    let short = |c: &str| c.chars().take(7).collect::<String>();
+    let built = s.kobo_binary.as_deref().and_then(kobo::binary_commit).map(|c| short(&c));
+    Json(serde_json::json!({
+        "devices": kobo::detect(),
+        "kobo_binary": s.kobo_binary.is_some(),
+        "kobo_binary_stale": stale,
+        "kobo_binary_path": s.kobo_binary.as_deref().map(|p| p.display().to_string()),
+        "kobo_binary_commit": built,
+        "setup_commit": short(kobo::COMMIT),
+    }))
 }
 
 #[derive(Deserialize)]

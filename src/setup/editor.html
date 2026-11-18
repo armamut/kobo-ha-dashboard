@@ -644,7 +644,7 @@ a.btn.primary { color: var(--accent-ink); }
         <label class="field"><span data-i18n="install.menu_name"></span> <input id="menuName" type="text"></label>
       </div>
       <div id="binaryWarn" class="notice err hidden" data-i18n-html="install.binary_missing"></div>
-      <div id="staleWarn" class="notice warn hidden" data-i18n-html="install.binary_stale"></div>
+      <div id="staleWarn" class="notice warn hidden"></div>
     </div>
 
     <div class="card">
@@ -2489,6 +2489,12 @@ async function scanKobos() {
     const r = await api("/api/kobo");
     $("binaryWarn").classList.toggle("hidden", r.kobo_binary);
     $("staleWarn").classList.toggle("hidden", !(r.kobo_binary && r.kobo_binary_stale));
+    const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+    $("staleWarn").innerHTML = T("install.binary_stale", {
+      path: esc(r.kobo_binary_path || ""),
+      kobo: esc(r.kobo_binary_commit || "?"),
+      tool: esc(r.setup_commit || "?"),
+    });
     applyDetectedModel(r.devices);
     const list = $("devices");
     if (!r.devices.length) {

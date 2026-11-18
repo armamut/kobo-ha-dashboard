@@ -377,7 +377,7 @@ install:
   logs_cleaned: "Deleted old logs: {size} freed."
   eject_title: "Eject the Kobo so you can unplug it safely"
   ejected: "The Kobo was ejected: you can unplug it now. The dashboard is in its menu."
-  binary_stale: "The Kobo program next to this tool was built from other code than this setup tool, so the Kobo may not know the newest cards and leave them out. Build it again (<code>deploy/build-kobo.sh</code>) before installing."
+  binary_stale: "The Kobo program this tool would install was built from different code than the tool itself: <code>{path}</code> comes from commit {kobo}, the setup tool from {tool}. This happens after <code>cargo run</code>, which rebuilds only the setup tool. Run <code>deploy/build-kobo.sh</code>, then reload this page. Installed as it is, the Kobo gets the old program without your latest changes (it may also leave out newer cards)."
   devices: "Connected Kobo devices"
   rescan: "Rescan"
   none: "No Kobo found. Connect it with USB and tap “Connect” on the Kobo screen."

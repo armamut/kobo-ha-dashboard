@@ -373,7 +373,7 @@ install:
   logs_cleaned: "Usunięto stare dzienniki: zwolniono {size}."
   eject_title: "Wysuń Kobo, aby bezpiecznie go odłączyć"
   ejected: "Kobo wysunięto: możesz go odłączyć. Panel jest w jego menu."
-  binary_stale: "Program Kobo obok tego narzędzia zbudowano z innego kodu niż to narzędzie; Kobo może nie znać najnowszych kart i je pominąć. Przed instalacją zbuduj go ponownie (<code>deploy/build-kobo.sh</code>)."
+  binary_stale: "Program Kobo, który to narzędzie by zainstalowało, został zbudowany z innego kodu niż samo narzędzie: <code>{path}</code> pochodzi z commita {kobo}, a narzędzie konfiguracji z {tool}. Dzieje się tak po <code>cargo run</code>, które przebudowuje tylko narzędzie konfiguracji. Uruchom <code>deploy/build-kobo.sh</code> i odśwież tę stronę. Zainstalowany w tej postaci Kobo dostanie stary program bez Twoich ostatnich zmian (może też pominąć nowsze karty)."
   devices: "Podłączone urządzenia Kobo"
   rescan: "Szukaj ponownie"
   none: "Nie znaleziono Kobo. Podłącz je przez USB i dotknij „Połącz” na Kobo."

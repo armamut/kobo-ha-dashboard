@@ -373,7 +373,7 @@ install:
   logs_cleaned: "Registos antigos apagados: {size} libertados."
   eject_title: "Ejetar o Kobo para o desligar em segurança"
   ejected: "O Kobo foi ejetado: já pode desligá-lo. O painel está no seu menu."
-  binary_stale: "O programa do Kobo junto a esta ferramenta foi compilado a partir de outro código; o Kobo pode não conhecer os cartões mais recentes e omiti-los. Volte a compilá-lo antes de instalar (<code>deploy/build-kobo.sh</code>)."
+  binary_stale: "O programa do Kobo que esta ferramenta instalaria foi compilado a partir de código diferente da própria ferramenta: <code>{path}</code> vem do commit {kobo} e a ferramenta de configuração de {tool}. Isto acontece depois de <code>cargo run</code>, que só recompila a ferramenta de configuração. Execute <code>deploy/build-kobo.sh</code> e recarregue esta página. Instalado assim, o Kobo recebe o programa antigo sem as suas últimas alterações (e pode omitir cartões mais recentes)."
   devices: "Dispositivos Kobo conectados"
   rescan: "Procurar novamente"
   none: "Nenhum Kobo encontrado. Conecte-o por USB e toque em “Conectar” no Kobo."

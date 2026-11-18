@@ -10,3 +10,5 @@ backups/
 
 # Pictures added in the setup tool, next to a config kept here
 pictures/
+# The setup tool's update check, next to a config kept here
+update-state.json

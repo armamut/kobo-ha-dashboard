@@ -373,7 +373,7 @@ install:
   logs_cleaned: "已删除旧日志：释放 {size}。"
   eject_title: "弹出 Kobo，以便安全拔下"
   ejected: "Kobo 已弹出，可以拔下了。仪表板在它的菜单中。"
-  binary_stale: "此工具旁的 Kobo 程序与本设置工具的代码版本不同，Kobo 可能无法识别最新的卡片而将其略过。安装前请重新构建（<code>deploy/build-kobo.sh</code>）。"
+  binary_stale: "此工具将要安装的 Kobo 程序与工具本身不是由同一份代码构建的：<code>{path}</code> 来自提交 {kobo}，设置工具来自 {tool}。这会在 <code>cargo run</code> 之后发生，因为它只重新构建设置工具。请运行 <code>deploy/build-kobo.sh</code>，然后刷新此页面。如果直接安装，Kobo 会得到不含你最新改动的旧程序（也可能跳过较新的卡片）。"
   devices: "已连接的 Kobo 设备"
   rescan: "重新扫描"
   none: "未找到 Kobo。请用 USB 连接，并在 Kobo 上点按“连接”。"
