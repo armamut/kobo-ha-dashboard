@@ -180,6 +180,14 @@ body.ws-on aside.preview { display: none; }
 .shelf-item .size { color: var(--muted); font-weight: 500; font-size: 12px; }
 @media (prefers-color-scheme: dark) { .shelf-item img { filter: invert(1); } }
 .ws.previewing .shelf { display: none; }
+.ws-canvas { position: relative; }
+/* While a card is dragged: a place to put it aside, over the canvas when
+   the shelf is not there yet, so the page does not jump */
+.shelf-drop { display: none; padding: 18px 10px; margin-bottom: 12px; border: 2px dashed var(--accent); border-radius: 10px; text-align: center; font-size: 13px; font-weight: 700; color: var(--accent); }
+.ws.dragging .shelf-drop { display: block; }
+.ws.dragging #traySection.hidden { display: block !important; position: absolute; right: 24px; top: 8px; bottom: 24px; z-index: 5; background: var(--bg); }
+.shelf-item.parked { border-color: var(--border-strong); background: var(--surface); cursor: grab; }
+#parkedSection + #offSection:not(.hidden) { margin-top: 16px; }
 .ws-empty { text-align: center; max-width: 360px; }
 #overflowWarn { margin: 0 16px 12px; }
 .ws .preview-only { display: none; }
@@ -569,9 +577,17 @@ a.btn.primary { color: var(--accent-ink); }
             </div>
           </div>
           <aside class="shelf hidden" id="traySection">
-            <h3 class="ws-head" data-i18n="ws.tray_title"></h3>
-            <p class="hint" data-i18n="ws.tray_hint"></p>
-            <div id="tray"></div>
+            <div class="shelf-drop" data-i18n="ws.drop_aside"></div>
+            <div id="parkedSection" class="hidden">
+              <h3 class="ws-head" data-i18n="ws.parked_title"></h3>
+              <p class="hint" data-i18n="ws.parked_hint"></p>
+              <div id="parked"></div>
+            </div>
+            <div id="offSection" class="hidden">
+              <h3 class="ws-head" data-i18n="ws.tray_title"></h3>
+              <p class="hint" data-i18n="ws.tray_hint"></p>
+              <div id="tray"></div>
+            </div>
           </aside>
           <p class="hint ws-empty hidden" id="noPages" data-i18n="design.no_pages"></p>
         </div>
@@ -1309,6 +1325,14 @@ function makeDraggable(items) {
   }
 }
 
+/// The largest of a card's sizes that still fits on the page: its own, as
+/// wide but lower, as high but narrower, then its smallest
+function setDragSize(n, w, h, mw, mh) {
+  const [fw, fh] = [[w, h], [w, mh], [mw, h], [mw, mh]].find(([w, h]) => !gs || gs.engine.willItFit({ w, h })) || [mw, mh];
+  n.setAttribute("gs-w", fw);
+  n.setAttribute("gs-h", fh);
+}
+
 /// What follows the pointer: a box the size the card will have on the page.
 function dragGhost(src) {
   updateDragSizes();
@@ -1330,40 +1354,73 @@ function dragGhost(src) {
 function updateDragSizes() {
   const L = layouts[page];
   if (!L) return;
+  // A card put aside comes back at its natural size where that fits, else its smallest
+  document.querySelectorAll("#parked .shelf-item").forEach((n) => {
+    const i = +n.dataset.card;
+    const [w, h] = L.naturals[i] || [2, 2], [mw, mh] = L.mins[i] || [1, 1];
+    setDragSize(n, w, h, mw, mh);
+  });
   document.querySelectorAll("#palette .palette-item").forEach((n) => {
     const [w, h, mw, mh] = L.new_sizes[n.dataset.type] || [2, 2, 1, 1];
-    // The new card's own size where that still fits, else its smallest
-    const fits = !gs || gs.engine.willItFit({ w, h });
-    n.setAttribute("gs-w", fits ? w : mw); n.setAttribute("gs-h", fits ? h : mh);
+    setDragSize(n, w, h, mw, mh);
   });
 }
 
-/// Cards that have no room on the page, on a shelf beside it, at the
-/// smallest size they need there. The server places them as soon as there
-/// is room; until then they can be selected, edited, moved or deleted.
+/// Beside the page: cards put aside (dragged off the page, or with the
+/// card menu), which can be dragged back, and cards that have no room,
+/// which the server places as soon as there is room.
 function renderTray() {
   const p = cfg.pages[page];
   if (layoutStale()) return;
-  const off = p && !previewing ? p.cards.map((c, i) => [c, i]).filter(([, i]) => isOffscreen(i)) : [];
+  const all = p && !previewing ? p.cards.map((c, i) => [c, i]) : [];
+  const parked = all.filter(([c]) => c.parked);
+  const off = all.filter(([, i]) => isOffscreen(i));
   const shelf = $("traySection");
   const was = !shelf.classList.contains("hidden");
-  shelf.classList.toggle("hidden", !off.length);
+  const now = !!(parked.length || off.length);
+  shelf.classList.toggle("hidden", !now);
+  $("parkedSection").classList.toggle("hidden", !parked.length);
+  $("offSection").classList.toggle("hidden", !off.length);
   const L = layouts[page];
-  const key = JSON.stringify([page, openCard, off.map(([c, i]) => [i, cardSummary(c).title, L?.mins[i]])]);
+  const key = JSON.stringify([page, openCard, all.filter(([c], i) => c.parked || isOffscreen(i)).map(([c, i]) => [i, !!c.parked, cardSummary(c).title, L?.mins[i]])]);
   if ($("tray").dataset.key !== key) {
     $("tray").dataset.key = key;
-    $("tray").replaceChildren(...off.map(([c, i]) => {
-      const { t, title } = cardSummary(c);
+    const item = ([c, i]) => {
+      const { title } = cardSummary(c);
       const [w, h] = L?.mins[i] || [1, 1];
-      return el("div", { class: "shelf-item" + (openCard === i ? " selected" : ""), role: "button", tabindex: "0", "data-card": i, title: T("ws.tray_item_title"),
+      return el("div", { class: "shelf-item" + (c.parked ? " parked" : "") + (openCard === i ? " selected" : ""), role: "button", tabindex: "0", "data-card": i,
+          title: T(c.parked ? "ws.parked_item_title" : "ws.tray_item_title"),
           onclick: () => selectCard(i), onkeydown: (ev) => { if (ev.key === "Enter") selectCard(i); },
           oncontextmenu: (ev) => { ev.preventDefault(); selectCard(i); openCardMenu(i, ev.clientX, ev.clientY); } },
         el("img", { src: iconUrl(c.icon || autoIcon(c)), alt: "" }), el("span", {}, title),
-        el("span", { class: "size" }, T("ws.needs_cells", { w, h })));
-    }));
+        c.parked ? null : el("span", { class: "size" }, T("ws.needs_cells", { w, h })));
+    };
+    const parkedItems = parked.map(item);
+    $("parked").replaceChildren(...parkedItems);
+    $("tray").replaceChildren(...off.map(item));
+    makeDraggable(parkedItems);
   }
   // The page gets narrower or wider with the shelf
-  if (was !== !!off.length) renderLayout(true);
+  if (was !== now) renderLayout(true);
+}
+
+/// Put card `i` aside: kept, but off the page
+function parkCard(i) {
+  const c = cfg.pages[page].cards[i];
+  c.parked = true;
+  delete c.pos;
+  renderDesign();
+  sync();
+}
+
+/// Back on the page, in the first free spot
+function unparkCard(i, pos) {
+  const c = cfg.pages[page].cards[i];
+  delete c.parked;
+  if (pos) c.pos = pos; else delete c.pos;
+  openCard = i;
+  renderDesign();
+  sync();
 }
 
 /// Whether the server's layout of this page predates cards added or removed
@@ -1914,6 +1971,8 @@ function renderOverflow() {
 /// Whether card `i` of the current page has no room and isn't shown
 function isOffscreen(i) {
   const L = layouts[page];
+  // Put aside on purpose: not a card that doesn't fit
+  if (cfg.pages[page]?.cards[i]?.parked) return false;
   // Until the server has laid out a card just added or removed, say nothing
   if (layoutStale()) return false;
   if (L) return !L.places[i];
@@ -2041,8 +2100,10 @@ function renderLayout(force = false) {
       column: L.grid.columns, maxRow: L.grid.rows, minRow: L.grid.rows,
       cellHeight: ch, margin: m, mode: "float", animate: false,
       resizable: { handles: "e,se,s,sw,w" },
-      // Card types, dragged in from the add panel
-      acceptWidgets: (n) => n.classList.contains("palette-item"),
+      // Card types from the add panel, and cards put aside
+      acceptWidgets: (n) => n.classList.contains("palette-item") || n.classList.contains("shelf-item"),
+      // Dropped on the shelf, a card is put aside
+      removable: "#traySection",
     }, host);
   } catch (e) {
     // Shown, not editable: better than a frozen page
@@ -2056,9 +2117,20 @@ function renderLayout(force = false) {
     const pos = { x: node.x, y: node.y, w: node.w, h: node.h };
     gs.removeWidget(n, true, false);
     if (n.dataset.type) addCard(n.dataset.type, pos, !!n.dataset.camera);
+    else if (n.dataset.card != null) unparkCard(+n.dataset.card, pos);
   });
-  gs.on("dragstart resizestart", () => stage.classList.add("moving"));
-  gs.on("dragstop resizestop", () => { stage.classList.remove("moving"); setTimeout(() => renderLayout(), 0); });
+  gs.on("removed", (ev, items) => {
+    const ids = items.map((n) => n.id).filter((id) => id != null && id !== "");
+    if (!ids.length) return;
+    const cards = cfg.pages[page].cards;
+    for (const id of ids) { if (cards[+id]) { cards[+id].parked = true; delete cards[+id].pos; } }
+    openCard = null;
+    $("ws").classList.remove("dragging");
+    renderDesign();
+    sync();
+  });
+  gs.on("dragstart resizestart", (ev) => { stage.classList.add("moving"); if (ev.type === "dragstart") $("ws").classList.add("dragging"); });
+  gs.on("dragstop resizestop", () => { stage.classList.remove("moving"); $("ws").classList.remove("dragging"); setTimeout(() => renderLayout(), 0); });
   if (hadFocus != null) host.querySelector(`[gs-id="${hadFocus}"]`)?.focus();
 }
 
@@ -2149,6 +2221,8 @@ function openCardMenu(i, x, y) {
     el("hr"),
     menuItem(T("ws.natural_size"), () => resize(L.naturals[i]), { disabled: !node }),
     menuItem(T("ws.smallest_size"), () => resize(L.mins[i]), { disabled: !node }),
+    el("hr"),
+    c.parked ? menuItem(T("ws.put_back"), () => unparkCard(i)) : menuItem(T("ws.put_aside"), () => parkCard(i)),
     el("hr"),
     menuItem(T("design.delete_card"), () => deleteCard(i), { danger: true, kbd: "Del" }));
   document.body.append(menu);

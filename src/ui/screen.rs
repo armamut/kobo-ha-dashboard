@@ -346,7 +346,7 @@ pub fn grid_places(cards: &[Card], grid: GridSize, area: Rect) -> Vec<Option<Gri
     let wanted: Vec<Option<GridPos>> = cards
         .iter()
         .map(|card| {
-            let p = card.pos.and_then(|p| clip(p, grid))?;
+            let p = card.pos.filter(|_| !card.parked).and_then(|p| clip(p, grid))?;
             let (mw, mh) = min_cells(card, grid, area, p.w);
             let (w, h) = (p.w.max(mw).min(grid.columns), p.h.max(mh).min(grid.rows));
             Some(GridPos { x: p.x.min(grid.columns - w), y: p.y.min(grid.rows - h), w, h })
@@ -383,7 +383,7 @@ pub fn grid_places(cards: &[Card], grid: GridSize, area: Rect) -> Vec<Option<Gri
     // that fits them all: natural, lower, narrower, smallest. A page of
     // twenty lights then gets twenty equal cards, not a few big ones and the
     // rest left out. When no rule fits them all, the one that fits most.
-    let unplaced: Vec<usize> = (0..cards.len()).filter(|&i| wanted[i].is_none()).collect();
+    let unplaced: Vec<usize> = (0..cards.len()).filter(|&i| wanted[i].is_none() && !cards[i].parked).collect();
     if unplaced.is_empty() {
         return placed;
     }
@@ -557,9 +557,11 @@ fn header_height(with_tabs: bool) -> f32 {
 }
 
 /// How many cards of `page` would not be shown on a `w`x`h` screen.
+/// Cards put aside in the editor don't count: they are not meant to be shown.
 pub fn hidden_card_count(page: &PageConfig, w: u32, h: u32, with_tabs: bool) -> usize {
     let (w, h) = ui_size(w, h);
-    page.cards.len() - page_zones(page, w, h, header_height(with_tabs)).len()
+    let parked = page.cards.iter().filter(|c| c.parked).count();
+    page.cards.len() - parked - page_zones(page, w, h, header_height(with_tabs)).len()
 }
 
 /// How many of `cards` would not fit when they flow into rows by themselves,
@@ -1216,6 +1218,7 @@ mod tests {
         Card {
             kind: CardConfig::Switch { entity_id: id.into(), title: None, subtitle: None, icon: None },
             pos,
+            parked: false,
         }
     }
 
@@ -1389,6 +1392,7 @@ mod tests {
         let climate = Card {
             kind: CardConfig::Climate { entity_id: "climate.a".into(), title: None, step: 0.5, show_graph: false, graph_hours: None },
             pos: Some(GridPos { x: 5, y: 11, w: 1, h: 1 }),
+            parked: false,
         };
         let page = grid_page(6, 12, vec![climate]);
         let (mw, mh) = min_cells(&page.cards[0], page.grid.unwrap(), area, 1);
@@ -1462,6 +1466,18 @@ mod tests {
         let (nw, nh) = natural_cells(&cards[0], grid, area);
         assert!(shown.len() > (12 / nw as usize) * (18 / nh as usize), "only {} shown", shown.len());
         assert!(shown.iter().all(|p| (p.w, p.h) == (shown[0].w, shown[0].h)), "{:?}", shown);
+    }
+
+    #[test]
+    fn a_card_put_aside_takes_no_room_and_is_not_missing() {
+        let mut aside = switch("switch.aside", Some(GridPos { x: 0, y: 0, w: 6, h: 12 }));
+        aside.parked = true;
+        let page = grid_page(6, 12, vec![aside, switch("switch.shown", Some(GridPos { x: 0, y: 0, w: 3, h: 2 }))]);
+        let area = content_area(1072.0, 1448.0, HEADER_WITH_TABS);
+        let places = grid_places(&page.cards, page.grid.unwrap(), area);
+        assert_eq!(places[0], None);
+        assert_eq!(places[1], Some(GridPos { x: 0, y: 0, w: 3, h: 2 }));
+        assert_eq!(hidden_card_count(&page, 1072, 1448, true), 0);
     }
 
     #[test]

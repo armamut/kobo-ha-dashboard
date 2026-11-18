@@ -377,11 +377,14 @@ pub struct Card {
     /// Without it the card is placed in the first free spot
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub pos: Option<GridPos>,
+    /// Put aside in the editor: kept, but not on the page
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub parked: bool,
 }
 
 impl From<CardConfig> for Card {
     fn from(kind: CardConfig) -> Self {
-        Self { kind, pos: None }
+        Self { kind, pos: None, parked: false }
     }
 }
 
