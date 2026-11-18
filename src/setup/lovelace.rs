@@ -399,17 +399,22 @@ fn statistics_cards(card: &Value, out: &mut Vec<CardConfig>, skipped: &mut BTree
     };
     let period = match card.get("period").and_then(Value::as_str) {
         None | Some("day") => "day",
+        Some("5minute") => "5minute",
+        Some("hour") => "hour",
         Some("week") => "week",
         Some("month") => "month",
         // A year of months is a month chart with a longer range.
         Some("year") => "month",
-        // Hourly and 5-minute statistics do not fit an e-ink chart, and saying
-        // "day" would quietly show different numbers than Home Assistant.
         Some(other) => {
             let label = format!("statistics-graph {}", other);
             skip(skipped, &label);
             return;
         }
+    };
+    // Home Assistant draws lines unless told to draw bars
+    let chart = match card.get("chart_type").and_then(Value::as_str) {
+        Some("bar") => crate::config::ChartKind::Bar,
+        _ => crate::config::ChartKind::Line,
     };
     // Home Assistant's own card shows 30 days unless told otherwise.
     let days = card
@@ -438,8 +443,10 @@ fn statistics_cards(card: &Value, out: &mut Vec<CardConfig>, skipped: &mut BTree
                 title: title.clone(),
                 period: period.to_string(),
                 days,
+                hours: None,
                 stat: explicit.unwrap_or("").to_string(),
                 unit: None,
+                chart,
             }),
             None => skip(skipped, "statistics-graph"),
         }
@@ -831,22 +838,22 @@ views:
     #[test]
     fn statistics_report_what_they_cannot_show() {
         let config = serde_json::json!({ "views": [{ "title": "Gas", "cards": [
-            { "type": "statistics-graph", "entities": ["sensor.gas"], "period": "hour" },
+            { "type": "statistics-graph", "entities": ["sensor.gas"], "period": "hour", "chart_type": "bar" },
             { "type": "statistics-graph", "entities": ["sensor.gas"], "period": "5minute" },
             { "type": "statistics-graph", "entities": ["sensor.gas"], "period": "year", "days_to_show": 400 },
             { "type": "statistics-graph", "entities": ["sensor.gas"], "stat_types": ["change", "max"] }
         ]}]});
         let result = import(&config, (1072, 1448), false).expect("imports");
         let stats: Vec<&CardConfig> = result.pages.iter().flat_map(|p| p.cards.iter().map(|c| &c.kind)).filter(|c| matches!(c, CardConfig::Statistics { .. })).collect();
-        assert_eq!(stats.len(), 2);
+        assert_eq!(stats.len(), 4);
+        // Hourly and 5-minute charts come along, as bars or as Home Assistant's default line
+        assert!(matches!(stats[0], CardConfig::Statistics { period, chart: crate::config::ChartKind::Bar, .. } if period == "hour"));
+        assert!(matches!(stats[1], CardConfig::Statistics { period, chart: crate::config::ChartKind::Line, .. } if period == "5minute"));
         // A year of months is a month chart
-        assert!(matches!(stats[0], CardConfig::Statistics { period, days: 400, .. } if period == "month"));
+        assert!(matches!(stats[2], CardConfig::Statistics { period, days: 400, .. } if period == "month"));
         // Without days_to_show a chart spans the month Home Assistant shows too
-        assert!(matches!(stats[1], CardConfig::Statistics { days: 30, .. }));
-        assert_eq!(
-            result.skipped,
-            vec![Skipped { card: "statistics-graph 5minute".into(), count: 1 }, Skipped { card: "statistics-graph hour".into(), count: 1 }, Skipped { card: "statistics-graph max".into(), count: 1 }]
-        );
+        assert!(matches!(stats[3], CardConfig::Statistics { days: 30, .. }));
+        assert_eq!(result.skipped, vec![Skipped { card: "statistics-graph max".into(), count: 1 }]);
     }
 
     #[test]

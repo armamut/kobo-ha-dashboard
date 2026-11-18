@@ -707,9 +707,10 @@ const CARD_TYPES = {
   statistics: { icon: "progress", domains: ["sensor", "counter", "input_number", "number"],
     defaults: { period: "day", days: 14, stat: "mean" },
     fields: [["entity_id"], ["title", "text", "design.title_optional"],
-      ["period", "select", "design.stat_period", { options: ["day", "week", "month"], label: "design.period_" }],
+      ["chart", "select", "design.chart", { options: ["bar", "hbar", "line"], label: "design.chart_" }],
+      ["range", "range", "design.stat_range"],
+      ["period", "select", "design.stat_period", { options: ["5minute", "hour", "day", "week", "month"], label: "design.period_" }],
       ["stat", "select", "design.stat_type", { options: ["change", "mean", "min", "max"], label: "design.stat_" }],
-      ["days", "number", "design.stat_days", { min: 2, max: 400 }],
       ["unit", "text", "design.unit_optional"]] },
 };
 // Kobos with 256-512 MB of memory (the older i.MX models).
@@ -1644,9 +1645,11 @@ function cardForm(c) {
       n.onchange = () => { c[key] = parseFloat(n.value) || schema.defaults[key]; sync(); };
       form.append(el("label", { class: "field" }, T(label), n));
     } else if (kind === "select") {
-      const sel = el("select", { onchange: () => { c[key] = sel.value; sync(); } },
+      const sel = el("select", { "data-key": key, onchange: () => { c[key] = sel.value; sync(); } },
         (opts.options || []).map((v) => el("option", { value: v, selected: v === c[key] }, T((opts.label || "design.opt_") + v))));
       form.append(el("label", { class: "field" }, T(label), sel));
+    } else if (kind === "range") {
+      form.append(el("label", { class: "field" }, T(label), rangeSelect(c, form)));
     } else if (kind === "list") {
       form.append(listEditor(c, key, T(label), opts));
     } else {
@@ -1662,6 +1665,29 @@ function cardForm(c) {
     form.append(el("p", { class: "hint", style: "grid-column: 1 / -1; margin: 4px 0 0" }, T("design.image_memory_hint")));
   }
   return form;
+}
+
+/// How far back a statistics chart goes: hours or days. A short range
+/// brings a matching period (bars of 5 minutes or an hour) with it.
+const RANGES = ["1h", "2h", "4h", "6h", "12h", "24h", "2d", "3d", "7d", "14d", "30d", "90d", "180d", "365d"];
+function rangeSelect(c, form) {
+  const current = c.hours ? c.hours + "h" : (c.days || 14) + "d";
+  const options = RANGES.includes(current) ? RANGES : [...RANGES, current];
+  const label = (v) => T(v.endsWith("h") ? "design.range_hours" : "design.range_days", { n: parseInt(v) });
+  const sel = el("select", {}, options.map((v) => el("option", { value: v, selected: v === current }, label(v))));
+  sel.onchange = () => {
+    const n = parseInt(sel.value);
+    let hours;
+    if (sel.value.endsWith("h")) { c.hours = n; hours = n; } else { delete c.hours; c.days = n; hours = n * 24; }
+    const period = hours <= 6 ? "5minute" : hours <= 48 ? "hour" : c.period === "5minute" || c.period === "hour" ? "day" : c.period;
+    if (period !== c.period) {
+      c.period = period;
+      const p = form.querySelector("select[data-key=period]");
+      if (p) p.value = period;
+    }
+    sync();
+  };
+  return sel;
 }
 
 function listEditor(c, key, label, opts) {

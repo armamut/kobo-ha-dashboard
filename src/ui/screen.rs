@@ -425,8 +425,10 @@ fn new_cards() -> Vec<CardConfig> {
             title: None,
             period: "day".into(),
             days: 14,
+            hours: None,
             stat: "mean".into(),
             unit: None,
+            chart: Default::default(),
         },
     ]
 }
@@ -852,7 +854,7 @@ impl ScreenRenderer {
                 render_scenes_row(canvas, theme, rect, None, &item, targets)
             }
             CardConfig::Heading { title, icon } => render_heading_card(canvas, theme, rect, title, icon.as_deref()),
-            CardConfig::Statistics { entity_id, title, period, days, stat, unit } => render_statistics_card(
+            CardConfig::Statistics { entity_id, title, period, days, hours, stat, unit, chart } => render_statistics_card(
                 canvas,
                 theme,
                 rect,
@@ -860,9 +862,10 @@ impl ScreenRenderer {
                 states.get(entity_id),
                 title.as_deref(),
                 period,
-                *days,
+                statistics_card::window_hours(*days, *hours),
                 stat,
                 unit.as_deref(),
+                *chart,
                 targets,
             ),
             CardConfig::Image { entity_id, title, frameless, .. } => {
@@ -1089,7 +1092,7 @@ mod tests {
         let bars: Vec<(f64, f64)> = (0..14).map(|i| (1.7e12 + i as f64 * 86.4e6, 3.0 + (i * 7 % 5) as f64)).collect();
         states.get_mut("sensor.energy_today").unwrap().attributes.insert(
             crate::ui::widgets::statistics_card::STATS_ATTR.into(),
-            serde_json::json!({ crate::ui::widgets::statistics_card::stat_key("day", 14, "change"): bars }),
+            serde_json::json!({ crate::ui::widgets::statistics_card::stat_key("day", 14 * 24, "change"): bars }),
         );
             for page in 0..config.pages.len() {
                 renderer.render(&mut canvas, &config, page, &states, false);
@@ -1404,6 +1407,8 @@ mod tests {
     - {entity_id: sensor.co2, title: CO2, icon: leaf}
     - {entity_id: sensor.power, title: Power, icon: zap}
 - {type: statistics, entity_id: sensor.energy_today, title: Energy, period: day, days: 14, stat: change}
+- {type: statistics, entity_id: sensor.energy_today, title: Energy, period: day, days: 14, stat: change, chart: hbar}
+- {type: statistics, entity_id: sensor.energy_today, title: Energy, period: day, days: 14, stat: change, chart: line}
 "#,
         )
         .unwrap();
@@ -1430,7 +1435,7 @@ mod tests {
         let bars: Vec<(f64, f64)> = (0..14).map(|i| (1.7e12 + i as f64 * 86.4e6, 3.0 + (i * 7 % 5) as f64)).collect();
         states.get_mut("sensor.energy_today").unwrap().attributes.insert(
             crate::ui::widgets::statistics_card::STATS_ATTR.into(),
-            serde_json::json!({ crate::ui::widgets::statistics_card::stat_key("day", 14, "change"): bars }),
+            serde_json::json!({ crate::ui::widgets::statistics_card::stat_key("day", 14 * 24, "change"): bars }),
         );
         let mut canvas = Canvas::new(width as u32, height as u32);
         canvas.clear(renderer.theme.bg);

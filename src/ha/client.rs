@@ -69,9 +69,10 @@ pub struct HaClient {
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct StatRequest {
     pub entity_id: String,
-    /// "day", "week" or "month"
+    /// "5minute", "hour", "day", "week" or "month"
     pub period: String,
-    pub days: u32,
+    /// The range, see `statistics_card::window_hours`
+    pub hours: u32,
     /// "change", "mean", "min", "max" or "sum"
     pub stat: String,
 }
@@ -152,10 +153,10 @@ impl HaClient {
                 CardConfig::Weather { entity_id, .. } => weather.push(entity_id.clone()),
                 CardConfig::Sensor { entity_id, show_graph: true, .. } => history.push(entity_id.clone()),
                 CardConfig::Image { entity_id, .. } => images.push(entity_id.clone()),
-                CardConfig::Statistics { entity_id, period, days, stat, .. } => stats.push(StatRequest {
+                CardConfig::Statistics { entity_id, period, days, hours, stat, .. } => stats.push(StatRequest {
                     entity_id: entity_id.clone(),
                     period: period.clone(),
-                    days: *days,
+                    hours: crate::ui::widgets::statistics_card::window_hours(*days, *hours),
                     stat: stat.clone(),
                 }),
                 _ => {}
@@ -513,7 +514,7 @@ impl HaClient {
                 continue;
             }
             groups
-                .entry((req.period.clone(), req.days, req.stat.clone()))
+                .entry((req.period.clone(), req.hours, req.stat.clone()))
                 .or_default()
                 .push(req.entity_id.clone());
         }
@@ -524,10 +525,10 @@ impl HaClient {
         let mut out: HashMap<String, serde_json::Map<String, Value>> = HashMap::new();
         let mut plan = Vec::new();
         let mut payloads = Vec::new();
-        for ((period, days, stat), mut ids) in groups {
+        for ((period, hours, stat), mut ids) in groups {
             ids.sort();
             ids.dedup();
-            let start = end - chrono::Duration::days(crate::ui::widgets::statistics_card::window_days(days) as i64);
+            let start = end - chrono::Duration::hours(hours as i64);
             let id = payloads.len() as u64 + 1;
             payloads.push(serde_json::json!({
                 "id": id,
@@ -538,11 +539,11 @@ impl HaClient {
                 "period": period.clone(),
                 "types": [stat.clone()],
             }));
-            plan.push((period, days, stat));
+            plan.push((period, hours, stat));
         }
 
         let results = crate::ha::ws::requests(&self.config.url, &self.config.token, payloads).await?;
-        for ((period, days, stat), result) in plan.into_iter().zip(results) {
+        for ((period, hours, stat), result) in plan.into_iter().zip(results) {
             let Some(by_entity) = result.as_object() else { continue };
             for (entity_id, rows) in by_entity {
                 let series: Vec<(f64, f64)> = rows
@@ -561,7 +562,7 @@ impl HaClient {
                     continue;
                 }
                 out.entry(entity_id.clone()).or_default().insert(
-                    crate::ui::widgets::statistics_card::stat_key(&period, days, &stat),
+                    crate::ui::widgets::statistics_card::stat_key(&period, hours, &stat),
                     serde_json::json!(series),
                 );
             }

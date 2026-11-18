@@ -501,6 +501,12 @@ pub enum CardConfig {
         /// How far back the chart goes
         #[serde(default = "default_stat_days")]
         days: u32,
+        /// A range in hours instead, for a chart of the last hours
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        hours: Option<u32>,
+        /// Vertical bars, horizontal bars or a line
+        #[serde(default, skip_serializing_if = "ChartKind::is_bar")]
+        chart: ChartKind,
         /// "change" (usage per period) or "mean" (average per period)
         #[serde(default = "default_stat_type")]
         stat: String,
@@ -521,6 +527,24 @@ pub enum CardConfig {
         #[serde(default, skip_serializing_if = "ImageFit::is_contain")]
         fit: ImageFit,
     },
+}
+
+/// How a statistics chart is drawn
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum ChartKind {
+    /// A vertical bar per period
+    #[default]
+    Bar,
+    /// A horizontal bar per period, one row each, newest at the bottom
+    Hbar,
+    Line,
+}
+
+impl ChartKind {
+    pub fn is_bar(&self) -> bool {
+        *self == ChartKind::Bar
+    }
 }
 
 /// How a picture fills the card: whole and as large as fits (`contain`),

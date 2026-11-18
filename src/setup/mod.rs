@@ -318,8 +318,8 @@ fn entity_set(c: &AppConfig) -> Vec<String> {
             CardConfig::Sensor { entity_id, show_graph: true, .. } => Some(entity_id.clone()),
             // A chart's period and range decide what is fetched, so they are
             // part of the signature that rebuilds the Home Assistant client.
-            CardConfig::Statistics { entity_id, period, days, stat, .. } => {
-                Some(format!("{}#{}:{}:{}", entity_id, period, days, stat))
+            CardConfig::Statistics { entity_id, period, days, hours, stat, .. } => {
+                Some(format!("{}#{}:{}:{:?}:{}", entity_id, period, days, hours, stat))
             }
             CardConfig::Image { entity_id, .. } => Some(entity_id.clone()),
             _ => None,
