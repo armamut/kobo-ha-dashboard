@@ -33,6 +33,8 @@ pub enum UiAction {
     MediaNext(String),
     MediaPrevious(String),
     ActivateScene(String),
+    /// A service of `domain` on one entity, e.g. ("cover", "open_cover", id)
+    CallService(String, String, String),
     SwitchPage(usize),
     Refresh,
     ToggleFrontlight,

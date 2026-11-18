@@ -196,6 +196,22 @@ pages:
         # fit: cover        # contain (whole picture, default), cover (fill, cut at the edges) or stretch
         # frameless: true   # just the picture, without the card around it
 
+      # Other cards:
+      # - type: "progress"     # a bar and a percentage, e.g. a 3D print
+      #   entity_id: "sensor.printer_percent_complete"
+      #   secondary_entity: "sensor.printer_end_time"   # time left or end time
+      # - type: "cover"        # open / stop / close and the position
+      #   entity_id: "cover.living_room"
+      # - type: "glance"       # many entities in a row
+      #   entities:
+      #     - { entity_id: "binary_sensor.front_door", title: "Door" }
+      # - type: "statistics"
+      #   chart: "line"        # bar (default), hbar or line
+      #   period: "hour"       # 5minute, hour, day, week or month
+      #   hours: 24            # a range in hours instead of days
+      # - type: "image"
+      #   entity_id: "camera.garden"   # a camera snapshot, every 10 minutes
+
 # Available icons: lightbulb, lightbulb_on, lamp, power, plug, fan, thermometer,
 # flame, radiator, snowflake, droplet, wind, zap, sun, moon, cloud, leaf, plant,
 # home, sofa, bed, door, window, blinds, garage, lock, key, shield, bell, camera,

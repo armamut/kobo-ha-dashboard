@@ -37,7 +37,7 @@ const GRIDSTACK_CSS: &str = include_str!("vendor/gridstack/gridstack.min.css");
 pub const ICONS: &[&str] = &[
     "lightbulb", "lightbulb_on", "power", "plug", "fan", "thermometer", "flame", "snowflake", "droplet", "wind", "zap",
     "sun", "moon", "cloud", "home", "sofa", "bed", "door", "lock", "tv", "music", "coffee", "washer", "printer",
-    "battery", "clock", "layers", "progress", "play", "refresh", "check", "lamp", "radiator", "leaf", "plant", "window",
+    "battery", "clock", "layers", "progress", "play", "refresh", "check", "picture", "lamp", "radiator", "leaf", "plant", "window",
     "blinds", "garage", "car", "ev_charger", "solar", "gauge", "chart", "camera", "shield", "bell", "person", "motion",
     "key", "calendar", "mail", "trash", "faucet", "shower", "oven", "fridge", "vacuum", "laptop", "router", "gamepad",
     "heart", "star",
@@ -74,7 +74,7 @@ pub async fn start_setup_server(
         // Fresh start: no demo pages, the user connects HA first.
         AppConfig { pages: Vec::new(), ..AppConfig::default() }
     };
-    let ha = HaClient::for_app(&config);
+    let ha = setup_client(&config);
     spawn_refresh(ha.clone());
     // The file keeps its old layout until the user saves.
     let saved = serde_yaml::to_string(&config).unwrap_or_default();
@@ -230,13 +230,22 @@ async fn put_config(State(s): State<Shared>, Json(mut config): Json<AppConfig>) 
     Json(status).into_response()
 }
 
+/// The Home Assistant client of the setup tool: it fetches what the pages
+/// need, like the Kobo's, but keeps the state of every entity, so a card
+/// added with an entity no page had yet shows its state at once.
+fn setup_client(config: &AppConfig) -> HaClient {
+    let mut ha = HaClient::for_app(config);
+    ha.entity_ids = std::sync::Arc::new(Vec::new());
+    ha
+}
+
 async fn set_draft(s: &Shared, config: AppConfig) {
     let old = s.draft.read().await.clone();
     let ha_changed = old.home_assistant.url != config.home_assistant.url
         || old.home_assistant.token != config.home_assistant.token
         || entity_set(&old) != entity_set(&config);
     if ha_changed {
-        let ha = HaClient::for_app(&config);
+        let ha = setup_client(&config);
         spawn_refresh(ha.clone());
         *s.ha.write().await = ha;
     }
@@ -502,6 +511,12 @@ struct PreviewQuery {
 async fn preview(State(s): State<Shared>, Query(q): Query<PreviewQuery>) -> Response {
     let config = s.draft.read().await.clone();
     let ha = s.ha.read().await.clone();
+    // The setup tool has no live updates: states older than half a minute
+    // are fetched again, for the next look
+    let stale = ha.last_update().await.is_none_or(|t| chrono::Utc::now() - t > chrono::Duration::seconds(30));
+    if stale {
+        spawn_refresh(ha.clone());
+    }
     let states = ha.get_all_states().await;
     let live = ha.is_connected().await;
     let (w, h) = config.device.get_dimensions();

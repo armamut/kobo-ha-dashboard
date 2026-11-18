@@ -746,6 +746,7 @@ async fn run_device(
                     UiAction::MediaNext(id) => Some(media("media_next_track", &id)),
                     UiAction::MediaPrevious(id) => Some(media("media_previous_track", &id)),
                     UiAction::ActivateScene(id) => Some(ha_client.activate_request(&id)),
+                    UiAction::CallService(domain, svc, id) => Some((domain, svc, serde_json::json!({ "entity_id": id }))),
                 };
 
                 if let Some((domain, svc, data)) = service {

@@ -19,6 +19,8 @@ const IMAGE_REFRESH: Duration = Duration::from_secs(6 * 3600);
 /// A failed picture fetch (a restarting chart, a slow Home Assistant) is retried
 /// after this instead of leaving the card empty for six hours.
 const IMAGE_RETRY: Duration = Duration::from_secs(300);
+/// A camera picture is a snapshot of now: fetched again much sooner.
+const CAMERA_REFRESH: Duration = Duration::from_secs(600);
 /// Largest picture file kept in memory.
 const MAX_IMAGE_BYTES: usize = 10_000_000;
 const HISTORY_SPAN_HOURS: i64 = 24;
@@ -42,6 +44,9 @@ pub struct HaClient {
     images: Arc<RwLock<HashMap<String, Arc<Vec<u8>>>>>,
     /// When the pictures were last fetched
     last_image_fetch: Arc<std::sync::Mutex<Option<Instant>>>,
+    /// State of each `image` entity when its picture was fetched: the state
+    /// is the time the picture changed, so a new one is fetched right away.
+    image_versions: Arc<std::sync::Mutex<HashMap<String, String>>>,
     /// True when the last picture fetch brought nothing back: retry sooner.
     image_retry: Arc<AtomicBool>,
     /// True while a picture fetch runs, so refreshes never stack up.
@@ -125,6 +130,7 @@ impl HaClient {
             image_entities: Arc::new(Vec::new()),
             images: Arc::new(RwLock::new(HashMap::new())),
             last_image_fetch: Arc::new(std::sync::Mutex::new(None)),
+            image_versions: Arc::new(std::sync::Mutex::new(HashMap::new())),
             image_retry: Arc::new(AtomicBool::new(false)),
             images_running: Arc::new(AtomicBool::new(false)),
             extras_running: Arc::new(AtomicBool::new(false)),
@@ -170,8 +176,14 @@ impl HaClient {
                 | CardConfig::Statistics { entity_id, .. }
                 | CardConfig::Image { entity_id, .. }
                 | CardConfig::MediaPlayer { entity_id, .. }
+                | CardConfig::Cover { entity_id, .. }
                 | CardConfig::Scene { entity_id, .. } => all.push(entity_id.clone()),
+                CardConfig::Progress { entity_id, secondary_entity, .. } => {
+                    all.push(entity_id.clone());
+                    all.extend(secondary_entity.clone());
+                }
                 CardConfig::SensorGrid { sensors, .. } => all.extend(sensors.iter().map(|s| s.entity_id.clone())),
+                CardConfig::Glance { entities, .. } => all.extend(entities.iter().map(|s| s.entity_id.clone())),
                 CardConfig::ScenesRow { scenes, .. } => all.extend(scenes.iter().map(|s| s.entity_id.clone())),
                 CardConfig::Heading { .. } => {}
             }
@@ -400,14 +412,30 @@ impl HaClient {
 
         // Pictures are fetched off the way: they are not needed for the state
         // refresh, and a slow image proxy must not eat its time budget.
+        let cameras = self.image_entities.iter().any(|e| e.starts_with("camera."));
         let stale_images = self
             .last_image_fetch
             .lock()
             .map(|t| {
-                let wait = if self.image_retry.load(Ordering::Relaxed) { IMAGE_RETRY } else { IMAGE_REFRESH };
+                let wait = if self.image_retry.load(Ordering::Relaxed) {
+                    IMAGE_RETRY
+                } else if cameras {
+                    CAMERA_REFRESH
+                } else {
+                    IMAGE_REFRESH
+                };
                 t.map(|t| t.elapsed() > wait).unwrap_or(true)
             })
             .unwrap_or(false);
+        let changed = {
+            let states = self.states.read().await;
+            let versions = self.image_versions.lock().map(|v| v.clone()).unwrap_or_default();
+            self.image_entities
+                .iter()
+                .filter(|e| e.starts_with("image."))
+                .any(|e| states.get(e).map(|s| &s.state) != versions.get(e))
+        };
+        let stale_images = stale_images || changed;
         if stale_images
             && !self.image_entities.is_empty()
             && !self.images_running.swap(true, Ordering::Relaxed)
@@ -425,7 +453,18 @@ impl HaClient {
     /// Nothing came back (a chart being regenerated, a restarting Home
     /// Assistant): remember that too, so the next try is a few minutes away.
     async fn refresh_images(&self) {
+        // What each picture's entity said before the fetch: a picture that
+        // changes during it is fetched again next time.
+        let seen: HashMap<String, String> = {
+            let states = self.states.read().await;
+            self.image_entities.iter().filter_map(|e| Some((e.clone(), states.get(e)?.state.clone()))).collect()
+        };
         let (images, unreachable) = self.fetch_images().await;
+        // Remembered for a picture that failed too: it is tried again when its
+        // entity changes or the retry time is up, not on every refresh
+        if let Ok(mut v) = self.image_versions.lock() {
+            v.extend(seen);
+        }
         let empty = images.is_empty();
         if !empty {
             let mut map = self.images.write().await;
@@ -469,7 +508,9 @@ impl HaClient {
         let mut out = Vec::new();
         let mut unreachable = false;
         for entity in self.image_entities.iter() {
-            let url = self.url(&format!("/api/image_proxy/{}", entity));
+            // A camera's picture is a snapshot taken for the request
+            let proxy = if entity.starts_with("camera.") { "camera_proxy" } else { "image_proxy" };
+            let url = self.url(&format!("/api/{}/{}", proxy, entity));
             match self.client.get(url).send().await {
                 Ok(resp) if resp.status().is_success() => match resp.bytes().await {
                     // A file this big is far beyond the 4K the Kobo decodes anyway.

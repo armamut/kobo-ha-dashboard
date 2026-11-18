@@ -523,6 +523,26 @@ fn icon_shapes(name: &str) -> Vec<(Mode, Option<Path>)> {
             pb.move_to(11.0, 5.5);
             pb.line_to(12.0, 5.5);
         }))],
+        "chevron_up" => vec![(Stroke, build(|pb| {
+            pb.move_to(5.0, 15.5);
+            pb.line_to(12.0, 8.5);
+            pb.line_to(19.0, 15.5);
+        }))],
+        "chevron_down" => vec![(Stroke, build(|pb| {
+            pb.move_to(5.0, 8.5);
+            pb.line_to(12.0, 15.5);
+            pb.line_to(19.0, 8.5);
+        }))],
+        "stop" => vec![(Fill, build(|pb| round_rect(pb, 6.5, 6.5, 11.0, 11.0, 2.0)))],
+        "picture" | "image" => vec![(Stroke, build(|pb| {
+            round_rect(pb, 3.0, 4.0, 18.0, 16.0, 2.0);
+            pb.push_circle(8.5, 9.5, 1.8);
+            pb.move_to(3.5, 18.0);
+            pb.line_to(9.5, 12.5);
+            pb.line_to(13.0, 15.5);
+            pb.line_to(16.0, 12.5);
+            pb.line_to(20.5, 17.0);
+        }))],
         "leaf" | "eco" => vec![(Stroke, build(|pb| {
             pb.move_to(5.0, 19.0);
             pb.cubic_to(5.0, 10.0, 10.0, 4.0, 20.0, 4.0);
@@ -932,7 +952,7 @@ fn icon_shapes(name: &str) -> Vec<(Mode, Option<Path>)> {
 /// Names [`draw_icon`] knows, besides the fallback circle (aliases left out).
 #[cfg(test)]
 pub const SHEET: &[&str] = &[
-    "leaf", "plant", "camera", "window", "blinds", "garage", "car", "ev_charger", "shield", "bell", "person", "motion",
+    "picture", "leaf", "plant", "camera", "window", "blinds", "garage", "car", "ev_charger", "shield", "bell", "person", "motion",
     "key", "calendar", "mail", "trash", "faucet", "shower", "oven", "fridge", "vacuum", "laptop", "router", "gauge",
     "chart", "solar", "radiator", "lamp", "heart", "star", "gamepad",
 ];

@@ -1,9 +1,12 @@
 pub mod climate_card;
+pub mod cover_card;
+pub mod glance_card;
 pub mod header;
 pub mod heading_card;
 pub mod image_card;
 pub mod light_card;
 pub mod media_card;
+pub mod progress_card;
 pub mod scene_card;
 pub mod sensor_card;
 pub mod statistics_card;
@@ -11,11 +14,14 @@ pub mod switch_card;
 pub mod weather_card;
 
 pub use climate_card::render_climate_card;
+pub use cover_card::render_cover_card;
+pub use glance_card::render_glance_card;
 pub use header::render_header;
 pub use heading_card::render_heading_card;
 pub use image_card::render_image_card;
 pub use light_card::render_light_card;
 pub use media_card::render_media_card;
+pub use progress_card::render_progress_card;
 pub use scene_card::render_scenes_row;
 pub use sensor_card::{render_sensor_card, render_sensor_grid};
 pub use statistics_card::render_statistics_card;

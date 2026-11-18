@@ -141,6 +141,10 @@ async fn handle_touch(
                 let (domain, service, data) = state.ha_client.activate_request(&entity_id);
                 let _ = state.ha_client.call_service(&domain, &service, data).await;
             }
+            UiAction::CallService(domain, service, entity_id) => {
+                let p = serde_json::json!({ "entity_id": entity_id });
+                let _ = state.ha_client.call_service(&domain, &service, p).await;
+            }
             UiAction::SwitchPage(idx) => {
                 let mut p = state.active_page.write().await;
                 *p = idx;

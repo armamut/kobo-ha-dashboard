@@ -513,6 +513,41 @@ pub enum CardConfig {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         unit: Option<String>,
     },
+    /// How far along something is (a print, a wash), as a bar and a
+    /// percentage, with an optional second entity for the time left or the
+    /// time it ends
+    #[serde(rename = "progress")]
+    Progress {
+        entity_id: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        title: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        icon: Option<String>,
+        /// Shown next to the percentage, e.g. the time left
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        secondary_entity: Option<String>,
+        /// The value that means done; 100 when not given
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        max: Option<f32>,
+    },
+    /// Blinds, shutters, a garage door: open, stop and close buttons and how
+    /// far open it is
+    #[serde(rename = "cover")]
+    Cover {
+        entity_id: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        title: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        icon: Option<String>,
+    },
+    /// A row of entities, each with its icon, name and state, as a Lovelace
+    /// `glance` card
+    #[serde(rename = "glance")]
+    Glance {
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        title: Option<String>,
+        entities: Vec<SensorItemConfig>,
+    },
     /// Picture from a Home Assistant `image` entity, as a Lovelace `picture`
     /// card with `image_entity` (or an `image` card).
     #[serde(rename = "image")]
@@ -595,6 +630,7 @@ pub struct SensorItemConfig {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub unit: Option<String>,
 }
+
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SceneItemConfig {

@@ -526,6 +526,11 @@ a.btn.primary { color: var(--accent-ink); }
             <div class="menu hidden" id="addPageMenu" role="menu">
               <button type="button" role="menuitem" id="addBlankPage" data-i18n="ws.blank_page"></button>
               <button type="button" role="menuitem" id="openLovelace" data-i18n="ws.from_lovelace"></button>
+              <hr>
+              <button type="button" role="menuitem" data-preset="lights" data-i18n="ws.preset_menu_lights"></button>
+              <button type="button" role="menuitem" data-preset="climate" data-i18n="ws.preset_menu_climate"></button>
+              <button type="button" role="menuitem" data-preset="covers" data-i18n="ws.preset_menu_covers"></button>
+              <button type="button" role="menuitem" data-preset="switches" data-i18n="ws.preset_menu_switches"></button>
             </div>
           </div>
         </div>
@@ -699,7 +704,13 @@ const CARD_TYPES = {
     fields: [["title", "text", "design.title_optional"], ["scenes", "list", "design.buttons", { max: 6, domains: ACTION_DOMAINS, item: "scene" }]] },
   scene: { icon: "play", domains: ACTION_DOMAINS, defaults: { title: "" },
     fields: [["entity_id"], ["title", "text", "design.label"], ["icon"]] },
-  image: { icon: "camera", domains: ["image"], defaults: { fit: "contain" },
+  progress: { icon: "progress", domains: ["sensor", "number", "input_number", "counter"],
+    fields: [["entity_id"], ["title"], ["icon"], ["secondary_entity", "entity2", "design.secondary_entity", { domains: ["sensor"] }],
+      ["max", "number", "design.progress_max", { min: 1, step: 1 }]] },
+  cover: { icon: "blinds", domains: ["cover"], fields: [["entity_id"], ["title"], ["icon"]] },
+  glance: { icon: "layers", defaults: { entities: [] },
+    fields: [["title", "text", "design.title_optional"], ["entities", "list", "design.entities", { max: 8, domains: [...new Set([...SENSOR_DOMAINS, ...TOGGLE_DOMAINS, "person", "device_tracker", "alarm_control_panel"])], item: "sensor" }]] },
+  image: { icon: "picture", domains: ["image", "camera"], defaults: { fit: "contain" },
     fields: [["entity_id"], ["title", "text", "design.title_optional"],
       ["fit", "select", "design.image_fit", { options: ["contain", "cover", "stretch"], label: "design.fit_" }],
       ["frameless", "bool", "design.frameless"]] },
@@ -793,6 +804,11 @@ async function pushDraft(record) {
 /// leaving it in the list of cards that don't fit without a word.
 let addedCheck = null;
 function checkAdded() {
+  if (presetCheck === page && !layoutStale()) {
+    presetCheck = null;
+    const n = cfg.pages[page].cards.length, off = hidden[page] || 0;
+    toast(off ? T("ws.preset_overflow", { n, off }) : T("ws.preset_added", { n }));
+  }
   const a = addedCheck;
   if (!a || a.page !== page || layoutStale()) return;
   addedCheck = null;
@@ -1180,10 +1196,12 @@ async function generate() {
 /// where it is dropped, at the size a new card of that type has; a click
 /// puts it in the first free spot.
 function renderCardTypes() {
-  const items = Object.keys(CARD_TYPES).map((k) =>
+  // A camera is a picture card with a camera entity
+  const entries = Object.keys(CARD_TYPES).flatMap((k) => k === "image" ? [[k, k, CARD_TYPES[k].icon], [k, "camera", "camera"]] : [[k, k, CARD_TYPES[k].icon]]);
+  const items = entries.map(([k, name, icon]) =>
     el("div", { class: "palette-item", role: "button", tabindex: "0", "data-type": k, title: T("ws.add_item_title"),
         onclick: () => addCard(k), onkeydown: (ev) => { if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); addCard(k); } } },
-      el("img", { src: iconUrl(CARD_TYPES[k].icon), alt: "" }), el("span", {}, typeLabel(k))));
+      el("img", { src: iconUrl(icon), alt: "" }), el("span", {}, typeLabel(name))));
   $("palette").replaceChildren(...items);
   makeDraggable(items);
 }
@@ -1422,6 +1440,26 @@ function uniquePageIdFor(id, p) {
   return out;
 }
 
+/// New pages filled with every entity of a kind; cards that don't fit wait
+/// beside the page, to be moved or deleted.
+const PAGE_PRESETS = {
+  lights: ["ws.preset_lights", "lightbulb", (e) => e.domain === "light", (e) => ({ type: "light", entity_id: e.entity_id, show_brightness: false })],
+  climate: ["ws.preset_climate", "thermometer", (e) => e.domain === "climate", (e) => ({ type: "climate", entity_id: e.entity_id, step: 0.5 })],
+  covers: ["ws.preset_covers", "blinds", (e) => e.domain === "cover", (e) => ({ type: "cover", entity_id: e.entity_id })],
+  switches: ["ws.preset_switches", "power", (e) => ["switch", "fan", "input_boolean"].includes(e.domain), (e) => ({ type: "switch", entity_id: e.entity_id })],
+};
+let presetCheck = null;
+async function addPresetPage(key) {
+  if (!entities.length) await loadEntities(false);
+  const [title, icon, wanted, card] = PAGE_PRESETS[key];
+  const found = entities.filter(wanted).sort((a, b) => (a.area || "").localeCompare(b.area || "") || a.name.localeCompare(b.name));
+  if (!found.length) { toast(T(entities.length ? "ws.preset_none" : "ws.preset_no_ha")); return; }
+  cfg.pages.push({ id: uniquePageId(key), title: T(title), icon, cards: found.map(card) });
+  presetCheck = cfg.pages.length - 1;
+  showPage(cfg.pages.length - 1);
+  sync();
+}
+
 function showPage(i) {
   page = i;
   openCard = null;
@@ -1634,6 +1672,10 @@ function cardForm(c) {
         renderCardsSoon(); sync();
       });
       form.append(el("label", { class: "field full" }, T("design.entity"), input, meta));
+    } else if (kind === "entity2") {
+      // A second, optional entity (a time left next to a progress)
+      const [input, meta] = entityInput(c[key], opts.domains, (v) => { if (v) c[key] = v; else delete c[key]; sync(); });
+      form.append(el("label", { class: "field full" }, T(label), input, meta));
     } else if (kind === "icon") {
       form.append(el("label", { class: "field" }, T("design.icon"), iconSelect(c.icon, (v) => { c.icon = v; if (!v) delete c.icon; renderCardsSoon(); sync(); }, true, autoIcon(c))));
     } else if (kind === "bool") {
@@ -1642,7 +1684,11 @@ function cardForm(c) {
       form.append(el("label", { class: "check" }, cb, T(label)));
     } else if (kind === "number") {
       const n = el("input", { type: "number", value: c[key] ?? "", min: opts.min, max: opts.max, step: opts.step || 1 });
-      n.onchange = () => { c[key] = parseFloat(n.value) || schema.defaults[key]; sync(); };
+      n.onchange = () => {
+        const v = parseFloat(n.value) || schema.defaults?.[key];
+        if (v == null) delete c[key]; else c[key] = v;
+        sync();
+      };
       form.append(el("label", { class: "field" }, T(label), n));
     } else if (kind === "select") {
       const sel = el("select", { "data-key": key, onchange: () => { c[key] = sel.value; sync(); } },
@@ -2247,6 +2293,7 @@ async function boot() {
   window.addEventListener("blur", closeCardMenu);
   $("inspector").addEventListener("scroll", closeIconPicker);
   $("addBlankPage").onclick = () => { closeMenu(); addPage(); };
+  menu.querySelectorAll("[data-preset]").forEach((b) => (b.onclick = () => { closeMenu(); addPresetPage(b.dataset.preset); }));
   $("openLovelace").onclick = () => {
     closeMenu();
     $("lovelaceResult").replaceChildren();

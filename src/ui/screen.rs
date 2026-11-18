@@ -5,6 +5,8 @@ use crate::ha::models::EntityState;
 use crate::ui::layout::{InteractiveTarget, Rect, UiAction};
 use crate::ui::theme::Theme;
 use crate::ui::widgets::climate_card::CLIMATE_WIDE;
+use crate::ui::widgets::cover_card::COVER_WIDE;
+use crate::ui::widgets::glance_card::{self, glance_height};
 use crate::ui::widgets::header::{read_device_status, HeaderStatus, SIDE_PAD};
 use crate::ui::widgets::scene_card::SCENES_TITLE_H;
 use crate::ui::widgets::sensor_card::{sensor_grid_columns, sensor_grid_height, sensor_grid_min_height, TILE_GAP};
@@ -41,6 +43,7 @@ fn span_of(card: &CardConfig) -> Span {
         | CardConfig::MediaPlayer { .. }
         | CardConfig::Heading { .. }
         | CardConfig::Statistics { .. }
+        | CardConfig::Glance { .. }
         | CardConfig::Image { .. } => Span::Full,
         _ => Span::Half,
     }
@@ -91,6 +94,18 @@ fn heights(card: &CardConfig, w: f32) -> (f32, f32) {
         CardConfig::Scene { .. } => (112.0, 86.0),
         CardConfig::Heading { .. } => (heading_card::HEADING_H, heading_card::HEADING_H - 12.0),
         CardConfig::Statistics { .. } => (380.0, 300.0),
+        CardConfig::Progress { .. } => (190.0, 110.0),
+        CardConfig::Cover { .. } => {
+            if w >= COVER_WIDE {
+                (150.0, 110.0)
+            } else {
+                (220.0, 160.0)
+            }
+        }
+        CardConfig::Glance { title, entities } => (
+            glance_height(w, entities.len(), title.is_some(), glance_card::CELL_H),
+            glance_height(w, entities.len(), title.is_some(), glance_card::CELL_MIN_H),
+        ),
         CardConfig::Image { title, .. } => {
             let t = if title.is_some() { image_card::TITLE_H } else { 0.0 };
             (t + 320.0, t + 220.0)
@@ -282,6 +297,9 @@ fn grid_min(card: &CardConfig, w: f32) -> (f32, f32) {
         }
         CardConfig::Heading { .. } => (160.0, heading_card::HEADING_H - 12.0),
         CardConfig::Statistics { .. } => (240.0, 170.0),
+        CardConfig::Progress { .. } => (180.0, 72.0),
+        CardConfig::Cover { .. } => (200.0, 80.0),
+        CardConfig::Glance { title, entities } => (150.0, glance_height(w, entities.len(), title.is_some(), glance_card::CELL_MIN_H)),
         CardConfig::Image { title, .. } => {
             let t = if title.is_some() { image_card::TITLE_H } else { 0.0 };
             (160.0, t + 120.0)
@@ -419,6 +437,9 @@ fn new_cards() -> Vec<CardConfig> {
         CardConfig::ScenesRow { title: None, scenes: Vec::new() },
         CardConfig::Scene { entity_id: e.into(), title: String::new(), icon: None },
         CardConfig::Image { entity_id: e.into(), title: None, frameless: false, fit: ImageFit::Contain },
+        CardConfig::Progress { entity_id: e.into(), title: None, icon: None, secondary_entity: None, max: None },
+        CardConfig::Cover { entity_id: e.into(), title: None, icon: None },
+        CardConfig::Glance { title: None, entities: Vec::new() },
         CardConfig::Heading { title: String::new(), icon: None },
         CardConfig::Statistics {
             entity_id: e.into(),
@@ -868,6 +889,24 @@ impl ScreenRenderer {
                 *chart,
                 targets,
             ),
+            CardConfig::Progress { entity_id, title, icon, secondary_entity, max } => render_progress_card(
+                canvas,
+                theme,
+                rect,
+                entity_id,
+                states.get(entity_id),
+                secondary_entity.as_ref().and_then(|e| states.get(e)),
+                title.as_deref(),
+                icon.as_deref(),
+                max.unwrap_or(100.0),
+                targets,
+            ),
+            CardConfig::Cover { entity_id, title, icon } => {
+                render_cover_card(canvas, theme, rect, entity_id, states.get(entity_id), title.as_deref(), icon.as_deref(), targets)
+            }
+            CardConfig::Glance { title, entities } => {
+                render_glance_card(canvas, theme, rect, title.as_deref(), entities, states, targets)
+            }
             CardConfig::Image { entity_id, title, frameless, .. } => {
                 render_image_card(canvas, theme, rect, entity_id, title.as_deref(), *frameless, image, targets)
             }
@@ -1319,7 +1358,7 @@ mod tests {
         let mut config = AppConfig::default();
         grid_pages(&mut config.pages, 1072, 1448, true);
         let layout = grid_layout(&config.pages[0], 1072, 1448, true).unwrap();
-        assert_eq!(layout.new_sizes.len(), 12, "{:?}", layout.new_sizes);
+        assert_eq!(layout.new_sizes.len(), 15, "{:?}", layout.new_sizes);
         for (kind, (w, h, mw, mh)) in &layout.new_sizes {
             assert!(*w >= 1 && *h >= 1 && *w <= layout.grid.columns && *h <= layout.grid.rows, "{kind}: {w}x{h}");
             assert!(mw <= w && mh <= h && *mw >= 1 && *mh >= 1, "{kind}: smallest {mw}x{mh} of {w}x{h}");
@@ -1409,6 +1448,15 @@ mod tests {
 - {type: statistics, entity_id: sensor.energy_today, title: Energy, period: day, days: 14, stat: change}
 - {type: statistics, entity_id: sensor.energy_today, title: Energy, period: day, days: 14, stat: change, chart: hbar}
 - {type: statistics, entity_id: sensor.energy_today, title: Energy, period: day, days: 14, stat: change, chart: line}
+- {type: progress, entity_id: sensor.print_progress, title: Print, icon: printer, secondary_entity: sensor.print_end}
+- {type: cover, entity_id: cover.living_room, title: Living room blinds}
+- type: glance
+  title: House
+  entities:
+    - {entity_id: light.ceiling, title: Ceiling}
+    - {entity_id: switch.air_purifier, title: Purifier}
+    - {entity_id: sensor.temperature, title: Temp}
+    - {entity_id: cover.living_room, title: Blinds}
 "#,
         )
         .unwrap();
@@ -1432,6 +1480,13 @@ mod tests {
         let config = AppConfig::default();
         let mut renderer = ScreenRenderer::new(&config);
         let mut states = crate::ha::mock::generate_mock_states();
+        let mut add = |id: &str, state: &str, attrs: serde_json::Value| {
+            let attributes = attrs.as_object().unwrap().iter().map(|(k, v)| (k.clone(), v.clone())).collect();
+            states.insert(id.into(), EntityState { entity_id: id.into(), state: state.into(), attributes, last_changed: None, last_updated: None });
+        };
+        add("sensor.print_progress", "42", serde_json::json!({ "unit_of_measurement": "%" }));
+        add("sensor.print_end", "2026-11-18T19:05:00+00:00", serde_json::json!({ "device_class": "timestamp" }));
+        add("cover.living_room", "open", serde_json::json!({ "current_position": 60, "device_class": "shutter", "friendly_name": "Blinds" }));
         let bars: Vec<(f64, f64)> = (0..14).map(|i| (1.7e12 + i as f64 * 86.4e6, 3.0 + (i * 7 % 5) as f64)).collect();
         states.get_mut("sensor.energy_today").unwrap().attributes.insert(
             crate::ui::widgets::statistics_card::STATS_ATTR.into(),
