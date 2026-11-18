@@ -218,6 +218,9 @@ body.ws-on aside.preview { display: none; }
 
 /* Add panel */
 .palette { display: flex; flex-direction: column; gap: 4px; }
+.palette-group + .palette-group { margin-top: 12px; }
+.palette-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--faint); margin: 0 0 4px 2px; }
+.palette-group { display: flex; flex-direction: column; gap: 4px; }
 .palette-item { display: flex; align-items: center; gap: 10px; border: 1px solid var(--border); background: var(--surface); border-radius: 8px; padding: 7px 10px; cursor: grab; text-align: left; font-weight: 600; font-size: 14px; user-select: none; overflow: hidden; }
 .palette-item:hover, .palette-item:focus-visible { border-color: var(--accent); background: var(--surface-2); outline: none; }
 .palette-item img { width: 22px; height: 22px; flex: none; }
@@ -793,6 +796,7 @@ async function pushDraft(record) {
     }
     hidden = r.hidden || [];
     layouts = r.layouts || [];
+    adoptPlaces();
     setDirty(r.dirty);
     renderPageChips();
     renderOverflow();
@@ -805,6 +809,33 @@ async function pushDraft(record) {
     $("saveStatus").classList.add("dirty");
   }
   updateUndoButtons();
+}
+
+/// Every card keeps the place the server gave it: a card placed on its own
+/// (added with a click, from a preset) stays there when another is deleted,
+/// instead of moving up into the gap. The undo snapshot gets the same
+/// places, so this is part of the edit that caused it, not a step of its own.
+function adoptPlaces() {
+  const apply = (conf) => {
+    let changed = false;
+    conf.pages.forEach((p, n) => {
+      const L = layouts[n];
+      if (!L || L.places.length !== p.cards.length) return;
+      p.cards.forEach((c, i) => {
+        const pl = L.places[i];
+        if (!pl) return;
+        if (!c.pos || c.pos.x !== pl.x || c.pos.y !== pl.y || c.pos.w !== pl.w || c.pos.h !== pl.h) {
+          c.pos = { x: pl.x, y: pl.y, w: pl.w, h: pl.h };
+          changed = true;
+        }
+      });
+    });
+    return changed;
+  };
+  if (!apply(cfg) || lastSnapshot === null) return;
+  const last = JSON.parse(lastSnapshot);
+  apply(last);
+  lastSnapshot = JSON.stringify(last);
 }
 
 /// A card added with a click that found no room: say so, rather than
@@ -1204,15 +1235,66 @@ async function generate() {
 /// The add panel: one item per card type. Dragged onto the page it lands
 /// where it is dropped, at the size a new card of that type has; a click
 /// puts it in the first free spot.
+/// The add panel's groups, in order. A camera is a picture card with a
+/// camera entity.
+const PALETTE = [
+  ["ws.group_page", ["heading", "weather"]],
+  ["ws.group_controls", ["light", "switch", "climate", "cover", "media_player", "scene", "scenes_row"]],
+  ["ws.group_values", ["sensor", "sensor_grid", "glance", "progress"]],
+  ["ws.group_charts", ["statistics", "breakdown"]],
+  ["ws.group_pictures", ["image", "camera"]],
+];
+
 function renderCardTypes() {
-  // A camera is a picture card with a camera entity
-  const entries = Object.keys(CARD_TYPES).flatMap((k) => k === "image" ? [[k, k, CARD_TYPES[k].icon], [k, "camera", "camera"]] : [[k, k, CARD_TYPES[k].icon]]);
-  const items = entries.map(([k, name, icon]) =>
-    el("div", { class: "palette-item", role: "button", tabindex: "0", "data-type": k, "data-camera": name === "camera" ? "1" : null, title: T("ws.add_item_title"),
-        onclick: () => addCard(k, null, name === "camera"), onkeydown: (ev) => { if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); addCard(k, null, name === "camera"); } } },
-      el("img", { src: iconUrl(icon), alt: "" }), el("span", {}, typeLabel(name))));
-  $("palette").replaceChildren(...items);
+  const items = [];
+  const groups = PALETTE.map(([label, names]) => {
+    const row = names.filter((n) => n === "camera" || CARD_TYPES[n]).map((name) => {
+      const k = name === "camera" ? "image" : name;
+      const icon = name === "camera" ? "camera" : CARD_TYPES[k].icon;
+      const add = () => addCard(k, null, name === "camera");
+      const item = el("div", { class: "palette-item", role: "button", tabindex: "0", "data-type": k, "data-camera": name === "camera" ? "1" : null, title: T("ws.add_item_title"),
+          onclick: add, onkeydown: (ev) => { if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); add(); } },
+          oncontextmenu: (ev) => { ev.preventDefault(); paletteMenu(k, name === "camera", ev.clientX, ev.clientY); } },
+        el("img", { src: iconUrl(icon), alt: "" }), el("span", {}, typeLabel(name)));
+      items.push(item);
+      return item;
+    });
+    return el("div", { class: "palette-group" }, el("div", { class: "palette-label" }, T(label)), row);
+  });
+  $("palette").replaceChildren(...groups);
   makeDraggable(items);
+}
+
+/// Right-click on a card type: add it here or to another page
+function paletteMenu(type, camera, x, y) {
+  showMenu(x, y, [
+    menuItem(T("ws.add_here"), () => addCard(type, null, camera)),
+    subMenu(T("ws.add_to_page"), cfg.pages.map((q, j) => j === page ? null : menuItem(q.title || T("design.untitled"), () => {
+      showPage(j);
+      addCard(type, null, camera);
+    })).filter(Boolean)),
+  ]);
+}
+
+/// Right-click on a page tab
+function tabMenu(i, x, y) {
+  showMenu(x, y, [
+    menuItem(T("ws.rename"), () => { showPage(i); setTimeout(() => { const t = $("pageTabs").querySelectorAll(".tab")[i]; if (t) renameTab(t, i); }, 0); }),
+    menuItem(T("ws.duplicate_page"), () => {
+      const copy = JSON.parse(JSON.stringify(cfg.pages[i]));
+      copy.id = uniquePageId(copy.id);
+      copy.title = T("ws.copy_of", { title: copy.title });
+      delete copy.imported_from;
+      cfg.pages.splice(i + 1, 0, copy);
+      showPage(i + 1);
+      sync();
+    }),
+    el("hr"),
+    menuItem(T("design.move_left"), () => { showPage(i); movePage(-1); }, { disabled: i === 0 }),
+    menuItem(T("design.move_right"), () => { showPage(i); movePage(1); }, { disabled: i === cfg.pages.length - 1 }),
+    el("hr"),
+    menuItem(T("design.delete_page"), () => { showPage(i); deletePage(); }, { danger: true }),
+  ]);
 }
 
 /// Let `items` be dragged onto the page; their gs-w/gs-h set the size.
@@ -1381,7 +1463,11 @@ function renderPageChips() {
     el("img", { src: iconUrl(p.icon), alt: "" }), p.title || T("design.untitled"),
     hidden[i] ? el("span", { class: "badge", title: T("design.overflow_badge") }, String(hidden[i])) : null);
   const tabs = cfg.pages.map(chip("tab"));
-  tabs.forEach((t, i) => { dragTab(t, i); t.title = T("ws.tab_title"); });
+  tabs.forEach((t, i) => {
+    dragTab(t, i);
+    t.title = T("ws.tab_title");
+    t.addEventListener("contextmenu", (ev) => { ev.preventDefault(); tabMenu(i, ev.clientX, ev.clientY); });
+  });
   $("pageTabs").replaceChildren(...tabs);
   $("previewPages").replaceChildren(...cfg.pages.map(chip("chip")));
 }
@@ -2037,6 +2123,19 @@ function subMenu(label, items) {
 
 const MOD = /Mac|iPhone|iPad/.test(navigator.platform) ? "⌘" : "Ctrl+";
 
+/// A menu of `items` at the pointer, kept on screen
+function showMenu(x, y, items) {
+  closeCardMenu();
+  const menu = el("div", { id: "ctxMenu", class: "menu", role: "menu", onclick: (ev) => ev.stopPropagation(), oncontextmenu: (ev) => ev.preventDefault() },
+    items.filter(Boolean));
+  document.body.append(menu);
+  const r = menu.getBoundingClientRect();
+  menu.style.left = Math.min(x, innerWidth - r.width - 8) + "px";
+  menu.style.top = Math.min(y, innerHeight - r.height - 8) + "px";
+  if (x + r.width + 240 > innerWidth) menu.classList.add("flip");
+  menu.querySelector("button")?.focus();
+}
+
 function openCardMenu(i, x, y) {
   closeCardMenu();
   const p = cfg.pages[page], c = p.cards[i], L = layouts[page];
@@ -2117,23 +2216,41 @@ function resizeGrid() {
   if (!p || !L) return;
   const cols = +$("gridCols").value, rows = +$("gridRows").value;
   const sx = cols / L.grid.columns, sy = rows / L.grid.rows;
-  p.cards.forEach((c, i) => {
+  // Cards are laid again in reading order, each at its scaled place or the
+  // next free one below or after it, so none lands on another; overlaps
+  // left to the server would shrink cards to their smallest
+  const taken = Array.from({ length: rows }, () => Array(cols).fill(false));
+  const free = (q) => q.x >= 0 && q.y >= 0 && q.x + q.w <= cols && q.y + q.h <= rows &&
+    taken.slice(q.y, q.y + q.h).every((row) => row.slice(q.x, q.x + q.w).every((t) => !t));
+  const take = (q) => { for (let y = q.y; y < q.y + q.h; y++) for (let x = q.x; x < q.x + q.w; x++) taken[y][x] = true; };
+  const order = p.cards.map((c, i) => i).filter((i) => L.places[i]).sort((a, b) => L.places[a].y - L.places[b].y || L.places[a].x - L.places[b].x);
+  p.cards.forEach((c, i) => { if (!L.places[i]) delete c.pos; });
+  for (const i of order) {
     const pl = L.places[i];
-    if (!pl) { delete c.pos; return; }
-    // Sizes round up: a card never gets smaller than its share of the screen
-    const x = Math.min(cols - 1, Math.round(pl.x * sx)), y = Math.min(rows - 1, Math.round(pl.y * sy));
-    c.pos = { x, y, w: Math.max(1, Math.min(cols - x, Math.ceil(pl.w * sx - 0.01))), h: Math.max(1, Math.min(rows - y, Math.ceil(pl.h * sy - 0.01))) };
-  });
+    // The edges are scaled, not the sizes: cards side by side stay side by
+    // side and still fill the row
+    const x0 = Math.round(pl.x * sx), x1 = Math.round((pl.x + pl.w) * sx);
+    const y0 = Math.round(pl.y * sy), y1 = Math.round((pl.y + pl.h) * sy);
+    const w = Math.max(1, Math.min(cols, x1 - x0)), h = Math.max(1, Math.min(rows, y1 - y0));
+    const want = { x: Math.min(cols - w, x0), y: Math.min(rows - h, y0), w, h };
+    let spot = free(want) ? want : null;
+    for (let y = want.y; !spot && y + h <= rows; y++) {
+      for (let x = 0; x + w <= cols; x++) {
+        const q = { x: (want.x + x) % (cols - w + 1), y, w, h };
+        if (free(q)) { spot = q; break; }
+      }
+    }
+    if (spot) { take(spot); p.cards[i].pos = spot; } else delete p.cards[i].pos;
+  }
   p.grid = { columns: cols, rows };
   sync();
 }
 
-/// Lay the page out again from its cards: the server does it for a page
-/// without a grid.
+/// Lay the page out again from its cards, on the grid it has: the server
+/// places cards without a place, as many as fit.
 function autoLayout() {
   const p = cfg.pages[page];
   if (!p) return;
-  delete p.grid;
   p.cards.forEach((c) => delete c.pos);
   sync();
 }
@@ -2322,7 +2439,12 @@ async function boot() {
   const closeMenu = () => menu.classList.add("hidden");
   $("addPageBtn").onclick = (ev) => { ev.stopPropagation(); menu.classList.toggle("hidden"); menu.querySelector("button")?.focus(); };
   document.addEventListener("click", (ev) => { if (!ev.target.closest(".menu-wrap")) closeMenu(); closeCardMenu(); closeIconPicker(); });
-  document.addEventListener("contextmenu", (ev) => { if (!ev.target.closest(".grid-stack-item, .shelf-item")) closeCardMenu(); });
+  document.addEventListener("contextmenu", (ev) => {
+    if (!ev.target.closest(".grid-stack-item, .shelf-item, .palette-item, .ws-pages .tab")) closeCardMenu();
+    // The design workspace works like an app: no browser menu, except in
+    // fields, where it copies and pastes
+    if (ev.target.closest("#ws") && !ev.target.closest("input, textarea, select, #ctxMenu")) ev.preventDefault();
+  });
   window.addEventListener("blur", closeCardMenu);
   $("inspector").addEventListener("scroll", closeIconPicker);
   $("addBlankPage").onclick = () => { closeMenu(); addPage(); };

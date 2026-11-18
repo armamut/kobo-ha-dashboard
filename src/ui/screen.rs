@@ -379,20 +379,53 @@ pub fn grid_places(cards: &[Card], grid: GridSize, area: Rect) -> Vec<Option<Gri
             placed[i] = Some(q);
         }
     }
-    for (i, card) in cards.iter().enumerate() {
-        if wanted[i].is_some() {
-            continue;
-        }
-        // Its natural size, or its smallest when that doesn't fit anywhere
+    // Cards without a place all follow one rule for their size, the first
+    // that fits them all: natural, lower, narrower, smallest. A page of
+    // twenty lights then gets twenty equal cards, not a few big ones and the
+    // rest left out. When no rule fits them all, the one that fits most.
+    let unplaced: Vec<usize> = (0..cards.len()).filter(|&i| wanted[i].is_none()).collect();
+    if unplaced.is_empty() {
+        return placed;
+    }
+    let sizes = |rule: usize, card: &Card| -> (u8, u8) {
         let (w, h) = natural_cells(card, grid, area);
         let (mw, mh) = min_cells(card, grid, area, w);
-        let spot = [(w, h), (w.min(grid.columns).max(mw), mh), (mw, mh)]
-            .into_iter()
-            .find_map(|(w, h)| free_spot(&taken, w, h).map(|(x, y)| GridPos { x, y, w, h }));
-        if let Some(p) = spot {
-            take(&mut taken, p);
-            placed[i] = Some(p);
+        let narrow = (w / 2).max(mw);
+        let (nmw, nmh) = min_cells(card, grid, area, narrow);
+        match rule {
+            0 => (w, h),
+            1 => (w, mh.min(h)),
+            2 => (narrow, h.max(nmh)),
+            3 => (narrow.max(nmw), nmh),
+            _ => (mw, mh),
         }
+    };
+    let try_rule = |rule: usize| {
+        let mut t = taken.clone();
+        let mut out = Vec::new();
+        for &i in &unplaced {
+            let (w, h) = sizes(rule, &cards[i]);
+            if let Some((x, y)) = free_spot(&t, w, h) {
+                let p = GridPos { x, y, w, h };
+                take(&mut t, p);
+                out.push((i, p));
+            }
+        }
+        out
+    };
+    let mut best: Vec<(usize, GridPos)> = Vec::new();
+    for rule in 0..5 {
+        let got = try_rule(rule);
+        let all = got.len() == unplaced.len();
+        if got.len() > best.len() {
+            best = got;
+        }
+        if all {
+            break;
+        }
+    }
+    for (i, p) in best {
+        placed[i] = Some(p);
     }
     placed
 }
@@ -1236,9 +1269,15 @@ mod tests {
                 assert!(!overlaps(a, b), "{:?} overlaps {:?}", a, b);
             }
         }
-        // Half width, two rows each: 2 per row, 3 rows of them in the 6 left
-        assert_eq!(zones.len(), 1 + 6);
-        assert_eq!(hidden_card_count(&page, 1072, 1448, true), 4);
+        // At their natural size only 6 of them would fit; all 10 share a
+        // smaller size instead
+        assert_eq!(zones.len(), 1 + 10);
+        assert_eq!(hidden_card_count(&page, 1072, 1448, true), 0);
+        // Too many even at the smallest size: the rest is hidden
+        let mut cards = vec![switch("switch.big", Some(GridPos { x: 0, y: 0, w: 6, h: 6 }))];
+        cards.extend((0..60).map(|i| switch(&format!("switch.{}", i), None)));
+        let page = grid_page(6, 12, cards);
+        assert!(hidden_card_count(&page, 1072, 1448, true) > 0);
     }
 
     #[test]
@@ -1409,6 +1448,20 @@ mod tests {
         // Its own width is kept; only the height comes down
         assert_eq!((p.w, p.h), (6, mh.min(4)));
         assert!(p.y + p.h <= 2, "{:?}", p);
+    }
+
+    #[test]
+    fn cards_without_a_place_share_one_size() {
+        // More lights than fit at their natural size: all get the same,
+        // smaller size rather than a few big ones and the rest left out
+        let grid = GridSize { columns: 12, rows: 18 };
+        let area = content_area(1072.0, 1448.0, HEADER_WITH_TABS);
+        let cards: Vec<Card> = (0..24).map(|i| switch(&format!("switch.s{i}"), None)).collect();
+        let places = grid_places(&cards, grid, area);
+        let shown: Vec<GridPos> = places.iter().flatten().copied().collect();
+        let (nw, nh) = natural_cells(&cards[0], grid, area);
+        assert!(shown.len() > (12 / nw as usize) * (18 / nh as usize), "only {} shown", shown.len());
+        assert!(shown.iter().all(|p| (p.w, p.h) == (shown[0].w, shown[0].h)), "{:?}", shown);
     }
 
     #[test]
