@@ -132,6 +132,22 @@ report:
   battery_not_admin: "Home Assistant nie pozwolił zapisać czujnika baterii (wymagany jest token administratora). Utwórz token, będąc zalogowanym jako administrator, albo wyłącz wysyłanie poziomu baterii."
   battery_failed: "Nie udało się utworzyć czujnika baterii: {error}"
 
+ws:
+  add_title: "Dodaj"
+  add_hint: "Kliknij typ karty, aby dodać ją do tej strony."
+  add_page: "Dodaj stronę"
+  blank_page: "Pusta strona"
+  from_lovelace: "Z panelu Lovelace…"
+  mode_design: "Projekt"
+  mode_preview: "Podgląd"
+  mode_preview_title: "Zobacz stronę tak, jak pokazuje ją Kobo (P)"
+  page: "Strona"
+  no_cards: "Na tej stronie nie ma jeszcze kart. Dodaj kartę z panelu po lewej."
+  cards_hint: "Kliknij kartę, aby ją edytować. Karta oznaczona „nie mieści się” nie ma miejsca na stronie i nie jest wyświetlana."
+  back_to_page: "Wróć do strony"
+  card_hidden: "Ta karta nie ma miejsca na stronie i nie jest wyświetlana. Zrób miejsce, zmniejszając lub przesuwając inne karty, albo przenieś ją na inną stronę."
+  duplicate: "Duplikuj"
+
 layout:
   title: "Układ"
   hint: "Przeciągnij kartę, aby ją przesunąć, albo jej krawędź lub róg, aby zmienić rozmiar; pozostałe karty zrobią miejsce. Kliknij kartę, aby ją edytować. Strzałki przesuwają zaznaczoną kartę, Shift + strzałki zmieniają jej rozmiar. Mniejsza karta pokazuje mniej: czujnik zmniejsza się do ikony i wartości."

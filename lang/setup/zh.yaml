@@ -132,6 +132,22 @@ report:
   battery_not_admin: "Home Assistant 不允许写入电池传感器（需要管理员用户的令牌）。请以管理员身份登录后创建令牌，或关闭电池电量发送。"
   battery_failed: "无法创建电池传感器：{error}"
 
+ws:
+  add_title: "添加"
+  add_hint: "点击卡片类型即可将其添加到此页面。"
+  add_page: "添加页面"
+  blank_page: "空白页面"
+  from_lovelace: "从 Lovelace 仪表板…"
+  mode_design: "设计"
+  mode_preview: "预览"
+  mode_preview_title: "按 Kobo 上的显示效果查看页面 (P)"
+  page: "页面"
+  no_cards: "此页面还没有卡片。请从左侧面板添加。"
+  cards_hint: "点击卡片即可编辑。标记为“放不下”的卡片在页面上没有空间，不会显示。"
+  back_to_page: "返回页面"
+  card_hidden: "此卡片在页面上没有空间，不会显示。请缩小或移动其他卡片以腾出空间，或将其移到其他页面。"
+  duplicate: "复制"
+
 layout:
   title: "布局"
   hint: "拖动卡片可移动它，拖动边缘或角落可调整大小；其他卡片会自动让位。点击卡片可编辑。方向键移动选中的卡片，Shift + 方向键调整大小。卡片越小显示的内容越少：传感器只显示图标和数值。"

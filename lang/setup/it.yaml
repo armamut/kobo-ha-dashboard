@@ -132,6 +132,22 @@ report:
   battery_not_admin: "Home Assistant non ha permesso di scrivere il sensore della batteria (serve il token di un utente amministratore). Crea il token con un accesso da amministratore oppure disattiva l'invio della batteria."
   battery_failed: "Impossibile creare il sensore della batteria: {error}"
 
+ws:
+  add_title: "Aggiungi"
+  add_hint: "Fai clic su un tipo di scheda per aggiungerlo a questa pagina."
+  add_page: "Aggiungi una pagina"
+  blank_page: "Pagina vuota"
+  from_lovelace: "Da una dashboard Lovelace…"
+  mode_design: "Progetto"
+  mode_preview: "Anteprima"
+  mode_preview_title: "Vedi la pagina come la mostra il Kobo (P)"
+  page: "Pagina"
+  no_cards: "Ancora nessuna scheda in questa pagina. Aggiungine una dal pannello a sinistra."
+  cards_hint: "Fai clic su una scheda per modificarla. Una scheda segnata «non entra» non ha spazio nella pagina e non viene mostrata."
+  back_to_page: "Torna alla pagina"
+  card_hidden: "Questa scheda non ha spazio nella pagina e non viene mostrata. Fai spazio riducendo o spostando altre schede, oppure spostala in un'altra pagina."
+  duplicate: "Duplica"
+
 layout:
   title: "Disposizione"
   hint: "Trascina una scheda per spostarla, o il suo bordo o angolo per ridimensionarla; le altre schede fanno spazio. Fai clic su una scheda per modificarla. Le frecce spostano la scheda selezionata, Maiusc + frecce la ridimensionano. Una scheda più piccola mostra meno: un sensore si riduce a icona e valore."

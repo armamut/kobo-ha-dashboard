@@ -136,6 +136,22 @@ report:
   battery_not_admin: "Home Assistant didn't allow writing the battery sensor (it needs a token of an admin user). Create the token while signed in as an administrator, or turn off battery reporting."
   battery_failed: "Could not create the battery sensor: {error}"
 
+ws:
+  add_title: "Add"
+  add_hint: "Click a card type to add it to this page."
+  add_page: "Add a page"
+  blank_page: "Blank page"
+  from_lovelace: "From a Lovelace dashboard…"
+  mode_design: "Design"
+  mode_preview: "Preview"
+  mode_preview_title: "See the page as the Kobo shows it (P)"
+  page: "Page"
+  no_cards: "No cards on this page yet. Add one from the panel on the left."
+  cards_hint: "Click a card to edit it. A card marked “doesn't fit” has no room on the page and isn't shown."
+  back_to_page: "Back to the page"
+  card_hidden: "This card has no room on the page and isn't shown. Make room by shrinking or moving other cards, or move it to another page."
+  duplicate: "Duplicate"
+
 layout:
   title: "Layout"
   hint: "Drag a card to move it, drag its edge or corner to resize it; other cards make room. Click a card to edit it. Arrow keys move the selected card, Shift + arrow keys resize it. A smaller card shows less: a sensor shrinks to its icon and value."

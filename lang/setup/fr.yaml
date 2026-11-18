@@ -132,6 +132,22 @@ report:
   battery_not_admin: "Home Assistant n'a pas autorisé l'écriture du capteur de batterie (il faut le jeton d'un utilisateur administrateur). Créez le jeton en étant connecté comme administrateur, ou désactivez l'envoi de la batterie."
   battery_failed: "Impossible de créer le capteur de batterie : {error}"
 
+ws:
+  add_title: "Ajouter"
+  add_hint: "Cliquez sur un type de carte pour l'ajouter à cette page."
+  add_page: "Ajouter une page"
+  blank_page: "Page vide"
+  from_lovelace: "Depuis un tableau de bord Lovelace…"
+  mode_design: "Conception"
+  mode_preview: "Aperçu"
+  mode_preview_title: "Voir la page telle que la Kobo l'affiche (P)"
+  page: "Page"
+  no_cards: "Aucune carte sur cette page. Ajoutez-en une depuis le panneau de gauche."
+  cards_hint: "Cliquez sur une carte pour la modifier. Une carte marquée « ne tient pas » n'a pas de place sur la page et n'est pas affichée."
+  back_to_page: "Retour à la page"
+  card_hidden: "Cette carte n'a pas de place sur la page et n'est pas affichée. Faites de la place en réduisant ou déplaçant d'autres cartes, ou déplacez-la vers une autre page."
+  duplicate: "Dupliquer"
+
 layout:
   title: "Disposition"
   hint: "Faites glisser une carte pour la déplacer, ou son bord ou son coin pour la redimensionner ; les autres cartes se décalent. Cliquez sur une carte pour la modifier. Les flèches déplacent la carte sélectionnée, Maj + flèches la redimensionnent. Une carte plus petite en montre moins : un capteur se réduit à son icône et sa valeur."

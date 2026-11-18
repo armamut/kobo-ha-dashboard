@@ -28,7 +28,7 @@ Kobo e-okuyucular için dokunmatik bir [Home Assistant](https://www.home-assista
    - **Windows:** SmartScreen uyarı verirse **Ek bilgi** → **Yine de çalıştır** deyin.
 3. Üç adımı izleyin:
    1. **Bağlan:** HA adresi ve uzun ömürlü erişim belirteci girin (HA profili → **Güvenlik** → **Uzun ömürlü erişim belirteçleri**). Token alanının yanındaki **?** adım adım anlatır ve Home Assistant'ınızda doğru sayfayı açar. Dili, yönü ve temayı seçip **Home Assistant'tan oluştur**'a basın.
-   2. **Tasarla:** sayfaları ve kartları düzenleyin. Her sayfa bir ızgaradır: kartları sürükleyip istediğiniz yere koyun, kenarından ya da köşesinden sürükleyerek boyutlandırın, sayfanın kaç sütun ve satır olacağını seçin. Önizleme Kobo'da göreceğinizin aynısıdır.
+   2. **Tasarla:** sayfa pencereyi kaplar; solda ekleyebileceğiniz kartlar, sağda seçili kartın (ya da sayfanın) ayarları durur. Her sayfa bir ızgaradır: kartları sürükleyip istediğiniz yere koyun, kenarından ya da köşesinden sürükleyerek boyutlandırın (küçük bir kart daha az şey gösterir, en küçüğünde ikon ve değer), sayfanın kaç sütun ve satır olacağını seçin. Sayfa sekmelerinin yanındaki **+** ile boş sayfa ekleyin ya da bir Lovelace panosunu içe aktarın. **Önizleme** (ya da P tuşu) sayfayı Kobo'da göreceğinizin aynısı olarak, istenirse gri tonlamalı ya da uyku ekranıyla gösterir.
    3. **Kur:** Kobo'yu USB ile bağlayın, Kobo'da **Bağlan**'a dokunun ve **Kur**'a basın. Kobo'da [NickelMenu](#nickelmenu-hakkında) yoksa buton **NickelMenu ve paneli kur** olarak görünür ve ikisini birden yapar.
 4. Sağ üstteki **Çıkış** ile kurulum aracını kapatın. Değişiklikleri kaydedip ya da kaydetmeden çıkabilirsiniz.
 

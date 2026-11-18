@@ -132,6 +132,22 @@ report:
   battery_not_admin: "O Home Assistant não permitiu gravar o sensor de bateria (precisa do token de um usuário administrador). Crie o token com uma sessão de administrador ou desative o envio da bateria."
   battery_failed: "Não foi possível criar o sensor de bateria: {error}"
 
+ws:
+  add_title: "Adicionar"
+  add_hint: "Clique num tipo de cartão para o adicionar a esta página."
+  add_page: "Adicionar uma página"
+  blank_page: "Página vazia"
+  from_lovelace: "De um painel Lovelace…"
+  mode_design: "Design"
+  mode_preview: "Pré-visualização"
+  mode_preview_title: "Ver a página como o Kobo a mostra (P)"
+  page: "Página"
+  no_cards: "Ainda não há cartões nesta página. Adicione um no painel à esquerda."
+  cards_hint: "Clique num cartão para o editar. Um cartão marcado «não cabe» não tem espaço na página e não é mostrado."
+  back_to_page: "Voltar à página"
+  card_hidden: "Este cartão não tem espaço na página e não é mostrado. Abra espaço reduzindo ou movendo outros cartões, ou mova-o para outra página."
+  duplicate: "Duplicar"
+
 layout:
   title: "Disposição"
   hint: "Arraste um cartão para movê-lo, ou a borda ou o canto para redimensioná-lo; os outros cartões abrem espaço. Clique num cartão para editá-lo. As setas movem o cartão selecionado e Shift + setas o redimensionam. Um cartão menor mostra menos: um sensor reduz-se ao ícone e ao valor."

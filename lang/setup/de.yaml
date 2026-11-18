@@ -132,6 +132,22 @@ report:
   battery_not_admin: "Home Assistant hat das Schreiben des Akkusensors nicht erlaubt (dafür braucht es den Token eines Admin-Benutzers). Erstelle den Token als Administrator angemeldet oder schalte das Senden des Akkustands aus."
   battery_failed: "Der Akkusensor konnte nicht angelegt werden: {error}"
 
+ws:
+  add_title: "Hinzufügen"
+  add_hint: "Klicken Sie auf einen Kartentyp, um ihn dieser Seite hinzuzufügen."
+  add_page: "Seite hinzufügen"
+  blank_page: "Leere Seite"
+  from_lovelace: "Aus einem Lovelace-Dashboard…"
+  mode_design: "Entwurf"
+  mode_preview: "Vorschau"
+  mode_preview_title: "Die Seite so sehen, wie der Kobo sie zeigt (P)"
+  page: "Seite"
+  no_cards: "Noch keine Karten auf dieser Seite. Fügen Sie links eine hinzu."
+  cards_hint: "Klicken Sie auf eine Karte, um sie zu bearbeiten. Eine Karte mit „passt nicht“ hat keinen Platz auf der Seite und wird nicht angezeigt."
+  back_to_page: "Zurück zur Seite"
+  card_hidden: "Diese Karte hat keinen Platz auf der Seite und wird nicht angezeigt. Verkleinern oder verschieben Sie andere Karten oder verschieben Sie sie auf eine andere Seite."
+  duplicate: "Duplizieren"
+
 layout:
   title: "Anordnung"
   hint: "Ziehe eine Karte, um sie zu verschieben, oder ihren Rand bzw. ihre Ecke, um die Größe zu ändern; andere Karten machen Platz. Klicke auf eine Karte, um sie zu bearbeiten. Pfeiltasten verschieben die ausgewählte Karte, Umschalt + Pfeiltasten ändern ihre Größe. Eine kleinere Karte zeigt weniger: ein Sensor schrumpft auf Symbol und Wert."

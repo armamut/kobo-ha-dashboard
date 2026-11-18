@@ -132,6 +132,22 @@ report:
   battery_not_admin: "Home Assistant pil sensörünün yazılmasına izin vermedi (admin kullanıcının token'ı gerekir). Token'ı yönetici olarak giriş yapmışken oluşturun ya da pil bildirimini kapatın."
   battery_failed: "Pil sensörü oluşturulamadı: {error}"
 
+ws:
+  add_title: "Ekle"
+  add_hint: "Bu sayfaya eklemek için bir kart türüne tıklayın."
+  add_page: "Sayfa ekle"
+  blank_page: "Boş sayfa"
+  from_lovelace: "Lovelace panosundan…"
+  mode_design: "Tasarım"
+  mode_preview: "Önizleme"
+  mode_preview_title: "Sayfayı Kobo'da göründüğü gibi görün (P)"
+  page: "Sayfa"
+  no_cards: "Bu sayfada henüz kart yok. Soldaki panelden ekleyin."
+  cards_hint: "Düzenlemek için bir karta tıklayın. “Sığmıyor” işaretli kartın sayfada yeri yoktur ve gösterilmez."
+  back_to_page: "Sayfaya dön"
+  card_hidden: "Bu kartın sayfada yeri yok ve gösterilmiyor. Diğer kartları küçültüp ya da taşıyıp yer açın veya kartı başka bir sayfaya taşıyın."
+  duplicate: "Çoğalt"
+
 layout:
   title: "Yerleşim"
   hint: "Bir kartı taşımak için sürükleyin, boyutunu değiştirmek için kenarını ya da köşesini sürükleyin; diğer kartlar yer açar. Düzenlemek için karta tıklayın. Seçili kartı ok tuşlarıyla taşıyabilir, Shift + ok tuşlarıyla boyutlandırabilirsiniz. Kart küçüldükçe daha az şey gösterir: bir sensör simgesine ve değerine iner."

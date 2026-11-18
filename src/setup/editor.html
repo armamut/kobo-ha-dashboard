@@ -121,8 +121,7 @@ aside.preview { position: sticky; top: 76px; align-self: start; }
 .preview-tools { display: flex; justify-content: space-between; align-items: center; color: var(--muted); font-size: 13px; }
 
 /* Layout editor: the page's grid laid over its preview */
-.layout-stage { position: relative; margin: 0 auto; max-width: 560px; border-radius: 6px; overflow: hidden; background: #e5e7eb; user-select: none; }
-.layout-stage.landscape { max-width: 100%; }
+.layout-stage { position: relative; border-radius: 6px; overflow: hidden; background: #e5e7eb; user-select: none; box-shadow: 0 1px 3px rgba(16,24,40,.12), 0 6px 24px rgba(16,24,40,.08); }
 .layout-stage > img { position: absolute; inset: 0; width: 100%; height: 100%; }
 .layout-box, .layout-lines { position: absolute; }
 .layout-lines { pointer-events: none; opacity: 0; transition: opacity .15s; }
@@ -139,6 +138,75 @@ aside.preview { position: sticky; top: 76px; align-self: start; }
 .layout-box .grid-stack-placeholder > .placeholder-content { background: rgba(217, 119, 6, .16); border: 2px dashed var(--accent); border-radius: 10px; }
 .layout-tools { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .layout-tools select { width: auto; }
+
+/* Design workspace: add panel, canvas, properties. The page itself
+   doesn't scroll; each panel does. */
+body.ws-on main { display: block; max-width: none; padding: 0; }
+body.ws-on aside.preview { display: none; }
+.ws { display: grid; grid-template-columns: 240px minmax(0, 1fr) 360px; height: calc(100vh - var(--top, 58px)); }
+.ws-panel { background: var(--surface); overflow-y: auto; padding: 16px; }
+.ws-left { border-right: 1px solid var(--border); }
+.ws-right { border-left: 1px solid var(--border); }
+.ws-head { margin: 0 0 4px; font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
+.ws-left .hint { font-size: 13px; }
+.ws-center { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+.ws-tabs { display: flex; align-items: center; gap: 6px; padding: 10px 16px 0; }
+.ws-pages { display: flex; gap: 4px; overflow-x: auto; min-width: 0; }
+.ws-pages .tab { display: inline-flex; align-items: center; gap: 6px; border: 1px solid transparent; background: transparent; border-radius: 8px; padding: 6px 12px; cursor: pointer; font-weight: 600; color: var(--muted); white-space: nowrap; }
+.ws-pages .tab img { width: 18px; height: 18px; opacity: .75; }
+.ws-pages .tab:hover { background: var(--surface); }
+.ws-pages .tab.active { background: var(--surface); color: var(--text); border-color: var(--border); box-shadow: var(--shadow); }
+.ws-pages .tab.active img { opacity: 1; }
+@media (prefers-color-scheme: dark) { .ws-pages .tab img, .palette img, .insp-head img { filter: invert(1); } }
+.ws-pages .tab .badge { background: var(--err); color: #fff; border-radius: 999px; font-size: 11px; padding: 0 6px; }
+.ws-toolbar { display: flex; align-items: center; gap: 12px; padding: 10px 16px; flex-wrap: wrap; }
+.ws-canvas { flex: 1; min-height: 0; display: grid; place-items: center; padding: 8px 24px 24px; overflow: hidden; }
+.ws-empty { text-align: center; max-width: 360px; }
+#overflowWarn { margin: 0 16px 12px; }
+.ws .preview-only { display: none; }
+.ws.previewing .preview-only { display: flex; }
+.ws.previewing .design-only, .ws.previewing .ws-panel { display: none; }
+.ws.previewing { grid-template-columns: minmax(0, 1fr); }
+.ws.previewing .layout-box { display: none; }
+.ws.previewing .ws-device { background: #2b2f36; border-radius: 26px; padding: 18px 16px 28px; box-shadow: 0 10px 30px rgba(0,0,0,.18); }
+.ws.previewing .ws-device.landscape { padding: 16px 28px 16px 18px; }
+.ws.previewing .layout-stage { box-shadow: none; border-radius: 4px; }
+.seg { display: inline-flex; border: 1px solid var(--border-strong); border-radius: 8px; overflow: hidden; }
+.seg button { border: 0; background: var(--surface); padding: 5px 12px; font-size: 13px; font-weight: 600; cursor: pointer; color: var(--muted); }
+.seg button + button { border-left: 1px solid var(--border-strong); }
+.seg button.active { background: var(--text); color: var(--surface); }
+.menu-wrap { position: relative; }
+.menu { position: absolute; z-index: 20; top: calc(100% + 4px); left: 0; min-width: 220px; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; box-shadow: 0 8px 28px rgba(0,0,0,.16); padding: 4px; display: flex; flex-direction: column; }
+.menu button { text-align: left; border: 0; background: transparent; padding: 8px 12px; border-radius: 6px; cursor: pointer; white-space: nowrap; }
+.menu button:hover, .menu button:focus-visible { background: var(--surface-2); outline: none; }
+
+/* Add panel */
+.palette { display: flex; flex-direction: column; gap: 4px; }
+.palette button { display: flex; align-items: center; gap: 10px; border: 1px solid var(--border); background: var(--surface); border-radius: 8px; padding: 7px 10px; cursor: pointer; text-align: left; font-weight: 600; font-size: 14px; }
+.palette button:hover { border-color: var(--accent); background: var(--surface-2); }
+.palette img { width: 22px; height: 22px; flex: none; }
+
+/* Properties panel */
+.insp-head { display: flex; align-items: center; gap: 10px; margin: 0 0 14px; }
+.insp-head img { width: 28px; height: 28px; flex: none; }
+.insp-head .title { font-weight: 700; font-size: 16px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.insp-head .sub { color: var(--muted); font-size: 12px; }
+.insp-section { border-top: 1px solid var(--border); margin-top: 16px; padding-top: 14px; }
+.ws-right .grid2 { grid-template-columns: 1fr; }
+.ws-right .cardform { border: 0; margin: 0; padding: 0; }
+.ws-right .subitem { grid-template-columns: 1fr 1fr; }
+.ws-right .subitem > label:first-child { grid-column: 1 / -1; }
+.ws-right .cardrow { grid-template-columns: 26px 1fr; padding: 7px 9px; cursor: pointer; margin-bottom: 6px; }
+.ws-right .cardrow:hover { border-color: var(--accent); }
+.ws-right .cardrow .ticon { width: 24px; height: 24px; }
+.insp-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.insp-actions select { width: auto; }
+@media (max-width: 1100px) {
+  .ws { grid-template-columns: 200px minmax(0, 1fr); }
+  .ws-right { grid-column: 1 / -1; border-left: 0; border-top: 1px solid var(--border); }
+  .ws { height: auto; }
+  .ws-canvas { height: 70vh; }
+}
 
 /* Install */
 .device-list { display: flex; flex-direction: column; gap: 10px; }
@@ -246,6 +314,20 @@ a.btn.primary { color: var(--accent-ink); }
   <h3 data-i18n="history.versions"></h3>
   <div id="historyList"></div>
   <div class="actions"><button class="btn" type="button" id="historyClose" data-i18n="app.close"></button></div>
+</dialog>
+
+<dialog id="lovelaceDialog">
+  <h2 data-i18n="lovelace.title"></h2>
+  <p class="hint" data-i18n="lovelace.hint"></p>
+  <div class="row">
+    <select id="lovelaceDash" style="width:auto;min-width:220px;flex:1"></select>
+    <button class="btn small" id="lovelaceReload" data-i18n="lovelace.reload"></button>
+  </div>
+  <div id="lovelaceResult"></div>
+  <div class="actions">
+    <button class="btn" type="button" id="lovelaceClose" data-i18n="app.close"></button>
+    <button class="btn primary" type="button" id="lovelaceImport" data-i18n="lovelace.import"></button>
+  </div>
 </dialog>
 
 <dialog id="tokenHelp">
@@ -387,59 +469,58 @@ a.btn.primary { color: var(--accent-ink); }
 
   <!-- STEP 2 -->
   <div id="step-design" class="step hidden">
-    <div class="card">
-      <h2 data-i18n="lovelace.title"></h2>
-      <p class="hint" data-i18n="lovelace.hint"></p>
-      <div class="row">
-        <select id="lovelaceDash" style="width:auto;min-width:220px"></select>
-        <button class="btn small primary" id="lovelaceImport" data-i18n="lovelace.import"></button>
-        <button class="btn small" id="lovelaceReload" data-i18n="lovelace.reload"></button>
-      </div>
-      <div id="lovelaceResult"></div>
-    </div>
+    <div class="ws" id="ws">
+      <aside class="ws-panel ws-left">
+        <h3 class="ws-head" data-i18n="ws.add_title"></h3>
+        <p class="hint" data-i18n="ws.add_hint"></p>
+        <div class="palette" id="palette"></div>
+        <p class="hint" style="margin-top:16px" data-i18n="layout.hint"></p>
+      </aside>
 
-    <div class="card">
-      <div class="row" style="margin-bottom:10px">
-        <h2 style="margin:0" data-i18n="design.pages"></h2>
-        <span class="spacer"></span>
-        <button class="btn small" id="addPage" data-i18n="design.add_page"></button>
-      </div>
-      <div class="pages" id="pageChips"></div>
-      <div id="pageSettings" class="grid2"></div>
-    </div>
-
-    <div class="card" id="layoutCard">
-      <div class="row" style="margin-bottom:10px">
-        <h2 style="margin:0" data-i18n="layout.title"></h2>
-        <span class="spacer"></span>
-        <div class="layout-tools">
-          <span class="hint" style="margin:0" data-i18n="layout.grid"></span>
-          <select id="gridCols" class="compact" data-i18n-title="layout.columns"></select>
-          <span>×</span>
-          <select id="gridRows" class="compact" data-i18n-title="layout.rows"></select>
-          <button class="btn small" id="layoutCompact" data-i18n="layout.compact" data-i18n-title="layout.compact_title"></button>
-          <button class="btn small" id="layoutAuto" data-i18n="layout.auto" data-i18n-title="layout.auto_title"></button>
+      <div class="ws-center">
+        <div class="ws-tabs">
+          <div class="ws-pages" id="pageTabs"></div>
+          <div class="menu-wrap">
+            <button class="btn small icon" id="addPageBtn" type="button" data-i18n-title="ws.add_page" data-i18n-aria="ws.add_page" aria-haspopup="menu">＋</button>
+            <div class="menu hidden" id="addPageMenu" role="menu">
+              <button type="button" role="menuitem" id="addBlankPage" data-i18n="ws.blank_page"></button>
+              <button type="button" role="menuitem" id="openLovelace" data-i18n="ws.from_lovelace"></button>
+            </div>
+          </div>
         </div>
+        <div class="ws-toolbar">
+          <div class="layout-tools design-only">
+            <span class="hint" style="margin:0" data-i18n="layout.grid"></span>
+            <select id="gridCols" class="compact" data-i18n-title="layout.columns"></select>
+            <span>×</span>
+            <select id="gridRows" class="compact" data-i18n-title="layout.rows"></select>
+            <button class="btn small" id="layoutCompact" data-i18n="layout.compact" data-i18n-title="layout.compact_title"></button>
+            <button class="btn small" id="layoutAuto" data-i18n="layout.auto" data-i18n-title="layout.auto_title"></button>
+          </div>
+          <div class="layout-tools preview-only">
+            <label class="check"><input type="checkbox" id="wsBw"> <span data-i18n="preview.grayscale"></span></label>
+            <label class="check"><input type="checkbox" id="wsSleep"> <span data-i18n="preview.sleep"></span></label>
+          </div>
+          <span class="spacer"></span>
+          <div class="seg" role="group">
+            <button type="button" id="modeDesign" class="active" data-i18n="ws.mode_design"></button>
+            <button type="button" id="modePreview" data-i18n="ws.mode_preview" data-i18n-title="ws.mode_preview_title"></button>
+          </div>
+        </div>
+        <div class="ws-canvas" id="canvasWrap">
+          <div class="ws-device" id="wsDevice">
+            <div class="layout-stage" id="layoutStage">
+              <img id="layoutImg" alt="">
+              <div class="layout-lines" id="layoutLines"></div>
+              <div class="layout-box" id="layoutBox"></div>
+            </div>
+          </div>
+          <p class="hint ws-empty hidden" id="noPages" data-i18n="design.no_pages"></p>
+        </div>
+        <div id="overflowWarn" class="notice warn hidden"></div>
       </div>
-      <p class="hint" data-i18n="layout.hint"></p>
-      <div class="layout-stage" id="layoutStage">
-        <img id="layoutImg" alt="">
-        <div class="layout-lines" id="layoutLines"></div>
-        <div class="layout-box" id="layoutBox"></div>
-      </div>
-    </div>
 
-    <div class="card">
-      <div class="row" style="margin-bottom:12px">
-        <h2 style="margin:0" data-i18n="design.cards"></h2>
-        <span class="spacer"></span>
-        <select id="newCardType" style="width:auto;min-width:180px"></select>
-        <button class="btn small primary" id="addCard" data-i18n="design.add_card"></button>
-      </div>
-      <div id="overflowWarn" class="notice warn hidden"></div>
-      <div id="cardList"></div>
-      <p class="hint" id="emptyCards" data-i18n="design.no_cards"></p>
-      <p class="hint" style="margin-top:10px" data-i18n="design.cards_hint"></p>
+      <aside class="ws-panel ws-right" id="inspector"></aside>
     </div>
   </div>
 
@@ -762,8 +843,10 @@ function refreshDatalists() {
 function setStep(step) {
   document.querySelectorAll("nav.steps button").forEach((b) => b.classList.toggle("active", b.dataset.step === step));
   document.querySelectorAll(".step").forEach((s) => s.classList.toggle("hidden", s.id !== "step-" + step));
+  document.body.classList.toggle("ws-on", step === "design");
+  fitTop();
   clearInterval(kobosTimer);
-  if (step === "design") { renderDesign(); loadDashboards(); }
+  if (step === "design") { renderDesign(); refreshPreview(); }
   if (step === "install") { scanKobos(); kobosTimer = setInterval(scanKobos, 4000); }
   window.scrollTo({ top: 0 });
   history.replaceState(null, "", "#" + step);
@@ -1009,11 +1092,15 @@ async function generate() {
 }
 
 // ---------- Step 2 ----------
+/// The add panel: one button per card type, adding it to the page
 function renderCardTypes() {
-  const sel = $("newCardType");
-  const current = sel.value;
-  sel.replaceChildren(...Object.keys(CARD_TYPES).map((k) => el("option", { value: k }, typeLabel(k))));
-  if (current) sel.value = current;
+  $("palette").replaceChildren(...Object.keys(CARD_TYPES).map((k) =>
+    el("button", { type: "button", onclick: () => addCard(k) }, el("img", { src: iconUrl(CARD_TYPES[k].icon), alt: "" }), typeLabel(k))));
+}
+
+/// The workspace fills the window below the header.
+function fitTop() {
+  document.documentElement.style.setProperty("--top", document.querySelector("header.top").offsetHeight + "px");
 }
 
 // ---------- Lovelace import ----------
@@ -1090,18 +1177,30 @@ function renderDesign() {
   if (!cfg) return;
   if (page >= cfg.pages.length) page = Math.max(0, cfg.pages.length - 1);
   renderPageChips();
-  renderPageSettings();
+  renderInspector();
   renderLayout();
-  renderCards();
   renderOverflow();
 }
 
 function renderPageChips() {
-  const chip = (p, i) => el("button", { class: "chip" + (i === page ? " active" : ""), onclick: () => { page = i; openCard = null; renderDesign(); refreshPreview(); } },
+  const chip = (cls) => (p, i) => el("button", { type: "button", class: cls + (i === page ? " active" : ""), onclick: () => showPage(i) },
     el("img", { src: iconUrl(p.icon), alt: "" }), p.title || T("design.untitled"),
     hidden[i] ? el("span", { class: "badge", title: T("design.overflow_badge") }, String(hidden[i])) : null);
-  $("pageChips").replaceChildren(...cfg.pages.map(chip));
-  $("previewPages").replaceChildren(...cfg.pages.map(chip));
+  $("pageTabs").replaceChildren(...cfg.pages.map(chip("tab")));
+  $("previewPages").replaceChildren(...cfg.pages.map(chip("chip")));
+}
+
+function showPage(i) {
+  page = i;
+  openCard = null;
+  renderDesign();
+  refreshPreview();
+}
+
+function addPage() {
+  cfg.pages.push({ id: uniquePageId("page" + (cfg.pages.length + 1)), title: T("design.new_page"), icon: "home", cards: [] });
+  showPage(cfg.pages.length - 1);
+  sync();
 }
 
 function iconSelect(value, onchange, allowEmpty = true) {
@@ -1112,20 +1211,86 @@ function iconSelect(value, onchange, allowEmpty = true) {
   return el("div", { class: "iconpick" }, img, sel);
 }
 
-function renderPageSettings() {
-  const box = $("pageSettings");
+// ---------- Properties panel ----------
+// Shows the selected card, or the page when no card is selected.
+function renderInspector() {
+  const box = $("inspector");
   const p = cfg.pages[page];
-  if (!p) { box.replaceChildren(el("p", { class: "hint full" }, T("design.no_pages"))); return; }
+  if (!p) { box.replaceChildren(el("p", { class: "hint" }, T("design.no_pages"))); return; }
+  const c = openCard != null ? p.cards[openCard] : null;
+  box.replaceChildren(...(c ? cardInspector(c, openCard) : pageInspector(p)));
+}
+
+function pageInspector(p) {
   const title = el("input", { type: "text", value: p.title });
-  title.oninput = () => { p.title = title.value; p.id = slug(title.value) || "page" + page; sync(); };
-  box.replaceChildren(
-    el("label", { class: "field" }, T("design.page_title"), title),
-    el("label", { class: "field" }, T("design.tab_icon"), iconSelect(p.icon, (v) => { p.icon = v || "home"; sync(); }, false)),
-    el("div", { class: "row full", style: "grid-column:1/-1" },
+  title.oninput = () => { p.title = title.value; p.id = slug(title.value) || "page" + page; renderPageChipsSoon(); sync(); };
+  const rows = p.cards.map((c, i) => {
+    const { t, title, sub, tags } = cardSummary(c);
+    const off = isOffscreen(i);
+    return el("div", { class: "cardrow" + (off ? " offscreen" : ""), "data-card": i, onclick: () => selectCard(i) },
+      el("img", { class: "ticon", src: iconUrl(c.icon || t.icon), alt: "" }),
+      el("div", { style: "min-width:0" },
+        el("div", { class: "title" }, title),
+        el("div", { class: "sub" }, ...tags, off ? el("span", { class: "tag warn" }, T("design.doesnt_fit")) : null, sub)));
+  });
+  return [
+    el("h3", { class: "ws-head" }, T("ws.page")),
+    el("div", { class: "grid2" },
+      el("label", { class: "field" }, T("design.page_title"), title),
+      el("label", { class: "field" }, T("design.tab_icon"), iconSelect(p.icon, (v) => { p.icon = v || "home"; renderPageChips(); sync(); }, false))),
+    el("div", { class: "insp-actions", style: "margin-top:12px" },
       el("button", { class: "btn small", disabled: page === 0, onclick: () => movePage(-1) }, T("design.move_left")),
       el("button", { class: "btn small", disabled: page === cfg.pages.length - 1, onclick: () => movePage(1) }, T("design.move_right")),
       el("span", { class: "spacer" }),
-      el("button", { class: "btn small danger", onclick: deletePage }, T("design.delete_page"))));
+      el("button", { class: "btn small danger", onclick: deletePage }, T("design.delete_page"))),
+    el("div", { class: "insp-section" },
+      el("h3", { class: "ws-head" }, T("design.cards")),
+      rows.length ? el("div", { id: "cardList" }, rows) : el("p", { class: "hint" }, T("ws.no_cards")),
+      rows.length ? el("p", { class: "hint", style: "margin-top:8px" }, T("ws.cards_hint")) : null),
+  ];
+}
+
+function cardInspector(c, i) {
+  const { t, title, sub } = cardSummary(c);
+  const cards = cfg.pages[page].cards;
+  return [
+    el("div", { class: "insp-head" },
+      el("button", { class: "btn small icon", type: "button", title: T("ws.back_to_page"), "aria-label": T("ws.back_to_page"), onclick: deselectCard }, "←"),
+      el("img", { id: "inspIcon", src: iconUrl(c.icon || t.icon), alt: "" }),
+      el("div", { style: "min-width:0" }, el("div", { class: "title", id: "inspTitle" }, title), el("div", { class: "sub" }, typeLabel(c.type)))),
+    el("div", { id: "inspHidden", class: "notice warn" + (isOffscreen(i) ? "" : " hidden"), style: "margin:0 0 12px" }, T("ws.card_hidden")),
+    cardForm(c),
+    el("div", { class: "insp-section insp-actions" },
+      moveToSelect(i),
+      el("button", { class: "btn small", onclick: () => duplicateCard(i) }, T("ws.duplicate")),
+      el("span", { class: "spacer" }),
+      el("button", { class: "btn small danger", onclick: () => deleteCard(i) }, T("design.delete_card"))),
+  ].filter(Boolean);
+}
+
+function duplicateCard(i) {
+  const cards = cfg.pages[page].cards;
+  const copy = JSON.parse(JSON.stringify(cards[i]));
+  // The copy takes the first free spot of the same size, if there is one
+  delete copy.pos;
+  cards.splice(i + 1, 0, copy);
+  // Cards after it keep their places: only the indices move
+  openCard = i + 1;
+  renderDesign();
+  sync();
+}
+
+function deleteCard(i) {
+  cfg.pages[page].cards.splice(i, 1);
+  openCard = null;
+  renderDesign();
+  sync();
+}
+
+let chipsSoonTimer = null;
+function renderPageChipsSoon() {
+  clearTimeout(chipsSoonTimer);
+  chipsSoonTimer = setTimeout(renderPageChips, 300);
 }
 
 const slug = (s) => s.toLowerCase().normalize("NFKD").replace(/[^\w]+/g, "_").replace(/^_|_$/g, "");
@@ -1162,28 +1327,6 @@ function cardSummary(c) {
   return { t, title, sub, tags };
 }
 
-function renderCards() {
-  const list = $("cardList");
-  const p = cfg.pages[page];
-  const cards = p ? p.cards : [];
-  $("emptyCards").classList.toggle("hidden", cards.length > 0);
-  list.replaceChildren(...cards.map((c, i) => {
-    const { t, title, sub, tags } = cardSummary(c);
-    const off = isOffscreen(i);
-    const row = el("div", { class: "cardrow" + (off ? " offscreen" : "") + (openCard === i ? " selected" : ""), "data-card": i },
-      el("img", { class: "ticon", src: iconUrl(c.icon || t.icon), alt: "" }),
-      el("div", { style: "min-width:0" },
-        el("div", { class: "title" }, title),
-        el("div", { class: "sub" }, ...tags, off ? el("span", { class: "tag warn" }, T("design.doesnt_fit")) : null, sub)),
-      el("div", { class: "row", style: "gap:6px" },
-        moveToSelect(i),
-        el("button", { class: "btn small", onclick: () => { openCard = openCard === i ? null : i; renderCards(); markSelected(); } }, T(openCard === i ? "design.done" : "design.edit")),
-        el("button", { class: "btn small icon danger", title: T("design.delete_card"), onclick: () => { cards.splice(i, 1); openCard = null; renderCards(); sync(); } }, "✕")));
-    if (openCard === i) row.append(cardForm(c));
-    return row;
-  }));
-}
-
 function moveToSelect(i) {
   if (cfg.pages.length < 2) return null;
   const sel = el("select", { class: "compact", title: T("design.move_to_title") },
@@ -1195,7 +1338,7 @@ function moveToSelect(i) {
     // Its place was on the old page; it takes the first free one on the new.
     delete c.pos;
     cfg.pages[+sel.value].cards.push(c);
-    openCard = null; renderCards(); sync();
+    openCard = null; renderDesign(); sync();
   };
   return sel;
 }
@@ -1273,12 +1416,12 @@ function listEditor(c, key, label, opts) {
       el("label", { class: "field" }, T("design.label"), title),
       el("label", { class: "field" }, T("design.icon"), iconSelect(item.icon, (v) => { if (v) item.icon = v; else if (opts.item === "scene") item.icon = "play"; else delete item.icon; sync(); }, opts.item !== "scene")),
       opts.item === "sensor" ? el("label", { class: "field" }, T("design.unit"), unit) : el("span"),
-      el("button", { class: "btn small icon danger", title: T("design.remove"), onclick: () => { items.splice(j, 1); renderCards(); sync(); } }, "✕")));
+      el("button", { class: "btn small icon danger", title: T("design.remove"), onclick: () => { items.splice(j, 1); renderInspector(); sync(); } }, "✕")));
   });
   if (items.length < opts.max) {
     wrap.append(el("div", {}, el("button", { class: "btn small", onclick: () => {
       items.push(opts.item === "scene" ? { entity_id: "", title: "", icon: "play" } : { entity_id: "", title: "" });
-      renderCards();
+      renderInspector();
     } }, T("design.add"))));
   }
   return wrap;
@@ -1286,31 +1429,26 @@ function listEditor(c, key, label, opts) {
 
 let renderSoonTimer = null;
 function renderCardsSoon() {
-  // Refresh row titles without stealing focus from the input being edited.
+  // Refresh the panel's heading without stealing focus from the input being edited.
   clearTimeout(renderSoonTimer);
   renderSoonTimer = setTimeout(() => {
-    const p = cfg.pages[page];
-    if (!p) return;
-    document.querySelectorAll("#cardList .cardrow").forEach((row, i) => {
-      const c = p.cards[i];
-      if (!c) return;
-      const { t, title } = cardSummary(c);
-      row.querySelector(".title").textContent = title;
-      row.querySelector(".ticon").src = iconUrl(c.icon || t.icon);
-    });
+    const c = openCard != null ? cfg.pages[page]?.cards[openCard] : null;
+    if (!c || !$("inspTitle")) return;
+    const { t, title } = cardSummary(c);
+    $("inspTitle").textContent = title;
+    $("inspIcon").src = iconUrl(c.icon || t.icon);
   }, 300);
 }
 
-function addCard() {
+function addCard(type) {
   if (!cfg.pages.length) cfg.pages.push({ id: "home", title: T("design.new_page"), icon: "home", cards: [] });
-  const type = $("newCardType").value;
   const card = { type, ...(JSON.parse(JSON.stringify(CARD_TYPES[type].defaults || {}))) };
   if (CARD_TYPES[type].domains) card.entity_id = "";
   cfg.pages[page].cards.push(card);
   openCard = cfg.pages[page].cards.length - 1;
   renderDesign();
+  $("inspector").querySelector("input")?.focus();
   sync();
-  setTimeout(() => document.querySelector("#cardList .cardrow:last-child input")?.focus(), 50);
 }
 
 function renderOverflow() {
@@ -1320,7 +1458,8 @@ function renderOverflow() {
     $(id).textContent = msg;
     $(id).classList.toggle("hidden", !n);
   }
-  document.querySelectorAll("#cardList .cardrow").forEach((row, i) => row.classList.toggle("offscreen", isOffscreen(i)));
+  document.querySelectorAll("#cardList .cardrow").forEach((row) => row.classList.toggle("offscreen", isOffscreen(+row.dataset.card)));
+  if (openCard != null) $("inspHidden")?.classList.toggle("hidden", !isOffscreen(openCard));
 }
 
 /// Whether card `i` of the current page has no room and isn't shown
@@ -1337,27 +1476,50 @@ function isOffscreen(i) {
 // card ended up (`layouts`), which the grid is rebuilt from.
 let gs = null;
 let layoutKey = "";
+// Preview mode: the page as the Kobo shows it, without the design panels
+let previewing = false;
+
+/// Fit the page's screen into the canvas area, as large as it goes.
+function fitStage(L) {
+  const wrap = $("canvasWrap"), dev = $("wsDevice"), stage = $("layoutStage");
+  dev.classList.toggle("landscape", L.screen[0] > L.screen[1]);
+  const cs = getComputedStyle(wrap), ds = getComputedStyle(dev);
+  const w = wrap.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight) - parseFloat(ds.paddingLeft) - parseFloat(ds.paddingRight);
+  const h = wrap.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom) - parseFloat(ds.paddingTop) - parseFloat(ds.paddingBottom);
+  const s = Math.max(0.05, Math.min(w / L.screen[0], h / L.screen[1]));
+  stage.style.width = L.screen[0] * s + "px";
+  stage.style.height = L.screen[1] * s + "px";
+  return s;
+}
+
+function setPreviewing(on) {
+  previewing = on;
+  $("ws").classList.toggle("previewing", on);
+  $("modeDesign").classList.toggle("active", !on);
+  $("modePreview").classList.toggle("active", on);
+  renderLayout(true);
+  refreshPreview();
+}
 
 function renderLayout(force = false) {
   const p = cfg && cfg.pages[page];
   const L = layouts[page];
-  $("layoutCard").classList.toggle("hidden", !p || !L);
+  $("wsDevice").classList.toggle("hidden", !p || !L);
+  $("noPages").classList.toggle("hidden", !!p);
   const stage = $("layoutStage");
-  if (!p || !L || !stage.offsetParent) return;
+  if (!p || !L || !$("canvasWrap").offsetParent) return;
   // Not under the pointer: rebuilt when the drag or resize ends
   if (stage.classList.contains("moving")) return;
-  stage.classList.toggle("landscape", L.screen[0] > L.screen[1]);
-  const s = stage.clientWidth / L.screen[0];
+  const s = fitStage(L);
   const labels = p.cards.map((c) => cardSummary(c).title);
-  const key = JSON.stringify([page, L, s, labels]);
-  if (!force && key === layoutKey && gs) return;
+  const key = JSON.stringify([page, L, s, labels, previewing]);
+  if (!force && key === layoutKey && (gs || previewing)) return;
   layoutKey = key;
   const hadFocus = document.activeElement?.closest?.("#layoutBox .grid-stack-item")?.getAttribute("gs-id");
 
   fillGridSelects(L.grid);
   const img = $("layoutImg");
-  if (img.dataset.page !== String(page)) { img.dataset.page = page; img.src = `/api/preview.png?page=${page}&t=${Date.now()}`; }
-  stage.style.height = L.screen[1] * s + "px";
+  if (img.dataset.page !== String(page)) { img.dataset.page = page; img.src = previewUrl(); }
   const half = L.gap / 2;
   const frame = { left: (L.area.x - half) * s + "px", top: (L.area.y - half) * s + "px", width: (L.area.w + L.gap) * s + "px", height: (L.area.h + L.gap) * s + "px" };
   Object.assign($("layoutBox").style, frame);
@@ -1374,6 +1536,7 @@ function renderLayout(force = false) {
   if (gs) { gs.destroy(true); gs = null; }
   const host = el("div", { class: "grid-stack" });
   $("layoutBox").replaceChildren(host);
+  if (previewing) return;
   p.cards.forEach((c, i) => {
     const pl = L.places[i];
     if (!pl) return;
@@ -1383,7 +1546,7 @@ function renderLayout(force = false) {
     const item = el("div", { class: "grid-stack-item" + (openCard === i ? " selected" : ""), tabindex: "0", "aria-label": labels[i],
         "gs-id": String(i), "gs-x": pl.x, "gs-y": pl.y, "gs-w": pl.w, "gs-h": pl.h, "gs-min-w": mw, "gs-min-h": mh },
       el("div", { class: "grid-stack-item-content" }, el("span", { class: "lbl" }, labels[i])));
-    item.addEventListener("pointerdown", () => selectCard(i, false));
+    item.addEventListener("pointerdown", () => selectCard(i));
     // Gridstack blurs on pointer down; the arrow keys need the focus
     item.addEventListener("pointerup", () => item.focus({ preventScroll: true }));
     item.addEventListener("keydown", (ev) => onLayoutKey(ev, item));
@@ -1418,12 +1581,18 @@ function writePlaces() {
   sync();
 }
 
-function selectCard(i, scroll = true) {
+function selectCard(i) {
   if (openCard === i) return;
   openCard = i;
-  renderCards();
+  renderInspector();
   markSelected();
-  if (scroll) document.querySelector(`#cardList [data-card="${i}"]`)?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+}
+
+function deselectCard() {
+  if (openCard == null) return;
+  openCard = null;
+  renderInspector();
+  markSelected();
 }
 
 function markSelected() {
@@ -1435,6 +1604,7 @@ function onLayoutKey(ev, item) {
   const d = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }[ev.key];
   const n = item.gridstackNode;
   if (ev.key === "Enter") { selectCard(+item.getAttribute("gs-id")); return; }
+  if (ev.key === "Delete" || ev.key === "Backspace") { ev.preventDefault(); deleteCard(+item.getAttribute("gs-id")); return; }
   if (!d || !n || !gs) return;
   ev.preventDefault();
   if (ev.shiftKey) gs.update(item, { w: Math.max(n.minW || 1, n.w + d[0]), h: Math.max(n.minH || 1, n.h + d[1]) });
@@ -1477,9 +1647,15 @@ function autoLayout() {
 
 
 // ---------- Preview ----------
+/// The canvas picture: grayscale and the sleep screen only in preview mode
+function previewUrl() {
+  const bw = previewing && $("wsBw").checked, sleep = previewing && $("wsSleep").checked;
+  return `/api/preview.png?page=${page}&bw=${bw}&sleep=${sleep}&t=${Date.now()}`;
+}
+
 function refreshPreview() {
   if (!cfg) return;
-  if (!$("layoutCard").classList.contains("hidden")) $("layoutImg").src = `/api/preview.png?page=${page}&t=${Date.now()}`;
+  if (document.body.classList.contains("ws-on")) { $("layoutImg").dataset.page = page; $("layoutImg").src = previewUrl(); return; }
   $("deviceFrame").classList.toggle("landscape", cfg.device.orientation === "landscape");
   $("previewImg").src = `/api/preview.png?page=${page}&bw=${$("bw").checked}&sleep=${$("sleepPreview").checked}&t=${Date.now()}`;
 }
@@ -1646,20 +1822,32 @@ async function boot() {
   applyDetectedModel(s.devices || []);
 
   document.querySelectorAll("nav.steps button").forEach((b) => (b.onclick = () => setStep(b.dataset.step)));
-  $("addCard").onclick = addCard;
   $("lovelaceImport").onclick = importLovelace;
   $("lovelaceReload").onclick = () => loadDashboards(true);
-  $("addPage").onclick = () => {
-    cfg.pages.push({ id: "page" + (cfg.pages.length + 1), title: T("design.new_page"), icon: "home", cards: [] });
-    page = cfg.pages.length - 1;
-    renderDesign(); sync();
+  $("lovelaceClose").onclick = () => $("lovelaceDialog").close();
+  const menu = $("addPageMenu");
+  const closeMenu = () => menu.classList.add("hidden");
+  $("addPageBtn").onclick = (ev) => { ev.stopPropagation(); menu.classList.toggle("hidden"); menu.querySelector("button")?.focus(); };
+  document.addEventListener("click", (ev) => { if (!ev.target.closest(".menu-wrap")) closeMenu(); });
+  $("addBlankPage").onclick = () => { closeMenu(); addPage(); };
+  $("openLovelace").onclick = () => {
+    closeMenu();
+    $("lovelaceResult").replaceChildren();
+    $("lovelaceDialog").showModal();
+    loadDashboards();
   };
+  $("modeDesign").onclick = () => setPreviewing(false);
+  $("modePreview").onclick = () => setPreviewing(true);
+  $("wsBw").onchange = refreshPreview;
+  $("wsSleep").onchange = refreshPreview;
+  // A click on the canvas outside the cards selects the page
+  $("canvasWrap").addEventListener("pointerdown", (ev) => { if (!previewing && !ev.target.closest(".grid-stack-item")) deselectCard(); });
   $("gridCols").onchange = resizeGrid;
   $("gridRows").onchange = resizeGrid;
   $("layoutCompact").onclick = () => gs && gs.compact();
   $("layoutAuto").onclick = autoLayout;
   let resizeTimer = null;
-  window.addEventListener("resize", () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(() => renderLayout(), 150); });
+  window.addEventListener("resize", () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(() => { fitTop(); renderLayout(); }, 150); });
   $("bw").onchange = refreshPreview;
   $("sleepPreview").onchange = refreshPreview;
   $("reloadPreview").onclick = refreshPreview;
@@ -1679,6 +1867,11 @@ async function boot() {
   });
   document.addEventListener("keydown", (ev) => {
     const mod = ev.metaKey || ev.ctrlKey;
+    const typing = ev.target.closest("textarea, select, input:not([type=checkbox]):not([type=radio]):not([type=color])");
+    if (!mod && !typing && document.body.classList.contains("ws-on") && !document.querySelector("dialog[open]")) {
+      if (ev.key === "Escape") { closeMenu(); if (previewing) setPreviewing(false); else deselectCard(); return; }
+      if (ev.key.toLowerCase() === "p" && !ev.altKey) { setPreviewing(!previewing); return; }
+    }
     if (!mod) return;
     const key = ev.key.toLowerCase();
     if (key === "s") { ev.preventDefault(); if (dirty) saveNow().catch((e) => alert(e.message)); return; }

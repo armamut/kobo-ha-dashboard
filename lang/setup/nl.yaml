@@ -132,6 +132,22 @@ report:
   battery_not_admin: "Home Assistant stond het schrijven van de batterijsensor niet toe (er is een token van een beheerder nodig). Maak de token aan terwijl je als beheerder bent ingelogd, of zet het sturen van het batterijniveau uit."
   battery_failed: "De batterijsensor kon niet worden aangemaakt: {error}"
 
+ws:
+  add_title: "Toevoegen"
+  add_hint: "Klik op een kaarttype om het aan deze pagina toe te voegen."
+  add_page: "Pagina toevoegen"
+  blank_page: "Lege pagina"
+  from_lovelace: "Uit een Lovelace-dashboard…"
+  mode_design: "Ontwerp"
+  mode_preview: "Voorbeeld"
+  mode_preview_title: "Bekijk de pagina zoals de Kobo hem toont (P)"
+  page: "Pagina"
+  no_cards: "Nog geen kaarten op deze pagina. Voeg er een toe via het paneel links."
+  cards_hint: "Klik op een kaart om hem te bewerken. Een kaart met „past niet” heeft geen plek op de pagina en wordt niet getoond."
+  back_to_page: "Terug naar de pagina"
+  card_hidden: "Deze kaart heeft geen plek op de pagina en wordt niet getoond. Maak ruimte door andere kaarten te verkleinen of te verplaatsen, of verplaats hem naar een andere pagina."
+  duplicate: "Dupliceren"
+
 layout:
   title: "Indeling"
   hint: "Sleep een kaart om hem te verplaatsen, of de rand of hoek om het formaat te wijzigen; andere kaarten maken plaats. Klik op een kaart om hem te bewerken. Pijltjestoetsen verplaatsen de geselecteerde kaart, Shift + pijltjestoetsen wijzigen het formaat. Een kleinere kaart toont minder: een sensor krimpt tot zijn pictogram en waarde."
