@@ -263,6 +263,14 @@ body > .drag-ghost { width: var(--gw, auto) !important; height: var(--gh, auto) 
   .ws-canvas { height: 70vh; }
 }
 
+/* New version */
+.update-bar { background: var(--warn-bg); border-bottom: 1px solid var(--border); padding: 8px 24px; font-size: 14px; }
+.update-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.update-notes { margin-top: 8px; max-height: 40vh; overflow: auto; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 10px 16px; }
+.update-notes h4 { margin: 10px 0 4px; font-size: 14px; }
+.update-notes ul { margin: 4px 0; padding-left: 20px; }
+.update-notes p { margin: 4px 0; }
+
 /* Install */
 .device-list { display: flex; flex-direction: column; gap: 10px; }
 .kobo { border: 1px solid var(--border); border-radius: 10px; padding: 14px; display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
@@ -351,6 +359,18 @@ a.btn.primary { color: var(--accent-ink); }
   <select id="uiLang" class="uilang" data-i18n-title="app.language"></select>
   <button class="btn quit" id="quitBtn" type="button" data-i18n="app.quit"></button>
 </header>
+<div id="updateBar" class="update-bar hidden" role="status">
+  <div class="update-row">
+    <strong id="updateTitle"></strong>
+    <span class="hint" style="margin:0" id="updateCurrent"></span>
+    <span class="spacer"></span>
+    <button class="btn small" type="button" id="updateNotesBtn" data-i18n="update.notes"></button>
+    <a class="btn small primary" id="updateDownload" target="_blank" rel="noopener" data-i18n="update.download"></a>
+    <button class="btn small" type="button" id="updateSkip" data-i18n="update.skip"></button>
+    <button class="btn small icon" type="button" id="updateClose" data-i18n-title="update.later" data-i18n-aria="update.later">✕</button>
+  </div>
+  <div id="updateNotes" class="update-notes hidden"></div>
+</div>
 
 <dialog id="quitDialog">
   <h2 data-i18n="app.quit_title"></h2>
@@ -432,6 +452,7 @@ a.btn.primary { color: var(--accent-ink); }
         </div>
         <p class="hint" style="margin-top:8px" data-i18n="connect.battery_hint"></p>
       </div>
+      <label class="check" style="margin-top:10px"><input type="checkbox" id="checkUpdates"> <span data-i18n="connect.check_updates"></span></label>
       <div class="row" style="margin-top:14px">
         <button class="btn primary" id="testBtn" data-i18n="connect.test"></button>
         <span class="hint" style="margin:0" data-i18n="connect.test_hint"></span>
@@ -1037,6 +1058,49 @@ function showSplash() {
   preview(chosen);
 }
 
+// ---------- New version ----------
+/// Release notes: a little Markdown (headings, lists, bold, links, code),
+/// escaped first so nothing in them runs
+function notesHtml(md) {
+  const esc = (t) => t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const inline = (t) => esc(t)
+    .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+    .replace(/`([^`]+)`/g, "<code>$1</code>")
+    .replace(/\[([^\]]+)\]\((https?:[^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
+  let html = "", list = false;
+  for (const line of md.split(/\r?\n/)) {
+    const item = line.match(/^\s*[-*] (.*)/);
+    if (item) { if (!list) { html += "<ul>"; list = true; } html += `<li>${inline(item[1])}</li>`; continue; }
+    if (list) { html += "</ul>"; list = false; }
+    const head = line.match(/^#+\s*(.*)/);
+    if (head) html += `<h4>${inline(head[1])}</h4>`;
+    else if (line.trim()) html += `<p>${inline(line)}</p>`;
+  }
+  return html + (list ? "</ul>" : "");
+}
+
+async function checkForUpdate() {
+  let r;
+  try { r = await api("/api/update"); } catch { return; }
+  const bar = $("updateBar"), o = r.offer;
+  bar.classList.toggle("hidden", !o || storage.get("updateLater") === o.version);
+  if (o) {
+    $("updateTitle").textContent = T("update.available", { version: o.version });
+    $("updateCurrent").textContent = T("update.current", { version: r.current });
+    $("updateDownload").href = o.download;
+    $("updateNotes").innerHTML = notesHtml(o.notes || "");
+    $("updateNotesBtn").onclick = () => { $("updateNotes").classList.toggle("hidden"); fitTop(); renderLayout(); };
+    $("updateSkip").onclick = async () => {
+      await api("/api/update/skip", { method: "POST", body: { version: o.version } }).catch(() => {});
+      bar.classList.add("hidden"); fitTop(); renderLayout();
+    };
+    // Later: not in this session's tab, back on the next start
+    $("updateClose").onclick = () => { storage.set("updateLater", o.version); bar.classList.add("hidden"); fitTop(); renderLayout(); };
+  }
+  fitTop();
+  renderLayout();
+}
+
 // ---------- Step 1 ----------
 function updateTokenButton() {
   $("toggleToken").textContent = T($("haToken").type === "password" ? "connect.show" : "connect.hide");
@@ -1079,6 +1143,12 @@ function bindConnect() {
   bind("sleepWake", () => String(cfg.device.sleep_wake_secs || 900), (v) => (cfg.device.sleep_wake_secs = parseInt(v) || 900), "change");
   bind("language", () => cfg.theme.language, (v) => { cfg.theme.language = v; ensureFont(); }, "change");
   $("model").addEventListener("change", () => { $("modelNote").classList.add("hidden"); setModel($("model").value); });
+  $("checkUpdates").checked = cfg.updates?.check !== false;
+  $("checkUpdates").addEventListener("change", () => {
+    cfg.updates = { ...(cfg.updates || {}), check: $("checkUpdates").checked };
+    sync();
+    checkForUpdate();
+  });
   $("reportBattery").addEventListener("change", () => {
     cfg.home_assistant.report_battery = $("reportBattery").checked;
     showBatteryOpts();
@@ -1438,7 +1508,7 @@ function layoutStale() {
 
 /// The workspace fills the window below the header.
 function fitTop() {
-  document.documentElement.style.setProperty("--top", document.querySelector("header.top").offsetHeight + "px");
+  document.documentElement.style.setProperty("--top", document.querySelector("header.top").offsetHeight + $("updateBar").offsetHeight + "px");
 }
 
 // ---------- Lovelace import ----------
@@ -2443,6 +2513,8 @@ async function scanKobos() {
             T("install.model_mismatch", { model: d.model_name, configured: configured ? configured.name : T("connect.model_auto") }),
             el("button", { class: "btn small", onclick: () => { setModel(d.model); scanKobos(); } }, T("install.use_model", { model: d.model_name }))) : null),
         d.has_config ? el("button", { class: "btn", onclick: () => importFrom(d.path) }, T("install.load_config")) : null,
+        d.old_logs?.length ? el("button", { class: "btn", title: T("install.clean_logs_title"), onclick: () => cleanLogs(d) },
+          T("install.clean_logs", { size: mb(d.old_logs.reduce((n, [, b]) => n + b, 0)) })) : null,
         el("button", { class: "btn", title: T("install.eject_title"), onclick: () => ejectKobo(d.path) }, T("install.eject")),
         primary);
     }));
@@ -2478,6 +2550,23 @@ async function install(path, withNickelMenu = false, nickelMenuPending = false) 
     lines.push("✕ " + e.message);
     log.textContent = lines.join("\n");
   }
+}
+
+const mb = (bytes) => (bytes / 1e6).toLocaleString(storage.get("uiLang") || "en", { maximumFractionDigits: 1 }) + " MB";
+
+/// Delete the old logs on a Kobo, after saying which
+async function cleanLogs(d) {
+  const list = d.old_logs.map(([name, b]) => `• ${name} (${mb(b)})`).join("\n");
+  if (!confirm(T("install.clean_logs_confirm", { list }))) return;
+  const log = $("installLog");
+  log.classList.remove("hidden");
+  try {
+    const r = await api("/api/kobo/clean-logs", { method: "POST", body: { path: d.path } });
+    log.textContent = T("install.logs_cleaned", { size: mb(r.freed) });
+  } catch (e) {
+    log.textContent = "✕ " + e.message;
+  }
+  scanKobos();
 }
 
 /// Eject the Kobo so it can be unplugged safely
@@ -2675,6 +2764,7 @@ async function boot() {
   else if (hash === "token-help") { setStep("connect"); openTokenHelp(); }
   else if (cfg.pages.length && cfg.home_assistant.token) setStep("design");
   ensureFont();
+  checkForUpdate();
   if (!uiLang) showSplash();
 }
 

@@ -16,6 +16,21 @@ pub struct AppConfig {
     pub theme: ThemeConfig,
     #[serde(default)]
     pub pages: Vec<PageConfig>,
+    #[serde(default)]
+    pub updates: UpdatesConfig,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UpdatesConfig {
+    /// Look once a day for a new version on GitHub
+    #[serde(default = "default_true")]
+    pub check: bool,
+}
+
+impl Default for UpdatesConfig {
+    fn default() -> Self {
+        Self { check: true }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -697,6 +712,7 @@ impl Default for AppConfig {
             home_assistant: HomeAssistantConfig::default(),
             theme: ThemeConfig::default(),
             pages: default_demo_pages(),
+            updates: UpdatesConfig::default(),
         }
     }
 }

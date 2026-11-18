@@ -20,6 +20,8 @@ pub struct HeaderStatus {
     pub asleep: bool,
     /// Frontlight state, when the device has one we can control
     pub frontlight: Option<bool>,
+    /// A newer version is out: a button for its release notes
+    pub update: bool,
 }
 
 /// Current time in the configured timezone.
@@ -215,7 +217,7 @@ pub fn render_header(
         (theme.heat.solid, i18n::t("header.offline"), None)
     };
     let battery_label = status.battery.map(|pct| i18n::tf("meta.percent", &[("value", &pct.to_string())]));
-    let n_buttons = if status.frontlight.is_some() { 3.0 } else { 2.0 };
+    let n_buttons = 2.0 + if status.frontlight.is_some() { 1.0 } else { 0.0 } + if status.update { 1.0 } else { 0.0 };
 
     let texts = HeaderTexts {
         time: &time_str,
@@ -248,6 +250,14 @@ pub fn render_header(
         draw_header_button(canvas, theme, light_rect, if on { "lightbulb_on" } else { "lightbulb" });
         targets.push(InteractiveTarget { rect: light_rect.inset(-8.0), action: UiAction::ToggleFrontlight });
         leftmost = light_rect.x;
+    }
+    if status.update {
+        let r = Rect::new(leftmost - gap - btn, by, btn, btn);
+        draw_header_button(canvas, theme, r, "update");
+        // A dot in the corner, so it is seen
+        canvas.fill_circle(r.x + r.w - 8.0, r.y + 8.0, 9.0, theme.accent.solid);
+        targets.push(InteractiveTarget { rect: r.inset(-8.0), action: UiAction::ShowUpdate });
+        leftmost = r.x;
     }
 
     // Status block, right aligned before the buttons

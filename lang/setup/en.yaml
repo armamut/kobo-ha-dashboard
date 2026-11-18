@@ -63,6 +63,7 @@ connect:
   suggested: "Suggested: {url}"
   use_this: "Use this"
   report_battery: "Send the Kobo's battery level to Home Assistant"
+  check_updates: "Look for new versions once a day (asks GitHub)"
   battery_entity: "Sensor entity"
   battery_hint: "Creates a battery sensor in Home Assistant, for example to switch a smart plug for charging. It is updated every few minutes and right after the cable goes in or out; in sleep mode at each refresh. It needs a token of an admin user, and after a Home Assistant restart it is back with the next update."
   display_title: "Device, display & language"
@@ -331,6 +332,14 @@ lovelace:
   skipped: "Not imported (no matching card):"
   skipped_item: "{card} ×{count}"
 
+update:
+  notes: "Release notes"
+  download: "Download"
+  skip: "Skip this version"
+  later: "Later"
+  available: "Version {version} is out"
+  current: "You have {version}"
+
 preview:
   sleep: "Show the sleep screen"
   grayscale: "Show in grayscale"
@@ -357,6 +366,10 @@ install:
   menu_name: "Name in the Kobo menu"
   binary_missing: "The Kobo program was not found next to this setup tool, so installing is disabled. Download the complete release package (it contains a <code>kobo</code> folder)."
   eject: "Eject"
+  clean_logs: "Delete old logs ({size})"
+  clean_logs_title: "Delete the logs of earlier runs from the Kobo; the current log and your settings stay"
+  clean_logs_confirm: "Delete these old logs from the Kobo?\n\n{list}"
+  logs_cleaned: "Deleted old logs: {size} freed."
   eject_title: "Eject the Kobo so you can unplug it safely"
   ejected: "The Kobo was ejected: you can unplug it now. The dashboard is in its menu."
   binary_stale: "The Kobo program next to this tool was built from other code than this setup tool, so the Kobo may not know the newest cards and leave them out. Build it again (<code>deploy/build-kobo.sh</code>) before installing."

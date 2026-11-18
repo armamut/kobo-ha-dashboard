@@ -12,6 +12,7 @@ mod power;
 mod setup;
 mod simulator;
 mod ui;
+mod update;
 
 use clap::{Parser, Subcommand};
 use config::AppConfig;
@@ -160,6 +161,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     i18n::set_language(&config.theme.language);
     // Picture files of the cards live in `pictures` next to the config
     crate::ui::screen::set_pictures_dir(Some(config_dir.join("pictures")));
+    // What was seen of new versions, too
+    update::set_state_dir(Some(config_dir.clone()));
     display::canvas::load_fallback_font(&paths::font_dirs(&config_dir), i18n::font_for(&config.theme.language).as_deref());
 
     let ha_client = HaClient::for_app(&config);
@@ -242,6 +245,18 @@ async fn run_device(
     // Live updates over WebSocket; the loop below only polls when that is
     // down, and otherwise just refreshes forecasts/graph history now and then.
     ha_client.set_redraw(wake_tx.clone());
+    // Once a day, when Wi-Fi is up, a look for a new version on GitHub
+    if config.updates.check {
+        let tx = wake_tx.clone();
+        tokio::spawn(async move {
+            loop {
+                if update::check_here().await {
+                    let _ = tx.send(()).await;
+                }
+                tokio::time::sleep(Duration::from_secs(3600)).await;
+            }
+        });
+    }
     ha_client.spawn_live_updates(wake_tx.clone());
     {
         let ha = ha_client.clone();
@@ -725,6 +740,22 @@ async fn run_device(
                         force_full = true;
                         None
                     }
+                    UiAction::ShowUpdate => {
+                        renderer.show_update = true;
+                        force_full = true;
+                        None
+                    }
+                    UiAction::CloseUpdate => {
+                        renderer.show_update = false;
+                        force_full = true;
+                        None
+                    }
+                    UiAction::SkipUpdate(version) => {
+                        update::skip(&version);
+                        renderer.show_update = false;
+                        force_full = true;
+                        None
+                    }
                     UiAction::Refresh => {
                         force_full = true;
                         ha_client.force_images();
@@ -1002,6 +1033,7 @@ async fn redraw(renderer: &mut ScreenRenderer, canvas: &mut Canvas, config: &App
     let is_live = ha.is_connected().await;
     renderer.last_update = ha.last_update().await;
     renderer.set_images(ha.images().await);
+    renderer.update_offer = if config.updates.check { update::current_offer() } else { None };
     renderer.render(canvas, config, page, &states, is_live);
 }
 

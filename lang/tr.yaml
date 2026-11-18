@@ -109,3 +109,9 @@ sleep:
 image:
   too_large: "Kobo için fazla büyük ({size}, en çok 4K)"
   unreadable: "Kobo'nun okuyabildiği bir resim değil"
+
+update:
+  title: "{version} sürümü çıktı"
+  how: "Kurmak için Kobo'yu bir bilgisayara bağlayıp kurulum aracını açın: yeni sürümü ve nereden indirileceğini orada görürsünüz."
+  skip: "Bu sürümü atla"
+  close: "Kapat"

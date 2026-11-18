@@ -59,6 +59,7 @@ connect:
   suggested: "おすすめ: {url}"
   use_this: "これを使う"
   report_battery: "Kobo のバッテリー残量を Home Assistant に送信"
+  check_updates: "1 日 1 回新しいバージョンを確認する（GitHub に問い合わせます）"
   battery_entity: "センサーのエンティティ"
   battery_hint: "Home Assistant にバッテリーセンサーを作成します。たとえば充電用のスマートプラグの切り替えに使えます。数分ごと、およびケーブルの抜き差し時にすぐ更新され、スリープモードでは更新のたびに送られます。管理者ユーザーのトークンが必要です。Home Assistant を再起動した後は、次の更新で戻ります。"
   display_title: "デバイス・表示・言語"
@@ -327,6 +328,14 @@ lovelace:
   skipped: "読み込めませんでした（対応するカードがありません）:"
   skipped_item: "{card} ×{count}"
 
+update:
+  notes: "リリースノート"
+  download: "ダウンロード"
+  skip: "このバージョンをスキップ"
+  later: "後で"
+  available: "バージョン {version} が公開されました"
+  current: "お使いのバージョンは {version}"
+
 preview:
   sleep: "スリープ画面を表示"
   grayscale: "グレースケールで表示"
@@ -353,6 +362,10 @@ install:
   menu_name: "Kobo メニューでの名前"
   binary_missing: "このセットアップツールと同じ場所に Kobo 用プログラムが見つからないため、インストールできません。完全なリリースパッケージ（<code>kobo</code> フォルダーを含む）をダウンロードしてください。"
   eject: "取り出す"
+  clean_logs: "古いログを削除（{size}）"
+  clean_logs_title: "以前の実行時のログを Kobo から削除します。現在のログと設定は残ります"
+  clean_logs_confirm: "これらの古いログを Kobo から削除しますか？\n\n{list}"
+  logs_cleaned: "古いログを削除しました：{size} を解放。"
   eject_title: "安全に取り外せるように Kobo を取り出します"
   ejected: "Kobo を取り出しました。ケーブルを抜いてかまいません。ダッシュボードは Kobo のメニューにあります。"
   binary_stale: "このツールの横にある Kobo 用プログラムは、このセットアップツールとは別のコードからビルドされています。Kobo が新しいカードを認識できず省略する可能性があります。インストール前に再ビルドしてください（<code>deploy/build-kobo.sh</code>）。"

@@ -59,6 +59,7 @@ connect:
   suggested: "建议：{url}"
   use_this: "使用此地址"
   report_battery: "将 Kobo 的电池电量发送到 Home Assistant"
+  check_updates: "每天检查一次新版本（访问 GitHub）"
   battery_entity: "传感器实体"
   battery_hint: "在 Home Assistant 中创建一个电池传感器，例如用来切换智能插座进行充电。它每隔几分钟更新一次，插拔数据线时会立即更新；睡眠模式下在每次刷新时更新。需要管理员用户的令牌；Home Assistant 重启后，会在下一次更新时恢复。"
   display_title: "设备、显示与语言"
@@ -327,6 +328,14 @@ lovelace:
   skipped: "未导入（没有对应的卡片）："
   skipped_item: "{card} ×{count}"
 
+update:
+  notes: "发行说明"
+  download: "下载"
+  skip: "跳过此版本"
+  later: "稍后"
+  available: "{version} 版已发布"
+  current: "当前版本 {version}"
+
 preview:
   sleep: "显示睡眠画面"
   grayscale: "以灰度显示"
@@ -353,6 +362,10 @@ install:
   menu_name: "在 Kobo 菜单中的名称"
   binary_missing: "在此设置工具旁边找不到 Kobo 程序，因此无法安装。请下载完整的发布包（其中包含 <code>kobo</code> 文件夹）。"
   eject: "弹出"
+  clean_logs: "删除旧日志（{size}）"
+  clean_logs_title: "从 Kobo 删除以前运行的日志；当前日志和设置会保留"
+  clean_logs_confirm: "要从 Kobo 删除这些旧日志吗？\n\n{list}"
+  logs_cleaned: "已删除旧日志：释放 {size}。"
   eject_title: "弹出 Kobo，以便安全拔下"
   ejected: "Kobo 已弹出，可以拔下了。仪表板在它的菜单中。"
   binary_stale: "此工具旁的 Kobo 程序与本设置工具的代码版本不同，Kobo 可能无法识别最新的卡片而将其略过。安装前请重新构建（<code>deploy/build-kobo.sh</code>）。"

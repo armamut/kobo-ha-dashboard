@@ -59,6 +59,7 @@ connect:
   suggested: "Suggerito: {url}"
   use_this: "Usa questo"
   report_battery: "Invia il livello della batteria del Kobo a Home Assistant"
+  check_updates: "Cerca nuove versioni una volta al giorno (chiede a GitHub)"
   battery_entity: "Entità del sensore"
   battery_hint: "Crea un sensore della batteria in Home Assistant, ad esempio per accendere una presa smart per la ricarica. Si aggiorna ogni pochi minuti e subito quando il cavo viene collegato o scollegato; in modalità sospensione a ogni aggiornamento. Serve il token di un utente amministratore; dopo un riavvio di Home Assistant torna con l'aggiornamento successivo."
   display_title: "Dispositivo, display e lingua"
@@ -327,6 +328,14 @@ lovelace:
   skipped: "Non importato (nessuna scheda corrispondente):"
   skipped_item: "{card} ×{count}"
 
+update:
+  notes: "Note di rilascio"
+  download: "Scarica"
+  skip: "Salta questa versione"
+  later: "Più tardi"
+  available: "È uscita la versione {version}"
+  current: "Hai la {version}"
+
 preview:
   sleep: "Mostra la schermata di sospensione"
   grayscale: "Mostra in scala di grigi"
@@ -353,6 +362,10 @@ install:
   menu_name: "Nome nel menu del Kobo"
   binary_missing: "Il programma per Kobo non è stato trovato accanto a questo strumento, quindi l'installazione è disattivata. Scarica il pacchetto completo (contiene una cartella <code>kobo</code>)."
   eject: "Espelli"
+  clean_logs: "Elimina vecchi log ({size})"
+  clean_logs_title: "Elimina dal Kobo i log delle esecuzioni precedenti; il log attuale e le impostazioni restano"
+  clean_logs_confirm: "Eliminare questi vecchi log dal Kobo?\n\n{list}"
+  logs_cleaned: "Vecchi log eliminati: {size} liberati."
   eject_title: "Espelli il Kobo per scollegarlo in sicurezza"
   ejected: "Il Kobo è stato espulso: ora puoi scollegarlo. La dashboard è nel suo menu."
   binary_stale: "Il programma Kobo accanto a questo strumento è stato compilato da codice diverso da questo strumento; il Kobo potrebbe non conoscere le schede più nuove e ometterle. Ricompilalo prima di installare (<code>deploy/build-kobo.sh</code>)."

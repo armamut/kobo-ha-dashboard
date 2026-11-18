@@ -128,6 +128,9 @@ pub async fn start_setup_server(
         .route("/api/kobo", get(list_kobos))
         .route("/api/kobo/install", post(install_kobo))
         .route("/api/kobo/eject", post(eject_kobo))
+        .route("/api/kobo/clean-logs", post(clean_kobo_logs))
+        .route("/api/update", get(update_offer))
+        .route("/api/update/skip", post(skip_update))
         .route("/api/kobo/import", post(import_kobo))
         .route("/api/kobo/nickelmenu", post(install_nickelmenu))
         .route("/api/fonts/ensure", post(ensure_font))
@@ -805,6 +808,55 @@ async fn upload_picture(State(s): State<Shared>, Query(q): Query<UploadQuery>, b
         }
     };
     Json(serde_json::json!({ "file": name, "width": w, "height": h })).into_response()
+}
+
+/// Where the setup tool keeps what it saw of new versions
+fn update_state_path(s: &Shared) -> PathBuf {
+    crate::update::state_path(s.config_path.parent().unwrap_or(Path::new(".")))
+}
+
+/// A newer version to tell about, if checking is on: asks GitHub when the
+/// last look is a day old, else answers from what was seen then.
+async fn update_offer(State(s): State<Shared>) -> Json<serde_json::Value> {
+    let check = s.draft.read().await.updates.check;
+    let path = update_state_path(&s);
+    if check {
+        crate::update::check(&path).await;
+    }
+    let state = crate::update::UpdateState::load(&path);
+    let offer = check.then(|| state.offer(crate::update::CURRENT)).flatten().map(|r| {
+        serde_json::json!({
+            "version": r.version,
+            "title": r.title,
+            "notes": r.notes,
+            "url": r.url,
+            "download": crate::update::asset_for_this_system(r).map(|a| a.1.clone()).unwrap_or_else(|| r.url.clone()),
+        })
+    });
+    Json(serde_json::json!({ "current": crate::update::CURRENT, "check": check, "offer": offer }))
+}
+
+#[derive(Deserialize)]
+struct SkipRequest {
+    version: String,
+}
+
+/// Don't offer this version again (a newer one still is)
+async fn skip_update(State(s): State<Shared>, Json(req): Json<SkipRequest>) -> StatusCode {
+    let path = update_state_path(&s);
+    let mut state = crate::update::UpdateState::load(&path);
+    state.skipped = Some(req.version);
+    state.save(&path);
+    StatusCode::NO_CONTENT
+}
+
+/// Delete the old logs on a Kobo: the previous run's and saved incident
+/// logs. The current log, the config and its backups stay.
+async fn clean_kobo_logs(Json(req): Json<EjectRequest>) -> Response {
+    match kobo::clean_old_logs(Path::new(&req.path)) {
+        Ok(freed) => Json(serde_json::json!({ "freed": freed })).into_response(),
+        Err(e) => bad_request(e),
+    }
 }
 
 #[derive(Deserialize)]

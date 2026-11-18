@@ -523,6 +523,14 @@ fn icon_shapes(name: &str) -> Vec<(Mode, Option<Path>)> {
             pb.move_to(11.0, 5.5);
             pb.line_to(12.0, 5.5);
         }))],
+        "update" => vec![(Stroke, build(|pb| {
+            pb.push_circle(12.0, 12.0, 9.5);
+            pb.move_to(12.0, 16.5);
+            pb.line_to(12.0, 7.5);
+            pb.move_to(8.0, 11.0);
+            pb.line_to(12.0, 7.0);
+            pb.line_to(16.0, 11.0);
+        }))],
         "chevron_up" => vec![(Stroke, build(|pb| {
             pb.move_to(5.0, 15.5);
             pb.line_to(12.0, 8.5);

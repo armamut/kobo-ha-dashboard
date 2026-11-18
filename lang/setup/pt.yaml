@@ -59,6 +59,7 @@ connect:
   suggested: "Sugestão: {url}"
   use_this: "Usar este"
   report_battery: "Enviar o nível da bateria do Kobo para o Home Assistant"
+  check_updates: "Procurar novas versões uma vez por dia (consulta o GitHub)"
   battery_entity: "Entidade do sensor"
   battery_hint: "Cria um sensor de bateria no Home Assistant, por exemplo para ligar uma tomada inteligente para carregar. É atualizado a cada poucos minutos e logo que o cabo é ligado ou desligado; no modo de suspensão, a cada atualização. Precisa do token de um usuário administrador; depois de reiniciar o Home Assistant, volta na próxima atualização."
   display_title: "Dispositivo, tela e idioma"
@@ -327,6 +328,14 @@ lovelace:
   skipped: "Não importado (sem cartão correspondente):"
   skipped_item: "{card} ×{count}"
 
+update:
+  notes: "Notas da versão"
+  download: "Transferir"
+  skip: "Ignorar esta versão"
+  later: "Mais tarde"
+  available: "Saiu a versão {version}"
+  current: "Tem a {version}"
+
 preview:
   sleep: "Mostrar a tela de suspensão"
   grayscale: "Mostrar em tons de cinza"
@@ -353,6 +362,10 @@ install:
   menu_name: "Nome no menu do Kobo"
   binary_missing: "O programa do Kobo não foi encontrado junto a esta ferramenta, então a instalação está desativada. Baixe o pacote completo (ele contém uma pasta <code>kobo</code>)."
   eject: "Ejetar"
+  clean_logs: "Apagar registos antigos ({size})"
+  clean_logs_title: "Apaga do Kobo os registos de execuções anteriores; o registo atual e as suas definições ficam"
+  clean_logs_confirm: "Apagar estes registos antigos do Kobo?\n\n{list}"
+  logs_cleaned: "Registos antigos apagados: {size} libertados."
   eject_title: "Ejetar o Kobo para o desligar em segurança"
   ejected: "O Kobo foi ejetado: já pode desligá-lo. O painel está no seu menu."
   binary_stale: "O programa do Kobo junto a esta ferramenta foi compilado a partir de outro código; o Kobo pode não conhecer os cartões mais recentes e omiti-los. Volte a compilá-lo antes de instalar (<code>deploy/build-kobo.sh</code>)."

@@ -25,6 +25,8 @@ pub fn launcher(tz_rule: Option<&str>) -> String {
 #[derive(Debug, Clone, Serialize)]
 pub struct KoboDevice {
     pub path: String,
+    /// Old logs in .kobo-ha that can be deleted: (file name, bytes)
+    pub old_logs: Vec<(String, u64)>,
     pub firmware: Option<String>,
     pub model_id: Option<String>,
     /// Key into `models::MODELS`, when the model is known
@@ -89,6 +91,7 @@ pub fn detect() -> Vec<KoboDevice> {
                 installed: root.join(".kobo-ha/kobo-ha-dashboard").is_file(),
                 has_config: root.join(".kobo-ha/config.yaml").is_file(),
                 path: root.to_string_lossy().into_owned(),
+                old_logs: old_logs(&root),
             }
         })
         .collect()
@@ -159,6 +162,35 @@ pub fn install_nickelmenu(root: &Path, package: &[u8], file_name: &str) -> Resul
     std::fs::write(&target, package).map_err(|e| e.to_string())?;
     remove_apple_double(&root.join(".kobo"));
     Ok(())
+}
+
+/// Logs in the app folder that are no longer written: the previous run's
+/// (`*.log.old`) and saved incident logs (`incident-*.log`)
+pub fn old_logs(root: &Path) -> Vec<(String, u64)> {
+    let Ok(entries) = std::fs::read_dir(root.join(".kobo-ha")) else { return Vec::new() };
+    let mut out: Vec<(String, u64)> = entries
+        .flatten()
+        .filter_map(|e| {
+            let name = e.file_name().to_string_lossy().to_string();
+            let old = name.ends_with(".log.old") || (name.starts_with("incident-") && name.ends_with(".log"));
+            (old && !name.starts_with("._")).then(|| (name, e.metadata().map(|m| m.len()).unwrap_or(0)))
+        })
+        .collect();
+    out.sort();
+    out
+}
+
+/// Delete [`old_logs`] on a connected Kobo; returns the bytes freed
+pub fn clean_old_logs(root: &Path) -> Result<u64, String> {
+    if !detect().iter().any(|d| Path::new(&d.path) == root) {
+        return Err(format!("{} is not a connected Kobo", root.display()));
+    }
+    let mut freed = 0;
+    for (name, size) in old_logs(root) {
+        std::fs::remove_file(root.join(".kobo-ha").join(&name)).map_err(|e| format!("{}: {}", name, e))?;
+        freed += size;
+    }
+    Ok(freed)
 }
 
 /// Eject a Kobo's storage the way the system's own "Eject" does, so it can

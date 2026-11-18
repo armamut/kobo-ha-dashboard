@@ -36,6 +36,12 @@ pub enum UiAction {
     /// A service of `domain` on one entity, e.g. ("cover", "open_cover", id)
     CallService(String, String, String),
     SwitchPage(usize),
+    /// The header's new-version button: show the release notes
+    ShowUpdate,
+    /// Back to the page from the release notes
+    CloseUpdate,
+    /// Don't tell about this version again
+    SkipUpdate(String),
     Refresh,
     ToggleFrontlight,
     ExitToReader,

@@ -59,6 +59,7 @@ connect:
   suggested: "Suggestion : {url}"
   use_this: "Utiliser"
   report_battery: "Envoyer le niveau de batterie du Kobo à Home Assistant"
+  check_updates: "Chercher une nouvelle version une fois par jour (interroge GitHub)"
   battery_entity: "Entité du capteur"
   battery_hint: "Crée un capteur de batterie dans Home Assistant, par exemple pour commander une prise connectée pour la recharge. Il est mis à jour toutes les quelques minutes et dès que le câble est branché ou débranché ; en mode veille, à chaque actualisation. Il faut le jeton d'un utilisateur administrateur ; après un redémarrage de Home Assistant, il revient à la mise à jour suivante."
   display_title: "Appareil, affichage et langue"
@@ -327,6 +328,14 @@ lovelace:
   skipped: "Non importé (aucune carte correspondante) :"
   skipped_item: "{card} ×{count}"
 
+update:
+  notes: "Notes de version"
+  download: "Télécharger"
+  skip: "Ignorer cette version"
+  later: "Plus tard"
+  available: "La version {version} est sortie"
+  current: "Vous avez la {version}"
+
 preview:
   sleep: "Afficher l'écran de veille"
   grayscale: "Afficher en niveaux de gris"
@@ -353,6 +362,10 @@ install:
   menu_name: "Nom dans le menu de la Kobo"
   binary_missing: "Le programme Kobo est introuvable à côté de cet outil ; l'installation est désactivée. Téléchargez le paquet complet (il contient un dossier <code>kobo</code>)."
   eject: "Éjecter"
+  clean_logs: "Supprimer les anciens journaux ({size})"
+  clean_logs_title: "Supprime de la Kobo les journaux des lancements précédents ; le journal actuel et vos réglages restent"
+  clean_logs_confirm: "Supprimer ces anciens journaux de la Kobo ?\n\n{list}"
+  logs_cleaned: "Anciens journaux supprimés : {size} libérés."
   eject_title: "Éjecter la Kobo pour la débrancher en toute sécurité"
   ejected: "La Kobo a été éjectée : vous pouvez la débrancher. Le tableau de bord est dans son menu."
   binary_stale: "Le programme Kobo à côté de cet outil a été compilé à partir d'un autre code que cet outil ; la Kobo risque d'ignorer les cartes les plus récentes. Recompilez-le avant l'installation (<code>deploy/build-kobo.sh</code>)."

@@ -59,6 +59,7 @@ connect:
   suggested: "Vorschlag: {url}"
   use_this: "Übernehmen"
   report_battery: "Akkustand des Kobo an Home Assistant senden"
+  check_updates: "Einmal täglich nach neuen Versionen suchen (fragt GitHub)"
   battery_entity: "Sensor-Entität"
   battery_hint: "Legt in Home Assistant einen Akkusensor an, zum Beispiel um eine smarte Steckdose zum Laden zu schalten. Er wird alle paar Minuten und sofort beim Ein- oder Ausstecken des Kabels aktualisiert, im Schlafmodus bei jeder Aktualisierung. Dafür braucht es den Token eines Admin-Benutzers; nach einem Neustart von Home Assistant ist er mit der nächsten Aktualisierung wieder da."
   display_title: "Gerät, Anzeige & Sprache"
@@ -327,6 +328,14 @@ lovelace:
   skipped: "Nicht importiert (keine passende Karte):"
   skipped_item: "{card} ×{count}"
 
+update:
+  notes: "Versionshinweise"
+  download: "Herunterladen"
+  skip: "Diese Version überspringen"
+  later: "Später"
+  available: "Version {version} ist erschienen"
+  current: "Sie haben {version}"
+
 preview:
   sleep: "Ruhebildschirm anzeigen"
   grayscale: "In Graustufen anzeigen"
@@ -353,6 +362,10 @@ install:
   menu_name: "Name im Kobo-Menü"
   binary_missing: "Das Kobo-Programm wurde neben diesem Einrichtungswerkzeug nicht gefunden, daher ist die Installation deaktiviert. Lade das vollständige Release-Paket herunter (es enthält einen Ordner <code>kobo</code>)."
   eject: "Auswerfen"
+  clean_logs: "Alte Protokolle löschen ({size})"
+  clean_logs_title: "Löscht die Protokolle früherer Läufe vom Kobo; das aktuelle Protokoll und Ihre Einstellungen bleiben"
+  clean_logs_confirm: "Diese alten Protokolle vom Kobo löschen?\n\n{list}"
+  logs_cleaned: "Alte Protokolle gelöscht: {size} frei."
   eject_title: "Den Kobo auswerfen, damit Sie ihn sicher abziehen können"
   ejected: "Der Kobo wurde ausgeworfen: Sie können ihn jetzt abziehen. Das Dashboard finden Sie in seinem Menü."
   binary_stale: "Das Kobo-Programm neben diesem Werkzeug wurde aus anderem Code gebaut als dieses Einrichtungswerkzeug; der Kobo kennt die neuesten Karten vielleicht nicht und lässt sie weg. Bauen Sie es vor der Installation neu (<code>deploy/build-kobo.sh</code>)."

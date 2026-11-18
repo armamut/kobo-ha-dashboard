@@ -59,6 +59,7 @@ connect:
   suggested: "Voorstel: {url}"
   use_this: "Gebruiken"
   report_battery: "Batterijniveau van de Kobo naar Home Assistant sturen"
+  check_updates: "Eén keer per dag naar nieuwe versies zoeken (vraagt GitHub)"
   battery_entity: "Sensor-entiteit"
   battery_hint: "Maakt een batterijsensor in Home Assistant, bijvoorbeeld om een slimme stekker te schakelen voor het opladen. Hij wordt om de paar minuten bijgewerkt en meteen als de kabel erin of eruit gaat; in slaapstand bij elke verversing. Er is een token van een beheerder nodig; na een herstart van Home Assistant is hij er bij de volgende update weer."
   display_title: "Apparaat, scherm en taal"
@@ -327,6 +328,14 @@ lovelace:
   skipped: "Niet geïmporteerd (geen passende kaart):"
   skipped_item: "{card} ×{count}"
 
+update:
+  notes: "Release-opmerkingen"
+  download: "Downloaden"
+  skip: "Deze versie overslaan"
+  later: "Later"
+  available: "Versie {version} is uit"
+  current: "U hebt {version}"
+
 preview:
   sleep: "Slaapscherm tonen"
   grayscale: "In grijstinten tonen"
@@ -353,6 +362,10 @@ install:
   menu_name: "Naam in het Kobo-menu"
   binary_missing: "Het Kobo-programma is niet naast dit hulpmiddel gevonden, dus installeren is uitgeschakeld. Download het volledige releasepakket (met een map <code>kobo</code>)."
   eject: "Uitwerpen"
+  clean_logs: "Oude logboeken verwijderen ({size})"
+  clean_logs_title: "Verwijdert de logboeken van eerdere keren van de Kobo; het huidige logboek en uw instellingen blijven"
+  clean_logs_confirm: "Deze oude logboeken van de Kobo verwijderen?\n\n{list}"
+  logs_cleaned: "Oude logboeken verwijderd: {size} vrijgemaakt."
   eject_title: "De Kobo uitwerpen zodat u hem veilig kunt loskoppelen"
   ejected: "De Kobo is uitgeworpen: u kunt hem nu loskoppelen. Het dashboard staat in zijn menu."
   binary_stale: "Het Kobo-programma naast dit hulpmiddel is gebouwd uit andere code dan dit installatiehulpmiddel; de Kobo kent de nieuwste kaarten misschien niet en laat ze weg. Bouw het opnieuw voor het installeren (<code>deploy/build-kobo.sh</code>)."

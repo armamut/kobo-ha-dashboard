@@ -109,3 +109,9 @@ sleep:
 image:
   too_large: "Te groot voor de Kobo ({size}, max. 4K)"
   unreadable: "Geen afbeelding die de Kobo kan lezen"
+
+update:
+  title: "Versie {version} is uit"
+  how: "Sluit de Kobo aan op een computer en open het installatiehulpmiddel om hem te installeren: daar staat de nieuwe versie en waar u die downloadt."
+  skip: "Deze versie overslaan"
+  close: "Sluiten"

@@ -1,6 +1,6 @@
 use crate::config::{AppConfig, Card, CardConfig, GridPos, GridSize, ImageFit, PageConfig, SceneItemConfig};
 use crate::display::canvas::ui_size;
-use crate::display::Canvas;
+use crate::display::{Canvas, TextAlign};
 use crate::ha::models::EntityState;
 use crate::ui::layout::{InteractiveTarget, Rect, UiAction};
 use crate::ui::theme::Theme;
@@ -679,6 +679,10 @@ pub struct ScreenRenderer {
     pub sleep_until: Option<String>,
     /// Draw the "battery empty" screen instead of the dashboard
     pub battery_empty: bool,
+    /// A newer version to tell about: (version, release notes as plain text)
+    pub update_offer: Option<(String, String)>,
+    /// The release notes are on screen instead of the page
+    pub show_update: bool,
     /// Battery, charging and Wi-Fi to show instead of the device's own (the
     /// setup tool's preview runs on a computer)
     pub device_status: Option<(Option<u8>, bool, Option<bool>)>,
@@ -722,6 +726,8 @@ impl ScreenRenderer {
             sleep_until: None,
             battery_empty: false,
             device_status: None,
+            update_offer: None,
+            show_update: false,
             scale: 1.0,
             images: HashMap::new(),
             image_cache: HashMap::new(),
@@ -806,6 +812,7 @@ impl ScreenRenderer {
             wifi_up,
             asleep: self.sleep_until.is_some(),
             frontlight: self.frontlight,
+            update: self.update_offer.is_some(),
         };
 
         let header_bottom = render_header(
@@ -817,6 +824,13 @@ impl ScreenRenderer {
             &status,
             &mut self.targets,
         );
+
+        if self.show_update {
+            if let Some((version, notes)) = self.update_offer.clone() {
+                self.render_update(canvas, header_bottom, &version, &notes);
+                return;
+            }
+        }
 
         let Some(page) = config.pages.get(active_page_idx) else { return };
 
@@ -864,6 +878,57 @@ impl ScreenRenderer {
 
     /// The whole screen, not a note on the dashboard: it can stay up for days
     /// and old values shouldn't look current. E-ink keeps it without power.
+    /// The release notes of a newer version, below the header: how to get
+    /// it, and buttons to close or to skip this version.
+    fn render_update(&mut self, canvas: &mut Canvas, top: f32, version: &str, notes: &str) {
+        use crate::i18n;
+        let (w, h) = canvas.ui_size();
+        let card = Rect::new(SIDE_PAD, top, w - 2.0 * SIDE_PAD, h - top - BOTTOM_PAD);
+        draw_card(canvas, &self.theme, card, None);
+        let x = card.x + PAD;
+        let tw = card.w - 2.0 * PAD;
+        let mut y = card.y + PAD;
+        canvas.draw_text_fit(&i18n::tf("update.title", &[("version", version)]), x, y, type_scale::TITLE, true, self.theme.text, TextAlign::Left, tw);
+        y += 44.0;
+        for line in wrap_text(canvas, &i18n::t("update.how"), type_scale::BODY, false, tw) {
+            canvas.draw_text(&line, x, y, type_scale::BODY, false, self.theme.text_muted, TextAlign::Left);
+            y += 34.0;
+        }
+        y += 12.0;
+        canvas.draw_line(x, y, x + tw, y, 2.0, self.theme.border);
+        y += 18.0;
+        // The notes, as many lines as fit above the buttons
+        let btn_h = 72.0;
+        let bottom = card.y + card.h - PAD - btn_h - 16.0;
+        let size = type_scale::LABEL;
+        'notes: for para in notes.lines() {
+            if para.trim().is_empty() {
+                y += 12.0;
+                continue;
+            }
+            for line in wrap_text(canvas, para, size, false, tw) {
+                if y + 30.0 > bottom {
+                    canvas.draw_text("…", x, y, size, true, self.theme.text_muted, TextAlign::Left);
+                    break 'notes;
+                }
+                canvas.draw_text(&line, x, y, size, false, self.theme.text, TextAlign::Left);
+                y += 30.0;
+            }
+        }
+        let bw = (tw - 16.0) / 2.0;
+        let by = card.y + card.h - PAD - btn_h;
+        let skip = Rect::new(x, by, bw, btn_h);
+        let close = Rect::new(x + bw + 16.0, by, bw, btn_h);
+        for (r, label, primary) in [(skip, i18n::t("update.skip"), false), (close, i18n::t("update.close"), true)] {
+            let (bg, fg) = if primary { (self.theme.text, self.theme.surface) } else { (self.theme.surface, self.theme.text) };
+            canvas.fill_rounded_rect(r.x, r.y, r.w, r.h, 18.0, bg);
+            canvas.stroke_rounded_rect(r.x + 1.0, r.y + 1.0, r.w - 2.0, r.h - 2.0, 17.0, 2.0, self.theme.border_strong);
+            canvas.draw_text_fit(&label, r.x + r.w / 2.0, r.y + r.h / 2.0 - 14.0, type_scale::BODY, true, fg, TextAlign::Center, r.w - 24.0);
+        }
+        self.targets.push(InteractiveTarget { rect: skip, action: UiAction::SkipUpdate(version.to_string()) });
+        self.targets.push(InteractiveTarget { rect: close, action: UiAction::CloseUpdate });
+    }
+
     fn render_battery_empty(&self, canvas: &mut Canvas) {
         use crate::display::TextAlign;
         use crate::i18n;
@@ -1041,6 +1106,26 @@ impl ScreenRenderer {
             .min_by(|a, b| a.0.total_cmp(&b.0))
             .map(|(_, t)| t.action.clone())
     }
+}
+
+/// `text` broken into lines no wider than `max_w`, at spaces (a word wider
+/// than the line is cut by the drawing)
+pub fn wrap_text(canvas: &Canvas, text: &str, size: f32, bold: bool, max_w: f32) -> Vec<String> {
+    let mut lines = Vec::new();
+    let mut line = String::new();
+    for word in text.split_whitespace() {
+        let candidate = if line.is_empty() { word.to_string() } else { format!("{} {}", line, word) };
+        if !line.is_empty() && canvas.measure_text(&candidate, size, bold).0 > max_w {
+            lines.push(std::mem::take(&mut line));
+            line = word.to_string();
+        } else {
+            line = candidate;
+        }
+    }
+    if !line.is_empty() {
+        lines.push(line);
+    }
+    lines
 }
 
 /// The one-line sleep note: "Sleep mode · Next update 22:56", smaller if
@@ -1563,6 +1648,34 @@ mod tests {
         assert_eq!((p.y, p.h), (16, 2));
     }
 
+
+    /// The page with the new-version button, and the release notes screen:
+    /// `UPDATE_SCREEN=/tmp/u.png cargo test update_screen -- --ignored`
+    #[test]
+    #[ignore]
+    fn update_screen() {
+        let Ok(out) = std::env::var("UPDATE_SCREEN") else { return };
+        let config = AppConfig::default();
+        let states = crate::ha::mock::generate_mock_states();
+        let mut renderer = ScreenRenderer::new(&config);
+        renderer.frontlight = Some(true);
+        renderer.device_status = Some((Some(76), false, Some(true)));
+        let notes = "## What's new\n- **Grid designer**: drag cards anywhere, resize them\n- New cards: progress, cover, status strip, breakdown ring\n- Thermostat graph with heating periods\n\nThanks to everyone who reported issues.";
+        renderer.update_offer = Some(("0.4.0".into(), crate::update::plain_notes(notes)));
+        let (w, h) = (1072u32, 1448u32);
+        let mut page = Canvas::for_screen(w, h);
+        renderer.render(&mut page, &config, 0, &states, true);
+        renderer.show_update = true;
+        let mut notes_screen = Canvas::for_screen(w, h);
+        renderer.render(&mut notes_screen, &config, 0, &states, true);
+        let mut both = Canvas::new(w * 2 + 20, h);
+        both.clear(crate::display::Color::rgb(80, 80, 80));
+        let a = tiny_skia::Pixmap::decode_png(&page.to_png_bytes().unwrap()).unwrap();
+        let b = tiny_skia::Pixmap::decode_png(&notes_screen.to_png_bytes().unwrap()).unwrap();
+        both.draw_image(&a, 0.0, 0.0);
+        both.draw_image(&b, (w + 20) as f32, 0.0);
+        std::fs::write(out, both.to_png_bytes().unwrap()).unwrap();
+    }
 
     /// Every card at sizes from its natural one down to its smallest, written
     /// to `$CARD_GALLERY` as a PNG: `CARD_GALLERY=/tmp/g.png cargo test card_gallery -- --ignored`

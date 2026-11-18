@@ -109,3 +109,9 @@ sleep:
 image:
   too_large: "对 Kobo 来说太大（{size}，最大 4K）"
   unreadable: "Kobo 无法读取此图片"
+
+update:
+  title: "{version} 版已发布"
+  how: "要安装，请将 Kobo 连接到电脑并打开设置工具：其中会显示新版本及下载位置。"
+  skip: "跳过此版本"
+  close: "关闭"

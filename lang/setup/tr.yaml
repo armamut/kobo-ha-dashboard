@@ -59,6 +59,7 @@ connect:
   suggested: "Önerilen: {url}"
   use_this: "Bunu kullan"
   report_battery: "Kobo'nun pil seviyesini Home Assistant'a gönder"
+  check_updates: "Yeni sürümleri günde bir kez denetle (GitHub'a sorar)"
   battery_entity: "Sensör entity'si"
   battery_hint: "Home Assistant'ta bir pil sensörü oluşturur; örneğin şarj için akıllı prizi açıp kapatmakta kullanılabilir. Birkaç dakikada bir ve kablo takılıp çıkarıldığında hemen, sleep modunda her yenilemede güncellenir. Admin kullanıcının token'ını gerektirir; Home Assistant yeniden başlarsa bir sonraki güncellemeyle geri gelir."
   display_title: "Cihaz, ekran ve dil"
@@ -327,6 +328,14 @@ lovelace:
   skipped: "İçe aktarılmadı (uygun kart yok):"
   skipped_item: "{card} ×{count}"
 
+update:
+  notes: "Sürüm notları"
+  download: "İndir"
+  skip: "Bu sürümü atla"
+  later: "Sonra"
+  available: "{version} sürümü çıktı"
+  current: "Sizdeki sürüm {version}"
+
 preview:
   sleep: "Uyku ekranını göster"
   grayscale: "Gri tonlamalı göster"
@@ -353,6 +362,10 @@ install:
   menu_name: "Kobo menüsündeki adı"
   binary_missing: "Kobo programı bu kurulum aracının yanında bulunamadı, bu yüzden kurulum devre dışı. Tam sürüm paketini indirin (içinde bir <code>kobo</code> klasörü vardır)."
   eject: "Kobo'yu çıkar"
+  clean_logs: "Eski günlükleri sil ({size})"
+  clean_logs_title: "Önceki çalıştırmaların günlüklerini Kobo'dan siler; güncel günlük ve ayarlarınız kalır"
+  clean_logs_confirm: "Bu eski günlükler Kobo'dan silinsin mi?\n\n{list}"
+  logs_cleaned: "Eski günlükler silindi: {size} yer açıldı."
   eject_title: "Güvenle çıkarabilmeniz için Kobo'yu bilgisayardan ayırır"
   ejected: "Kobo çıkarıldı, kabloyu çıkarabilirsiniz. Panel Kobo'nun menüsünde."
   binary_stale: "Bu aracın yanındaki Kobo programı, bu kurulum aracından farklı bir kodla derlenmiş; Kobo en yeni kartları tanımayıp atlayabilir. Kurmadan önce yeniden derleyin (<code>deploy/build-kobo.sh</code>)."

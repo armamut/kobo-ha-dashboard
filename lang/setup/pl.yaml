@@ -59,6 +59,7 @@ connect:
   suggested: "Sugestia: {url}"
   use_this: "Użyj tego"
   report_battery: "Wysyłaj poziom baterii Kobo do Home Assistant"
+  check_updates: "Sprawdzaj nowe wersje raz dziennie (pyta GitHub)"
   battery_entity: "Encja czujnika"
   battery_hint: "Tworzy w Home Assistant czujnik baterii, na przykład do włączania inteligentnego gniazdka do ładowania. Jest aktualizowany co kilka minut i od razu po podłączeniu lub odłączeniu kabla; w trybie uśpienia przy każdym odświeżeniu. Wymaga tokenu administratora; po restarcie Home Assistant wraca przy następnej aktualizacji."
   display_title: "Urządzenie, ekran i język"
@@ -327,6 +328,14 @@ lovelace:
   skipped: "Nie zaimportowano (brak pasującej karty):"
   skipped_item: "{card} ×{count}"
 
+update:
+  notes: "Informacje o wydaniu"
+  download: "Pobierz"
+  skip: "Pomiń tę wersję"
+  later: "Później"
+  available: "Wyszła wersja {version}"
+  current: "Masz wersję {version}"
+
 preview:
   sleep: "Pokaż ekran uśpienia"
   grayscale: "Pokaż w skali szarości"
@@ -353,6 +362,10 @@ install:
   menu_name: "Nazwa w menu Kobo"
   binary_missing: "Nie znaleziono programu dla Kobo obok tego narzędzia, więc instalacja jest wyłączona. Pobierz pełny pakiet wydania (zawiera folder <code>kobo</code>)."
   eject: "Wysuń"
+  clean_logs: "Usuń stare dzienniki ({size})"
+  clean_logs_title: "Usuwa z Kobo dzienniki poprzednich uruchomień; bieżący dziennik i ustawienia zostają"
+  clean_logs_confirm: "Usunąć te stare dzienniki z Kobo?\n\n{list}"
+  logs_cleaned: "Usunięto stare dzienniki: zwolniono {size}."
   eject_title: "Wysuń Kobo, aby bezpiecznie go odłączyć"
   ejected: "Kobo wysunięto: możesz go odłączyć. Panel jest w jego menu."
   binary_stale: "Program Kobo obok tego narzędzia zbudowano z innego kodu niż to narzędzie; Kobo może nie znać najnowszych kart i je pominąć. Przed instalacją zbuduj go ponownie (<code>deploy/build-kobo.sh</code>)."
