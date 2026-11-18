@@ -24,7 +24,8 @@ pub fn generate_mock_states() -> HashMap<String, EntityState> {
                     { "datetime": "2026-10-20T12:00:00", "condition": "cloudy", "temperature": 20.0, "templow": 14.0 },
                     { "datetime": "2026-10-21T12:00:00", "condition": "sunny", "temperature": 22.0, "templow": 15.0 }
                 ]
-            })).unwrap(),
+            }))
+            .unwrap(),
             last_changed: None,
             last_updated: None,
         },
@@ -40,7 +41,8 @@ pub fn generate_mock_states() -> HashMap<String, EntityState> {
                 "friendly_name": "Ceiling Light",
                 "brightness": 204.0, // 80%
                 "color_temp_kelvin": 3000
-            })).unwrap(),
+            }))
+            .unwrap(),
             last_changed: None,
             last_updated: None,
         },
@@ -54,7 +56,8 @@ pub fn generate_mock_states() -> HashMap<String, EntityState> {
             attributes: serde_json::from_value(json!({
                 "friendly_name": "Dining Table Lamp",
                 "brightness": 128.0,
-            })).unwrap(),
+            }))
+            .unwrap(),
             last_changed: None,
             last_updated: None,
         },
@@ -72,7 +75,8 @@ pub fn generate_mock_states() -> HashMap<String, EntityState> {
                 "temperature": 22.5,
                 "hvac_modes": ["heat", "off", "auto"],
                 "hvac_action": "heating"
-            })).unwrap(),
+            }))
+            .unwrap(),
             last_changed: None,
             last_updated: None,
         },
@@ -88,7 +92,8 @@ pub fn generate_mock_states() -> HashMap<String, EntityState> {
                 "current_temperature": 21.6,
                 "temperature": 22.5,
                 "hvac_action": "heating"
-            })).unwrap(),
+            }))
+            .unwrap(),
             last_changed: None,
             last_updated: None,
         },
@@ -104,7 +109,8 @@ pub fn generate_mock_states() -> HashMap<String, EntityState> {
                 "current_temperature": 19.8,
                 "temperature": 20.0,
                 "hvac_action": "idle"
-            })).unwrap(),
+            }))
+            .unwrap(),
             last_changed: None,
             last_updated: None,
         },
@@ -119,7 +125,8 @@ pub fn generate_mock_states() -> HashMap<String, EntityState> {
             attributes: serde_json::from_value(json!({
                 "friendly_name": "Living Room Temperature",
                 "unit_of_measurement": "°C"
-            })).unwrap(),
+            }))
+            .unwrap(),
             last_changed: None,
             last_updated: None,
         },
@@ -133,7 +140,8 @@ pub fn generate_mock_states() -> HashMap<String, EntityState> {
             attributes: serde_json::from_value(json!({
                 "friendly_name": "Living Room Humidity",
                 "unit_of_measurement": "%"
-            })).unwrap(),
+            }))
+            .unwrap(),
             last_changed: None,
             last_updated: None,
         },
@@ -147,7 +155,8 @@ pub fn generate_mock_states() -> HashMap<String, EntityState> {
             attributes: serde_json::from_value(json!({
                 "friendly_name": "Living Room CO2",
                 "unit_of_measurement": "ppm"
-            })).unwrap(),
+            }))
+            .unwrap(),
             last_changed: None,
             last_updated: None,
         },
@@ -161,7 +170,8 @@ pub fn generate_mock_states() -> HashMap<String, EntityState> {
             attributes: serde_json::from_value(json!({
                 "friendly_name": "Power Usage",
                 "unit_of_measurement": "W"
-            })).unwrap(),
+            }))
+            .unwrap(),
             last_changed: None,
             last_updated: None,
         },
@@ -176,7 +186,8 @@ pub fn generate_mock_states() -> HashMap<String, EntityState> {
                 "friendly_name": "Energy Today",
                 "unit_of_measurement": "kWh",
                 "__history": [0.2, 0.4, 0.5, 0.9, 1.6, 2.1, 2.4, 2.6, 3.1, 3.9, 4.6, 5.0, 5.3, 5.9, 6.6, 7.1, 7.5, 7.84]
-            })).unwrap(),
+            }))
+            .unwrap(),
             last_changed: None,
             last_updated: None,
         },
@@ -190,7 +201,8 @@ pub fn generate_mock_states() -> HashMap<String, EntityState> {
             state: "on".to_string(),
             attributes: serde_json::from_value(json!({
                 "friendly_name": "Air Purifier"
-            })).unwrap(),
+            }))
+            .unwrap(),
             last_changed: None,
             last_updated: None,
         },
@@ -207,7 +219,8 @@ pub fn generate_mock_states() -> HashMap<String, EntityState> {
                 "media_title": "Weightless (Ambient Mix)",
                 "media_artist": "Marconi Union",
                 "volume_level": 0.45
-            })).unwrap(),
+            }))
+            .unwrap(),
             last_changed: None,
             last_updated: None,
         },

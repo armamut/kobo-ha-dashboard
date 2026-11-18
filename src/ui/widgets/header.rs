@@ -48,11 +48,7 @@ pub fn now_local(theme_cfg: &ThemeConfig) -> DateTime<FixedOffset> {
 /// The offset the dashboard shows times in: the configured one, or this
 /// machine's when none is set.
 pub fn timezone(theme_cfg: &ThemeConfig) -> FixedOffset {
-    theme_cfg
-        .utc_offset
-        .as_deref()
-        .and_then(parse_offset)
-        .unwrap_or_else(|| *Local::now().offset())
+    theme_cfg.utc_offset.as_deref().and_then(parse_offset).unwrap_or_else(|| *Local::now().offset())
 }
 
 pub fn to_local(t: DateTime<Utc>, theme_cfg: &ThemeConfig) -> DateTime<FixedOffset> {
@@ -163,11 +159,46 @@ struct HeaderFit {
 }
 
 const HEADER_FITS: [HeaderFit; 5] = [
-    HeaderFit { btn: 76.0, gap: 14.0, time_size: 76.0, pad: 24.0, show_pct: true, full_text: true },
-    HeaderFit { btn: 64.0, gap: 10.0, time_size: 64.0, pad: 16.0, show_pct: true, full_text: true },
-    HeaderFit { btn: 64.0, gap: 10.0, time_size: 64.0, pad: 16.0, show_pct: false, full_text: true },
-    HeaderFit { btn: 64.0, gap: 10.0, time_size: 64.0, pad: 16.0, show_pct: false, full_text: false },
-    HeaderFit { btn: 64.0, gap: 10.0, time_size: 56.0, pad: 16.0, show_pct: false, full_text: false },
+    HeaderFit {
+        btn: 76.0,
+        gap: 14.0,
+        time_size: 76.0,
+        pad: 24.0,
+        show_pct: true,
+        full_text: true,
+    },
+    HeaderFit {
+        btn: 64.0,
+        gap: 10.0,
+        time_size: 64.0,
+        pad: 16.0,
+        show_pct: true,
+        full_text: true,
+    },
+    HeaderFit {
+        btn: 64.0,
+        gap: 10.0,
+        time_size: 64.0,
+        pad: 16.0,
+        show_pct: false,
+        full_text: true,
+    },
+    HeaderFit {
+        btn: 64.0,
+        gap: 10.0,
+        time_size: 64.0,
+        pad: 16.0,
+        show_pct: false,
+        full_text: false,
+    },
+    HeaderFit {
+        btn: 64.0,
+        gap: 10.0,
+        time_size: 56.0,
+        pad: 16.0,
+        show_pct: false,
+        full_text: false,
+    },
 ];
 
 struct HeaderTexts<'a> {
@@ -232,19 +263,14 @@ pub fn render_header(
         let t = status.last_update.map(|t| format_time(&to_local(t, theme_cfg), theme_cfg)).unwrap_or_default();
         (theme.text_muted, i18n::tf("header.updated", &[("time", &t)]), Some(t))
     } else if status.is_live {
-        let t = status
-            .last_update
-            .map(|t| format_time(&to_local(t, theme_cfg), theme_cfg))
-            .unwrap_or_default();
+        let t = status.last_update.map(|t| format_time(&to_local(t, theme_cfg), theme_cfg)).unwrap_or_default();
         (theme.eco.solid, i18n::tf("header.live", &[("time", &t)]), Some(i18n::t("header.live_short")))
     } else {
         (theme.heat.solid, i18n::t("header.offline"), None)
     };
     let battery_label = status.battery.map(|pct| i18n::tf("meta.percent", &[("value", &pct.to_string())]));
-    let n_buttons = 2.0
-        + if status.frontlight.is_some() { 1.0 } else { 0.0 }
-        + if status.keep_awake.is_some() { 1.0 } else { 0.0 }
-        + if status.update { 1.0 } else { 0.0 };
+    let n_buttons =
+        2.0 + if status.frontlight.is_some() { 1.0 } else { 0.0 } + if status.keep_awake.is_some() { 1.0 } else { 0.0 } + if status.update { 1.0 } else { 0.0 };
 
     let texts = HeaderTexts {
         time: &time_str,
@@ -255,10 +281,28 @@ pub fn render_header(
         status: &status_text,
         status_short: status_short.as_deref(),
     };
-    let (HeaderFit { btn, gap, time_size, pad, show_pct, full_text }, _) = choose_fit(canvas, w, n_buttons, &texts);
+    let (
+        HeaderFit {
+            btn,
+            gap,
+            time_size,
+            pad,
+            show_pct,
+            full_text,
+        },
+        _,
+    ) = choose_fit(canvas, w, n_buttons, &texts);
 
     // Clock + date
-    canvas.draw_text(&time_str, SIDE_PAD, top - 4.0 + (row_h - time_size) / 2.0, time_size, true, theme.text, TextAlign::Left);
+    canvas.draw_text(
+        &time_str,
+        SIDE_PAD,
+        top - 4.0 + (row_h - time_size) / 2.0,
+        time_size,
+        true,
+        theme.text,
+        TextAlign::Left,
+    );
     let time_w = canvas.measure_text(&time_str, time_size, true).0;
     let dx = SIDE_PAD + time_w + pad;
 
@@ -268,14 +312,23 @@ pub fn render_header(
     let refresh_rect = Rect::new(exit_rect.x - gap - btn, by, btn, btn);
     draw_header_button(canvas, theme, exit_rect, "logout");
     draw_header_button(canvas, theme, refresh_rect, "refresh");
-    targets.push(InteractiveTarget { rect: exit_rect.inset(-8.0), action: UiAction::ExitToReader });
-    targets.push(InteractiveTarget { rect: refresh_rect.inset(-8.0), action: UiAction::Refresh });
+    targets.push(InteractiveTarget {
+        rect: exit_rect.inset(-8.0),
+        action: UiAction::ExitToReader,
+    });
+    targets.push(InteractiveTarget {
+        rect: refresh_rect.inset(-8.0),
+        action: UiAction::Refresh,
+    });
 
     let mut leftmost = refresh_rect.x;
     if let Some(on) = status.frontlight {
         let light_rect = Rect::new(refresh_rect.x - gap - btn, by, btn, btn);
         draw_header_button(canvas, theme, light_rect, if on { "lightbulb_on" } else { "lightbulb" });
-        targets.push(InteractiveTarget { rect: light_rect.inset(-8.0), action: UiAction::ToggleFrontlight });
+        targets.push(InteractiveTarget {
+            rect: light_rect.inset(-8.0),
+            action: UiAction::ToggleFrontlight,
+        });
         leftmost = light_rect.x;
     }
     if let Some(awake) = status.keep_awake {
@@ -285,7 +338,10 @@ pub fn render_header(
         } else {
             draw_header_button(canvas, theme, r, "eye_closed");
         }
-        targets.push(InteractiveTarget { rect: r.inset(-8.0), action: UiAction::ToggleKeepAwake });
+        targets.push(InteractiveTarget {
+            rect: r.inset(-8.0),
+            action: UiAction::ToggleKeepAwake,
+        });
         leftmost = r.x;
     }
     if status.update {
@@ -293,7 +349,10 @@ pub fn render_header(
         draw_header_button(canvas, theme, r, "update");
         // A dot in the corner, so it is seen
         canvas.fill_circle(r.x + r.w - 8.0, r.y + 8.0, 9.0, theme.accent.solid);
-        targets.push(InteractiveTarget { rect: r.inset(-8.0), action: UiAction::ShowUpdate });
+        targets.push(InteractiveTarget {
+            rect: r.inset(-8.0),
+            action: UiAction::ShowUpdate,
+        });
         leftmost = r.x;
     }
 
@@ -302,7 +361,14 @@ pub fn render_header(
     let mut sx = right;
     if let Some(up) = status.wifi_up {
         sx -= 30.0;
-        canvas.draw_icon(if up { "wifi" } else { "wifi_off" }, sx, top + 4.0, 30.0, if up { theme.text } else { theme.heat.solid }, 2.2);
+        canvas.draw_icon(
+            if up { "wifi" } else { "wifi_off" },
+            sx,
+            top + 4.0,
+            30.0,
+            if up { theme.text } else { theme.heat.solid },
+            2.2,
+        );
         sx -= 18.0;
     }
     if let (Some(pct), Some(label)) = (status.battery, &battery_label) {
@@ -315,7 +381,11 @@ pub fn render_header(
         draw_battery(canvas, theme, sx, top + 8.0, pct, status.charging);
     }
 
-    let text = if full_text { &status_text } else { status_short.as_ref().unwrap_or(&status_text) };
+    let text = if full_text {
+        &status_text
+    } else {
+        status_short.as_ref().unwrap_or(&status_text)
+    };
     let tw = canvas.measure_text(text, 22.0, false).0;
     // Even the most compact variant may not fit a long date; shorten it then.
     let weekday = canvas.fit_text(&weekday, 28.0, true, sx - 16.0 - dx);
@@ -349,7 +419,10 @@ pub fn render_header(
             let start = seg.x + (seg.w - (icon_size + 10.0 + lw)) / 2.0;
             canvas.draw_icon(&page.icon, start, y + (tab_h - icon_size) / 2.0, icon_size, color, 2.2);
             canvas.draw_text(&label, start + icon_size + 10.0, y + tab_h / 2.0 - 13.0, 24.0, true, color, TextAlign::Left);
-            targets.push(InteractiveTarget { rect: seg, action: UiAction::SwitchPage(idx) });
+            targets.push(InteractiveTarget {
+                rect: seg,
+                action: UiAction::SwitchPage(idx),
+            });
         }
         y += tab_h + 20.0;
     }
@@ -390,7 +463,9 @@ mod tests {
         for (code, _) in i18n::BUILTIN {
             i18n::set_language(code);
             let weekday = widest("date.weekdays", 7, &canvas, 28.0, true);
-            let month = month.map(|m| i18n::nth("date.months", m)).unwrap_or_else(|| widest("date.months", 12, &canvas, 24.0, false));
+            let month = month
+                .map(|m| i18n::nth("date.months", m))
+                .unwrap_or_else(|| widest("date.months", 12, &canvas, 24.0, false));
             let date = i18n::tf("date.long", &[("day", "28"), ("month", &month)]);
             let battery = i18n::tf("meta.percent", &[("value", "100")]);
             let live = i18n::tf("header.live", &[("time", "00:00")]);

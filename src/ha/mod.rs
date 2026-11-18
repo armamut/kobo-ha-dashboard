@@ -61,7 +61,10 @@ mod tests {
         assert_eq!(base_url("http://192.168.1.10:8123"), ("http://192.168.1.10:8123".into(), false));
         assert_eq!(base_url(" http://192.168.1.10:8123/ "), ("http://192.168.1.10:8123".into(), false));
         assert_eq!(base_url("http://192.168.1.10:8123/home/overview"), ("http://192.168.1.10:8123".into(), true));
-        assert_eq!(base_url("http://192.168.1.10:8123/lovelace/0?edit=1"), ("http://192.168.1.10:8123".into(), true));
+        assert_eq!(
+            base_url("http://192.168.1.10:8123/lovelace/0?edit=1"),
+            ("http://192.168.1.10:8123".into(), true)
+        );
         assert_eq!(base_url("https://ha.example.com/"), ("https://ha.example.com".into(), false));
         assert_eq!(base_url("https://ha.example.com:443/x"), ("https://ha.example.com".into(), true));
         assert_eq!(base_url("http://[fd00::1]:8123/x"), ("http://[fd00::1]:8123".into(), true));

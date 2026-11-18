@@ -1,6 +1,6 @@
-use serde::{Deserialize, Serialize};
 use crate::display::Rotation;
 use crate::models;
+use serde::{Deserialize, Serialize};
 use std::path::Path;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -376,7 +376,10 @@ pub struct GridSize {
 impl GridSize {
     /// Within 1..=MAX_GRID, whatever the config says
     pub fn clamped(self) -> Self {
-        Self { columns: self.columns.clamp(1, MAX_GRID), rows: self.rows.clamp(1, MAX_GRID) }
+        Self {
+            columns: self.columns.clamp(1, MAX_GRID),
+            rows: self.rows.clamp(1, MAX_GRID),
+        }
     }
 }
 
@@ -413,7 +416,10 @@ fn known_cards<'de, D: serde::Deserializer<'de>>(d: D) -> Result<Vec<Card>, D::E
         match serde_json::from_value::<Card>(v.clone()) {
             Ok(card) => out.push(card),
             Err(e) if e.to_string().contains("unknown variant") => {
-                tracing::warn!("Card of type {} left out: this version does not know it", v.get("type").unwrap_or(&serde_json::Value::Null));
+                tracing::warn!(
+                    "Card of type {} left out: this version does not know it",
+                    v.get("type").unwrap_or(&serde_json::Value::Null)
+                );
             }
             Err(e) => return Err(serde::de::Error::custom(e)),
         }
@@ -423,7 +429,11 @@ fn known_cards<'de, D: serde::Deserializer<'de>>(d: D) -> Result<Vec<Card>, D::E
 
 impl From<CardConfig> for Card {
     fn from(kind: CardConfig) -> Self {
-        Self { kind, pos: None, parked: false }
+        Self {
+            kind,
+            pos: None,
+            parked: false,
+        }
     }
 }
 
@@ -691,7 +701,6 @@ pub struct SensorItemConfig {
     pub unit: Option<String>,
 }
 
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SceneItemConfig {
     pub entity_id: String,
@@ -875,11 +884,7 @@ impl AppConfig {
         match Self::load_from_file(path.as_ref()) {
             Ok(cfg) => cfg,
             Err(e) => {
-                tracing::warn!(
-                    "Config file {:?} could not be loaded ({}), using rich defaults",
-                    path.as_ref(),
-                    e
-                );
+                tracing::warn!("Config file {:?} could not be loaded ({}), using rich defaults", path.as_ref(), e);
                 Self::default()
             }
         }
@@ -913,10 +918,16 @@ pages:
         let dev = DeviceConfig::default();
         assert_eq!(dev.touch_axes(""), (true, true, false), "other Kobos keep the generic axes");
         assert_eq!(dev.touch_axes("io"), (true, false, false));
-        let libra = DeviceConfig { model: "libra_2".into(), ..DeviceConfig::default() };
+        let libra = DeviceConfig {
+            model: "libra_2".into(),
+            ..DeviceConfig::default()
+        };
         assert_eq!(libra.touch_axes(""), (true, false, false));
         // A config that already sets its own axes is left alone
-        let custom = DeviceConfig { invert_touch_y: true, ..DeviceConfig::default() };
+        let custom = DeviceConfig {
+            invert_touch_y: true,
+            ..DeviceConfig::default()
+        };
         assert_eq!(custom.touch_axes("io"), (true, true, true));
 
         // Real tap from a Libra 2 in landscape: the "+" of a climate card
@@ -944,8 +955,7 @@ pages:
     fn a_page_without_an_import_mark_still_loads() {
         let plain: PageConfig = serde_yaml::from_str("id: home\ntitle: Home\ncards: []").expect("older config parses");
         assert_eq!(plain.imported_from, None);
-        let marked: PageConfig =
-            serde_yaml::from_str("id: energy\ntitle: Energy\nimported_from: lovelace:energie\ncards: []").expect("marked page parses");
+        let marked: PageConfig = serde_yaml::from_str("id: energy\ntitle: Energy\nimported_from: lovelace:energie\ncards: []").expect("marked page parses");
         assert_eq!(marked.imported_from.as_deref(), Some("lovelace:energie"));
         let yaml = serde_yaml::to_string(&plain).unwrap();
         assert!(!yaml.contains("imported_from"), "an unmarked page writes no empty field");
@@ -984,4 +994,3 @@ pages:
         assert_eq!(json["cards"][0]["type"], "switch");
     }
 }
-

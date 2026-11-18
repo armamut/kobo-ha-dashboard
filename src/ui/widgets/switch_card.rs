@@ -1,6 +1,6 @@
 use crate::display::Canvas;
-use crate::i18n;
 use crate::ha::models::EntityState;
+use crate::i18n;
 use crate::ui::layout::{InteractiveTarget, Rect, UiAction};
 use crate::ui::theme::Theme;
 use crate::ui::widgets::light_card::render_toggle_card;
@@ -27,9 +27,7 @@ pub fn render_switch_card(
     let status = match state {
         None => i18n::t("state.unavailable"),
         Some(s) if s.state == "unavailable" => i18n::t("state.unavailable"),
-        Some(s) if matches!(domain, "lock" | "cover") => {
-            i18n::entity_state_label(domain, s.get_attr_str("device_class"), &s.state)
-        }
+        Some(s) if matches!(domain, "lock" | "cover") => i18n::entity_state_label(domain, s.get_attr_str("device_class"), &s.state),
         Some(s) if s.is_on() => i18n::t("state.running"),
         Some(_) => i18n::t("state.off"),
     };

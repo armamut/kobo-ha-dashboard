@@ -39,7 +39,16 @@ pub fn render_image_card(
     }
     let area = picture_box(rect, title.is_some(), frameless);
     if let Some(title) = title {
-        canvas.draw_text_fit(title, area.x, area.y - TITLE_H, type_scale::BODY, true, theme.text_muted, TextAlign::Left, area.w);
+        canvas.draw_text_fit(
+            title,
+            area.x,
+            area.y - TITLE_H,
+            type_scale::BODY,
+            true,
+            theme.text_muted,
+            TextAlign::Left,
+            area.w,
+        );
     }
     match image {
         Some(Ok(pixmap)) => {
@@ -64,9 +73,7 @@ pub fn render_image_card(
             // Say why: a picture too large for the Kobo, one it can't read, or
             // (not fetched yet) which entity, so a wrong id is visible on the device.
             let note = match missing {
-                Some(Err(ImageIssue::TooLarge(w, h))) => {
-                    crate::i18n::tf("image.too_large", &[("size", &format!("{}×{}", w, h))])
-                }
+                Some(Err(ImageIssue::TooLarge(w, h))) => crate::i18n::tf("image.too_large", &[("size", &format!("{}×{}", w, h))]),
                 Some(Err(ImageIssue::Unreadable)) => crate::i18n::t("image.unreadable"),
                 _ => entity_id.to_string(),
             };
@@ -82,7 +89,10 @@ pub fn render_image_card(
             );
         }
     }
-    targets.push(InteractiveTarget { rect, action: UiAction::Refresh });
+    targets.push(InteractiveTarget {
+        rect,
+        action: UiAction::Refresh,
+    });
 }
 
 #[cfg(test)]
@@ -159,7 +169,16 @@ mod tests {
 
         let pixmap = crate::display::canvas::fit_image(&png(400, 200, [10, 120, 30]), 712, 292).unwrap();
         let mut canvas = Canvas::new(800, 400);
-        render_image_card(&mut canvas, &theme, rect, "image.price", Some("Stroomprijs"), false, Some(Ok(&pixmap)), &mut targets);
+        render_image_card(
+            &mut canvas,
+            &theme,
+            rect,
+            "image.price",
+            Some("Stroomprijs"),
+            false,
+            Some(Ok(&pixmap)),
+            &mut targets,
+        );
         // The picture is drawn inside the card, and the title does not overlap it
         let data = canvas.raw_rgba_data();
         let green = (0..400 * 800)

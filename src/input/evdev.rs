@@ -89,7 +89,11 @@ impl TouchRanges {
             tracing::info!("Touch at ({}, {}) is past the screen; using the advertised ranges", rx, ry);
             self.pixels = false;
         }
-        if self.pixels { self.screen } else { self.advertised }
+        if self.pixels {
+            self.screen
+        } else {
+            self.advertised
+        }
     }
 }
 
@@ -224,7 +228,11 @@ mod linux {
         let req = ioc(1, 0x90, std::mem::size_of::<libc::c_int>() as u32);
         let ret = unsafe { libc::ioctl(file.as_raw_fd(), req as _, 1 as libc::c_int) };
         if ret < 0 {
-            tracing::warn!("EVIOCGRAB on {} failed ({}); Nickel may receive input events too", path, std::io::Error::last_os_error());
+            tracing::warn!(
+                "EVIOCGRAB on {} failed ({}); Nickel may receive input events too",
+                path,
+                std::io::Error::last_os_error()
+            );
         }
     }
 
@@ -368,7 +376,9 @@ mod linux {
             if is_touch || !has_bit(fd, EV_KEY as u32, KEY_POWER) {
                 continue;
             }
-            let Ok(mut dev) = std::fs::OpenOptions::new().write(true).open(&path) else { continue };
+            let Ok(mut dev) = std::fs::OpenOptions::new().write(true).open(&path) else {
+                continue;
+            };
             let event = |code: u16| {
                 let mut e = [0u8; EVENT_SIZE];
                 let o = EVENT_SIZE - 8;
@@ -458,9 +468,7 @@ mod linux {
                     moved = true;
                 }
                 (EV_ABS, ABS_MT_TRACKING_ID) if ev.value < 0 => released = true,
-                (EV_ABS, ABS_MT_PRESSURE) | (EV_ABS, ABS_PRESSURE) | (EV_ABS, ABS_MT_TOUCH_MAJOR) if ev.value == 0 => {
-                    released = true
-                }
+                (EV_ABS, ABS_MT_PRESSURE) | (EV_ABS, ABS_PRESSURE) | (EV_ABS, ABS_MT_TOUCH_MAJOR) if ev.value == 0 => released = true,
                 (EV_KEY, BTN_TOUCH) if ev.value == 0 => released = true,
                 // Some models report the power key on the touch device too.
                 (EV_KEY, KEY_POWER) if ev.value == 1 => {
@@ -585,7 +593,11 @@ mod tests {
         // Kobo Glo: zForce reports screen pixels (raw x = row, raw y mirrored
         // column) while advertising 1200x1600; normalised by the screen size,
         // a tap on the left-hand "Home" tab must stay on the left.
-        let m = TouchMapping { portrait_w: 758, portrait_h: 1024, ..kobo() };
+        let m = TouchMapping {
+            portrait_w: 758,
+            portrait_h: 1024,
+            ..kobo()
+        };
         let norm = |v: f32, max: f32| v / max;
         let (x, y) = m.to_canvas(norm(150.0, 1023.0), norm(757.0 - 190.0, 757.0));
         assert_eq!((x.round(), y.round()), (190.0, 150.0));
@@ -598,7 +610,11 @@ mod tests {
         let mut r = TouchRanges::new("elan-touch", ((0, 3000), (0, 2000)), GLO_SCREEN);
         assert!(r.uses_pixels());
         let ((_, max_x), (_, max_y)) = r.for_point(226, 455);
-        let m = TouchMapping { portrait_w: 758, portrait_h: 1024, ..kobo() };
+        let m = TouchMapping {
+            portrait_w: 758,
+            portrait_h: 1024,
+            ..kobo()
+        };
         let (x, y) = m.to_canvas(226.0 / max_x as f32, 455.0 / max_y as f32);
         assert_eq!((x.round(), y.round()), (302.0, 226.0));
     }

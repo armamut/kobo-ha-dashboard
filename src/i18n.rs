@@ -128,7 +128,11 @@ pub fn set_language(code: &str) {
     if current().map(|s| s.code == code).unwrap_or(false) {
         return;
     }
-    let state = State { table: load_table(&code), fallback: load_table("en"), code };
+    let state = State {
+        table: load_table(&code),
+        fallback: load_table("en"),
+        code,
+    };
     if let Ok(mut s) = STATE.write() {
         *s = Some(Arc::new(state));
     }
@@ -243,23 +247,104 @@ pub fn entity_state_label(domain: &str, device_class: Option<&str>, raw: &str) -
     if domain == "binary_sensor" && matches!(lower.as_str(), "on" | "off") {
         let on = lower == "on";
         let key = match device_class {
-            Some("lock") => if on { "unlocked" } else { "locked" },
-            Some("door" | "window" | "opening" | "garage_door") => if on { "open" } else { "closed" },
-            Some(
-                "motion" | "occupancy" | "presence" | "smoke" | "gas" | "carbon_monoxide" | "sound" | "vibration"
-                | "tamper" | "power" | "light",
-            ) => if on { "detected" } else { "clear" },
-            Some("moisture") => if on { "wet" } else { "dry" },
-            Some("connectivity") => if on { "connected" } else { "disconnected" },
-            Some("plug") => if on { "plugged_in" } else { "unplugged" },
-            Some("battery") => if on { "low" } else { "normal" },
-            Some("battery_charging") => if on { "charging" } else { "not_charging" },
-            Some("running") => if on { "running" } else { "not_running" },
-            Some("problem" | "safety") => if on { "problem" } else { "ok" },
-            Some("heat") => if on { "hot" } else { "normal" },
-            Some("cold") => if on { "cold" } else { "normal" },
-            Some("update") => if on { "update_available" } else { "up_to_date" },
-            _ => if on { "on" } else { "off" },
+            Some("lock") => {
+                if on {
+                    "unlocked"
+                } else {
+                    "locked"
+                }
+            }
+            Some("door" | "window" | "opening" | "garage_door") => {
+                if on {
+                    "open"
+                } else {
+                    "closed"
+                }
+            }
+            Some("motion" | "occupancy" | "presence" | "smoke" | "gas" | "carbon_monoxide" | "sound" | "vibration" | "tamper" | "power" | "light") => {
+                if on {
+                    "detected"
+                } else {
+                    "clear"
+                }
+            }
+            Some("moisture") => {
+                if on {
+                    "wet"
+                } else {
+                    "dry"
+                }
+            }
+            Some("connectivity") => {
+                if on {
+                    "connected"
+                } else {
+                    "disconnected"
+                }
+            }
+            Some("plug") => {
+                if on {
+                    "plugged_in"
+                } else {
+                    "unplugged"
+                }
+            }
+            Some("battery") => {
+                if on {
+                    "low"
+                } else {
+                    "normal"
+                }
+            }
+            Some("battery_charging") => {
+                if on {
+                    "charging"
+                } else {
+                    "not_charging"
+                }
+            }
+            Some("running") => {
+                if on {
+                    "running"
+                } else {
+                    "not_running"
+                }
+            }
+            Some("problem" | "safety") => {
+                if on {
+                    "problem"
+                } else {
+                    "ok"
+                }
+            }
+            Some("heat") => {
+                if on {
+                    "hot"
+                } else {
+                    "normal"
+                }
+            }
+            Some("cold") => {
+                if on {
+                    "cold"
+                } else {
+                    "normal"
+                }
+            }
+            Some("update") => {
+                if on {
+                    "update_available"
+                } else {
+                    "up_to_date"
+                }
+            }
+            _ => {
+                if on {
+                    "on"
+                } else {
+                    "off"
+                }
+            }
         };
         return t(&format!("state.{}", key));
     }
@@ -291,7 +376,13 @@ pub fn available() -> Vec<(String, String)> {
 /// Setup tool strings for `code`, with English filling any gaps.
 pub fn setup_strings(code: &str) -> Table {
     let code = normalize(code);
-    let lookup = |c: &str| SETUP_BUILTIN.iter().find(|(k, _)| *k == c).and_then(|(_, src)| parse(src).ok()).unwrap_or_default();
+    let lookup = |c: &str| {
+        SETUP_BUILTIN
+            .iter()
+            .find(|(k, _)| *k == c)
+            .and_then(|(_, src)| parse(src).ok())
+            .unwrap_or_default()
+    };
     let mut table = lookup("en");
     if code != "en" {
         table.extend(lookup(&code));

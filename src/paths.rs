@@ -18,7 +18,10 @@ pub fn data_dir() -> PathBuf {
     } else if cfg!(windows) {
         std::env::var_os("APPDATA").map(PathBuf::from).unwrap_or_else(home).join(APP)
     } else {
-        std::env::var_os("XDG_CONFIG_HOME").map(PathBuf::from).unwrap_or_else(|| home().join(".config")).join(APP)
+        std::env::var_os("XDG_CONFIG_HOME")
+            .map(PathBuf::from)
+            .unwrap_or_else(|| home().join(".config"))
+            .join(APP)
     }
 }
 
@@ -29,7 +32,10 @@ pub fn cache_dir() -> PathBuf {
     } else if cfg!(windows) {
         std::env::var_os("LOCALAPPDATA").map(PathBuf::from).unwrap_or_else(home).join(APP)
     } else {
-        std::env::var_os("XDG_CACHE_HOME").map(PathBuf::from).unwrap_or_else(|| home().join(".cache")).join(APP)
+        std::env::var_os("XDG_CACHE_HOME")
+            .map(PathBuf::from)
+            .unwrap_or_else(|| home().join(".cache"))
+            .join(APP)
     }
 }
 
@@ -47,7 +53,10 @@ pub fn font_url(file_stem: &str) -> Option<String> {
         "NotoSansKR" => "KR",
         _ => return None,
     };
-    Some(format!("https://github.com/notofonts/noto-cjk/raw/main/Sans/SubsetOTF/{}/{}.otf", script, file_stem))
+    Some(format!(
+        "https://github.com/notofonts/noto-cjk/raw/main/Sans/SubsetOTF/{}/{}.otf",
+        script, file_stem
+    ))
 }
 
 /// Make sure `<family>-Regular.otf` and `-Bold.otf` are in the font cache,

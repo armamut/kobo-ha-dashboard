@@ -64,7 +64,16 @@ pub fn render_cover_card(
         let tx = rect.x + p + badge + 14.0;
         let tw = rect.x + rect.w - p - tx;
         canvas.draw_text_fit(&title, tx, rect.y + p + 1.0, type_scale::BODY, true, theme.text, TextAlign::Left, tw);
-        canvas.draw_text_fit(&subtitle, tx, rect.y + p + 30.0, type_scale::LABEL, false, theme.text_muted, TextAlign::Left, tw);
+        canvas.draw_text_fit(
+            &subtitle,
+            tx,
+            rect.y + p + 30.0,
+            type_scale::LABEL,
+            false,
+            theme.text_muted,
+            TextAlign::Left,
+            tw,
+        );
         let btn = ((rect.w - 2.0 * p - 2.0 * gap) / 3.0).min(64.0).min(rect.h - 2.0 * p - badge - 16.0).max(36.0);
         let total = 3.0 * btn + 2.0 * gap;
         let x0 = rect.x + (rect.w - total) / 2.0;
@@ -78,7 +87,11 @@ pub fn render_cover_card(
     } else {
         // [badge] name ........ (^) (■) (v), the position below if there is room
         let with_bar = position.is_some() && rect.h >= 150.0;
-        let row_h = if with_bar { (rect.h - 2.0 * p - 26.0).min(72.0) } else { (rect.h - 2.0 * p).min(72.0) };
+        let row_h = if with_bar {
+            (rect.h - 2.0 * p - 26.0).min(72.0)
+        } else {
+            (rect.h - 2.0 * p).min(72.0)
+        };
         let btn = row_h.clamp(36.0, 64.0);
         let total = 3.0 * btn + 2.0 * gap;
         // On a tall card the row and the bar sit in the middle, together

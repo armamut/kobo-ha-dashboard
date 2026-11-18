@@ -82,12 +82,7 @@ pub fn import(config: &Value, screen: (u32, u32), with_tabs: bool) -> Result<Imp
 /// `state_classes` maps an entity to its `state_class`, so a chart without
 /// `stat_types` can pick the type Home Assistant would: `change` for a meter
 /// (which has `sum`), `mean` for a measurement such as temperature.
-pub fn import_with(
-    config: &Value,
-    screen: (u32, u32),
-    with_tabs: bool,
-    state_classes: &BTreeMap<String, String>,
-) -> Result<ImportResult, ImportError> {
+pub fn import_with(config: &Value, screen: (u32, u32), with_tabs: bool, state_classes: &BTreeMap<String, String>) -> Result<ImportResult, ImportError> {
     if config.get("strategy").is_some() {
         return Err(ImportError::Strategy);
     }
@@ -187,7 +182,9 @@ pub async fn state_classes(url: &str, token: &str) -> BTreeMap<String, String> {
     };
     let mut out = BTreeMap::new();
     for state in states {
-        let Some(entity) = state.get("entity_id").and_then(Value::as_str) else { continue };
+        let Some(entity) = state.get("entity_id").and_then(Value::as_str) else {
+            continue;
+        };
         if let Some(class) = state.get("attributes").and_then(|a| a.get("state_class")).and_then(Value::as_str) {
             out.insert(entity.to_string(), class.to_string());
         }
@@ -204,7 +201,10 @@ fn flatten(cards: &[Value], out: &mut Vec<CardConfig>, skipped: &mut BTreeMap<St
                 if let Some(title) = card.get("heading").and_then(Value::as_str) {
                     let title = title.trim();
                     if !title.is_empty() {
-                        out.push(CardConfig::Heading { title: title.to_string(), icon: icon_name(card.get("icon")) });
+                        out.push(CardConfig::Heading {
+                            title: title.to_string(),
+                            icon: icon_name(card.get("icon")),
+                        });
                     }
                 }
             }
@@ -277,21 +277,34 @@ fn flatten(cards: &[Value], out: &mut Vec<CardConfig>, skipped: &mut BTreeMap<St
                     skip(skipped, kind);
                     continue;
                 };
-                out.push(CardConfig::Climate { entity_id: entity.to_string(), title: name_of(card).map(str::to_string), step: 0.5, show_graph: false, graph_hours: None });
+                out.push(CardConfig::Climate {
+                    entity_id: entity.to_string(),
+                    title: name_of(card).map(str::to_string),
+                    step: 0.5,
+                    show_graph: false,
+                    graph_hours: None,
+                });
             }
             "media-control" => {
                 let Some(entity) = card.get("entity").and_then(Value::as_str) else {
                     skip(skipped, kind);
                     continue;
                 };
-                out.push(CardConfig::MediaPlayer { entity_id: entity.to_string(), title: name_of(card).map(str::to_string) });
+                out.push(CardConfig::MediaPlayer {
+                    entity_id: entity.to_string(),
+                    title: name_of(card).map(str::to_string),
+                });
             }
             "weather-forecast" => {
                 let Some(entity) = card.get("entity").and_then(Value::as_str) else {
                     skip(skipped, kind);
                     continue;
                 };
-                out.push(CardConfig::Weather { entity_id: entity.to_string(), title: name_of(card).map(str::to_string), forecast_days: 5 });
+                out.push(CardConfig::Weather {
+                    entity_id: entity.to_string(),
+                    title: name_of(card).map(str::to_string),
+                    forecast_days: 5,
+                });
             }
             "sensor" => {
                 let Some(entity) = card.get("entity").and_then(Value::as_str) else {
@@ -315,8 +328,8 @@ fn flatten(cards: &[Value], out: &mut Vec<CardConfig>, skipped: &mut BTreeMap<St
             }
             "statistics-graph" => statistics_cards(card, out, skipped),
             // A picture card: Home Assistant image entities are fetched and drawn by
-// the image card. A picture from a URL is not fetched (the Kobo has no
-// browser) and is reported.
+            // the image card. A picture from a URL is not fetched (the Kobo has no
+            // browser) and is reported.
             "picture" | "image" => match card.get("image_entity").and_then(Value::as_str) {
                 Some(entity) => out.push(CardConfig::Image {
                     entity_id: entity.to_string(),
@@ -341,36 +354,49 @@ fn name_of(card: &Value) -> Option<&str> {
 fn wants_graph(card: &Value) -> bool {
     card.get("features")
         .and_then(Value::as_array)
-        .map(|features| {
-            features
-                .iter()
-                .any(|f| f.get("type").and_then(Value::as_str) == Some("trend-graph"))
-        })
+        .map(|features| features.iter().any(|f| f.get("type").and_then(Value::as_str) == Some("trend-graph")))
         .unwrap_or(false)
 }
 
 /// One entity, as the native card that fits its domain.
-fn entity_card(
-    entity: &str,
-    name: Option<&str>,
-    icon: Option<&Value>,
-    graph: bool,
-    out: &mut Vec<CardConfig>,
-    skipped: &mut BTreeMap<String, usize>,
-) {
+fn entity_card(entity: &str, name: Option<&str>, icon: Option<&Value>, graph: bool, out: &mut Vec<CardConfig>, skipped: &mut BTreeMap<String, usize>) {
     let entity_id = entity.to_string();
     let title = name.map(str::to_string);
     let icon = icon_name(icon);
     let domain = entity.split('.').next().unwrap_or("");
     let card = match domain {
-        "light" => Some(CardConfig::Light { entity_id, title, subtitle: None, icon, show_brightness: true }),
-        "switch" | "input_boolean" | "automation" | "humidifier" | "siren" => {
-            Some(CardConfig::Switch { entity_id, title, subtitle: None, icon })
-        }
-        "fan" => Some(CardConfig::Switch { entity_id, title, subtitle: None, icon: icon.or_else(|| Some("fan".to_string())) }),
-        "climate" => Some(CardConfig::Climate { entity_id, title, step: 0.5, show_graph: false, graph_hours: None }),
+        "light" => Some(CardConfig::Light {
+            entity_id,
+            title,
+            subtitle: None,
+            icon,
+            show_brightness: true,
+        }),
+        "switch" | "input_boolean" | "automation" | "humidifier" | "siren" => Some(CardConfig::Switch {
+            entity_id,
+            title,
+            subtitle: None,
+            icon,
+        }),
+        "fan" => Some(CardConfig::Switch {
+            entity_id,
+            title,
+            subtitle: None,
+            icon: icon.or_else(|| Some("fan".to_string())),
+        }),
+        "climate" => Some(CardConfig::Climate {
+            entity_id,
+            title,
+            step: 0.5,
+            show_graph: false,
+            graph_hours: None,
+        }),
         "media_player" => Some(CardConfig::MediaPlayer { entity_id, title }),
-        "weather" => Some(CardConfig::Weather { entity_id, title, forecast_days: 5 }),
+        "weather" => Some(CardConfig::Weather {
+            entity_id,
+            title,
+            forecast_days: 5,
+        }),
         "scene" => Some(CardConfig::Scene {
             entity_id,
             title: title.unwrap_or_else(|| "Scene".to_string()),
@@ -381,9 +407,21 @@ fn entity_card(
             title: title.unwrap_or_else(|| "Run".to_string()),
             icon: icon.or_else(|| Some("zap".to_string())),
         }),
-        "sensor" | "binary_sensor" | "number" | "input_number" | "counter" | "input_text" | "input_select" | "select"
-        | "text" => Some(CardConfig::Sensor { entity_id, title, unit: None, icon, show_graph: graph, large_value: false }),
-        "image" => Some(CardConfig::Image { entity_id, title, frameless: false, fit: Default::default(), file: None }),
+        "sensor" | "binary_sensor" | "number" | "input_number" | "counter" | "input_text" | "input_select" | "select" | "text" => Some(CardConfig::Sensor {
+            entity_id,
+            title,
+            unit: None,
+            icon,
+            show_graph: graph,
+            large_value: false,
+        }),
+        "image" => Some(CardConfig::Image {
+            entity_id,
+            title,
+            frameless: false,
+            fit: Default::default(),
+            file: None,
+        }),
         other => {
             skip(skipped, other);
             None
@@ -418,11 +456,7 @@ fn statistics_cards(card: &Value, out: &mut Vec<CardConfig>, skipped: &mut BTree
         _ => crate::config::ChartKind::Line,
     };
     // Home Assistant's own card shows 30 days unless told otherwise.
-    let days = card
-        .get("days_to_show")
-        .and_then(Value::as_u64)
-        .map(|d| d.clamp(2, 400) as u32)
-        .unwrap_or(30);
+    let days = card.get("days_to_show").and_then(Value::as_u64).map(|d| d.clamp(2, 400) as u32).unwrap_or(30);
     let types: Vec<&str> = card
         .get("stat_types")
         .and_then(Value::as_array)
@@ -486,11 +520,7 @@ fn paginate(
 
 fn page(title: &str, part: usize, icon: &str, cards: Vec<CardConfig>, used: &mut std::collections::HashSet<String>) -> PageConfig {
     let title = if part == 1 { title.to_string() } else { format!("{} {}", title, part) };
-    let base: String = title
-        .to_lowercase()
-        .chars()
-        .map(|c| if c.is_alphanumeric() { c } else { '_' })
-        .collect();
+    let base: String = title.to_lowercase().chars().map(|c| if c.is_alphanumeric() { c } else { '_' }).collect();
     let base = if base.trim_matches('_').is_empty() { format!("page_{}", part) } else { base };
     let mut id = base.clone();
     let mut n = 2;
@@ -498,7 +528,14 @@ fn page(title: &str, part: usize, icon: &str, cards: Vec<CardConfig>, used: &mut
         id = format!("{}_{}", base, n);
         n += 1;
     }
-    PageConfig { id, title, icon: icon.to_string(), grid: None, cards: crate::config::into_cards(cards), imported_from: None }
+    PageConfig {
+        id,
+        title,
+        icon: icon.to_string(),
+        grid: None,
+        cards: crate::config::into_cards(cards),
+        imported_from: None,
+    }
 }
 
 /// "living-room" -> "Living room"
@@ -521,9 +558,7 @@ fn icon_name(icon: Option<&Value>) -> Option<String> {
     let raw = icon?.as_str()?.trim();
     let name = raw.strip_prefix("mdi:").unwrap_or(raw).replace('-', "_");
     let alias = match name.as_str() {
-        "chart_line" | "chart_bar" | "chart_histogram" | "chart_areaspline" | "chart_timeline" | "poll" | "chart_donut" => {
-            "progress"
-        }
+        "chart_line" | "chart_bar" | "chart_histogram" | "chart_areaspline" | "chart_timeline" | "poll" | "chart_donut" => "progress",
         "fire" | "radiator" => "flame",
         "water" | "water_percent" => "droplet",
         "flash" | "lightning_bolt" | "lightning" => "zap",
@@ -597,7 +632,10 @@ mod tests {
         let list = dashboards(&url, "t").await.expect("the list comes back");
         assert_eq!(request.await.unwrap()["type"], "lovelace/dashboards/list");
         // The default dashboard is always offered, and once only
-        assert_eq!(list, vec![(String::new(), "Overview".to_string()), ("energie".to_string(), "Energie".to_string())]);
+        assert_eq!(
+            list,
+            vec![(String::new(), "Overview".to_string()), ("energie".to_string(), "Energie".to_string())]
+        );
     }
 
     #[tokio::test]
@@ -750,15 +788,31 @@ views:
         let headings = cards.iter().filter(|c| matches!(c, CardConfig::Heading { .. })).count();
         assert_eq!(headings, 5);
         for title in ["Heating", "Electricity price today", "Hall thermometer", "Gas usage", "Gas usage long term"] {
-            assert!(cards.iter().any(|c| matches!(c, CardConfig::Heading { title: t, .. } if t == title)), "{} missing", title);
+            assert!(
+                cards.iter().any(|c| matches!(c, CardConfig::Heading { title: t, .. } if t == title)),
+                "{} missing",
+                title
+            );
         }
-        assert!(cards.iter().any(|c| matches!(c, CardConfig::Climate { entity_id, .. } if entity_id == "climate.living_room")));
-        assert!(cards.iter().any(|c| matches!(c, CardConfig::Climate { entity_id, .. } if entity_id == "climate.attic_thermostat")));
-        assert!(cards.iter().any(|c| matches!(c, CardConfig::Sensor { entity_id, show_graph: true, .. } if entity_id == "sensor.hall_temperature")));
-        assert!(cards.iter().any(|c| matches!(c, CardConfig::Sensor { entity_id, show_graph: false, .. } if entity_id == "sensor.gas_yesterday")));
-        assert!(cards.iter().any(|c| matches!(c, CardConfig::Sensor { entity_id, show_graph: false, .. } if entity_id == "sensor.gas_per_day")));
+        assert!(cards
+            .iter()
+            .any(|c| matches!(c, CardConfig::Climate { entity_id, .. } if entity_id == "climate.living_room")));
+        assert!(cards
+            .iter()
+            .any(|c| matches!(c, CardConfig::Climate { entity_id, .. } if entity_id == "climate.attic_thermostat")));
+        assert!(cards
+            .iter()
+            .any(|c| matches!(c, CardConfig::Sensor { entity_id, show_graph: true, .. } if entity_id == "sensor.hall_temperature")));
+        assert!(cards
+            .iter()
+            .any(|c| matches!(c, CardConfig::Sensor { entity_id, show_graph: false, .. } if entity_id == "sensor.gas_yesterday")));
+        assert!(cards
+            .iter()
+            .any(|c| matches!(c, CardConfig::Sensor { entity_id, show_graph: false, .. } if entity_id == "sensor.gas_per_day")));
         // The picture card is an image entity: fetched and drawn as a picture
-        assert!(cards.iter().any(|c| matches!(c, CardConfig::Image { entity_id, .. } if entity_id == "image.energy_prices_chart")));
+        assert!(cards
+            .iter()
+            .any(|c| matches!(c, CardConfig::Image { entity_id, .. } if entity_id == "image.energy_prices_chart")));
         // Three statistics charts, each with the period and range of its card
         let stats: Vec<&CardConfig> = cards.iter().copied().filter(|c| matches!(c, CardConfig::Statistics { .. })).collect();
         assert_eq!(stats.len(), 3);
@@ -766,7 +820,13 @@ views:
         assert!(matches!(stats[1], CardConfig::Statistics { period, days: 60, .. } if period == "week"));
         assert!(matches!(stats[2], CardConfig::Statistics { period, days: 365, .. } if period == "month"));
         // Everything the Kobo cannot draw is reported, not dropped silently
-        assert_eq!(result.skipped, vec![Skipped { card: "water_heater".into(), count: 1 }]);
+        assert_eq!(
+            result.skipped,
+            vec![Skipped {
+                card: "water_heater".into(),
+                count: 1
+            }]
+        );
         // A view that needs more than one page keeps every card: 15 cards in
         // the dashboard, 1 of them skipped, so 14 land on two pages.
         assert_eq!(result.pages.len(), 2, "{} pages", result.pages.len());
@@ -796,9 +856,19 @@ views:
         ]}]});
         let result = import(&config, (1072, 1448), false).expect("imports");
         let cards: Vec<&CardConfig> = result.pages.iter().flat_map(|p| p.cards.iter().map(|c| &c.kind)).collect();
-        assert!(cards.iter().any(|c| matches!(c, CardConfig::Light { entity_id, .. } if entity_id == "light.desk")));
-        assert!(cards.iter().any(|c| matches!(c, CardConfig::Switch { entity_id, .. } if entity_id == "switch.kettle")));
-        assert_eq!(result.skipped[0], Skipped { card: "gauge".into(), count: 2 });
+        assert!(cards
+            .iter()
+            .any(|c| matches!(c, CardConfig::Light { entity_id, .. } if entity_id == "light.desk")));
+        assert!(cards
+            .iter()
+            .any(|c| matches!(c, CardConfig::Switch { entity_id, .. } if entity_id == "switch.kettle")));
+        assert_eq!(
+            result.skipped[0],
+            Skipped {
+                card: "gauge".into(),
+                count: 2
+            }
+        );
         assert!(result.skipped.iter().any(|s| s.card == "custom:mushroom-template-card"));
         assert!(result.skipped.iter().any(|s| s.card == "lock"));
     }
@@ -845,7 +915,12 @@ views:
             { "type": "statistics-graph", "entities": ["sensor.gas"], "stat_types": ["change", "max"] }
         ]}]});
         let result = import(&config, (1072, 1448), false).expect("imports");
-        let stats: Vec<&CardConfig> = result.pages.iter().flat_map(|p| p.cards.iter().map(|c| &c.kind)).filter(|c| matches!(c, CardConfig::Statistics { .. })).collect();
+        let stats: Vec<&CardConfig> = result
+            .pages
+            .iter()
+            .flat_map(|p| p.cards.iter().map(|c| &c.kind))
+            .filter(|c| matches!(c, CardConfig::Statistics { .. }))
+            .collect();
         assert_eq!(stats.len(), 4);
         // Hourly and 5-minute charts come along, as bars or as Home Assistant's default line
         assert!(matches!(stats[0], CardConfig::Statistics { period, chart: crate::config::ChartKind::Bar, .. } if period == "hour"));
@@ -854,7 +929,13 @@ views:
         assert!(matches!(stats[2], CardConfig::Statistics { period, days: 400, .. } if period == "month"));
         // Without days_to_show a chart spans the month Home Assistant shows too
         assert!(matches!(stats[3], CardConfig::Statistics { days: 30, .. }));
-        assert_eq!(result.skipped, vec![Skipped { card: "statistics-graph max".into(), count: 1 }]);
+        assert_eq!(
+            result.skipped,
+            vec![Skipped {
+                card: "statistics-graph max".into(),
+                count: 1
+            }]
+        );
     }
 
     #[test]
@@ -890,8 +971,9 @@ views:
         let config = serde_json::json!({ "views": [{ "title": "Energy", "cards": [
             { "type": "statistics-graph", "entities": ["sensor.living_room_temperature"], "stat_types": ["change"] }
         ]}]});
-        let classes: BTreeMap<String, String> =
-            [("sensor.living_room_temperature".to_string(), "measurement".to_string())].into_iter().collect();
+        let classes: BTreeMap<String, String> = [("sensor.living_room_temperature".to_string(), "measurement".to_string())]
+            .into_iter()
+            .collect();
         let result = import_with(&config, (1072, 1448), false, &classes).expect("imports");
         assert!(matches!(&result.pages[0].cards[0].kind, CardConfig::Statistics { stat, .. } if stat == "change"));
     }
@@ -911,7 +993,9 @@ views:
         ]}]});
         let result = import(&config, (1072, 1448), false).expect("imports");
         let cards: Vec<&CardConfig> = result.pages.iter().flat_map(|p| p.cards.iter().map(|c| &c.kind)).collect();
-        assert!(cards.iter().any(|c| matches!(c, CardConfig::Sensor { entity_id, .. } if entity_id == "sensor.power")));
+        assert!(cards
+            .iter()
+            .any(|c| matches!(c, CardConfig::Sensor { entity_id, .. } if entity_id == "sensor.power")));
         assert!(result.skipped.is_empty(), "{:?}", result.skipped);
     }
 

@@ -350,7 +350,11 @@ mod linux {
             };
 
             // Work out how the portrait canvas maps onto framebuffer memory.
-            let (pw, ph) = if canvas_rotation.swaps_axes() { (canvas_h, canvas_w) } else { (canvas_w, canvas_h) };
+            let (pw, ph) = if canvas_rotation.swaps_axes() {
+                (canvas_h, canvas_w)
+            } else {
+                (canvas_w, canvas_h)
+            };
             let fb_rotation = fb_rotation.unwrap_or_else(|| {
                 if (vinfo.xres, vinfo.yres) == (pw, ph) || vinfo.xres < vinfo.yres {
                     Rotation::R0
@@ -365,16 +369,7 @@ mod linux {
 
             let needed = (vinfo.yoffset as usize + vinfo.yres as usize) * line_length;
             let mmap_len = (finfo.smem_len as usize).max(needed);
-            let mmap_ptr = unsafe {
-                libc::mmap(
-                    std::ptr::null_mut(),
-                    mmap_len,
-                    libc::PROT_READ | libc::PROT_WRITE,
-                    libc::MAP_SHARED,
-                    fd,
-                    0,
-                )
-            };
+            let mmap_ptr = unsafe { libc::mmap(std::ptr::null_mut(), mmap_len, libc::PROT_READ | libc::PROT_WRITE, libc::MAP_SHARED, fd, 0) };
             if mmap_ptr == libc::MAP_FAILED {
                 return Err("mmap of framebuffer failed".into());
             }
@@ -531,14 +526,25 @@ mod linux {
         }
 
         fn full_rect(&self) -> EinkRect {
-            EinkRect { top: 0, left: 0, width: self.xres, height: self.yres }
+            EinkRect {
+                top: 0,
+                left: 0,
+                width: self.xres,
+                height: self.yres,
+            }
         }
 
         fn send_update(&mut self, rect: EinkRect, full: bool) {
             self.marker = self.marker.wrapping_add(1).max(1);
             let fd = self.file.as_raw_fd();
             let order: &[EinkBackend] = match self.backend {
-                EinkBackend::Unknown => &[EinkBackend::Hwtcon, EinkBackend::MxcfbV2, EinkBackend::MxcfbV1, EinkBackend::MxcfbV1Ntx, EinkBackend::Fbink],
+                EinkBackend::Unknown => &[
+                    EinkBackend::Hwtcon,
+                    EinkBackend::MxcfbV2,
+                    EinkBackend::MxcfbV1,
+                    EinkBackend::MxcfbV1Ntx,
+                    EinkBackend::Fbink,
+                ],
                 EinkBackend::Hwtcon => &[EinkBackend::Hwtcon],
                 EinkBackend::MxcfbV2 => &[EinkBackend::MxcfbV2],
                 EinkBackend::MxcfbV1 => &[EinkBackend::MxcfbV1],
@@ -635,7 +641,12 @@ mod linux {
 
     fn fbink_refresh(full: bool) -> bool {
         let args: &[&str] = if full { &["-q", "-f", "-s"] } else { &["-q", "-s"] };
-        for bin in ["/mnt/onboard/.kobo-ha/fbink", "/mnt/onboard/.adds/kfmon/bin/fbink", "/usr/local/kfmon/bin/fbink", "fbink"] {
+        for bin in [
+            "/mnt/onboard/.kobo-ha/fbink",
+            "/mnt/onboard/.adds/kfmon/bin/fbink",
+            "/usr/local/kfmon/bin/fbink",
+            "fbink",
+        ] {
             if let Ok(status) = std::process::Command::new(bin)
                 .args(args)
                 .stdin(std::process::Stdio::null())

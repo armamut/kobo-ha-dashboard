@@ -1,10 +1,10 @@
 use crate::display::{Canvas, TextAlign};
-use chrono::Datelike;
-use crate::i18n;
 use crate::ha::models::EntityState;
+use crate::i18n;
 use crate::ui::layout::{InteractiveTarget, Rect, UiAction};
 use crate::ui::theme::Theme;
 use crate::ui::widgets::{draw_card, draw_icon_badge, draw_round_button, type_scale, PAD};
+use chrono::Datelike;
 
 /// Width above which the card uses its single-row layout
 pub const CLIMATE_WIDE: f32 = 760.0;
@@ -57,7 +57,11 @@ pub fn render_climate_card(
     let card_rect = rect;
     let controls_h = graph_controls_h(rect.w);
     let graph = graph_hours.filter(|_| rect.h - controls_h >= GRAPH_MIN_H);
-    let rect = if graph.is_some() { Rect::new(rect.x, rect.y, rect.w, controls_h) } else { rect };
+    let rect = if graph.is_some() {
+        Rect::new(rect.x, rect.y, rect.w, controls_h)
+    } else {
+        rect
+    };
     let title = title_text(custom_title, state);
 
     let target_temp = state.and_then(|s| s.get_attr_f32("temperature"));
@@ -131,7 +135,16 @@ pub fn render_climate_card(
         let icon_size = 28.0;
         canvas.draw_icon(icon, rect.x + p, rect.y + p, icon_size, tone.solid, 2.2);
         let tx = rect.x + p + icon_size + 10.0;
-        canvas.draw_text_fit(&title, tx, rect.y + p + 1.0, type_scale::BODY, true, theme.text, TextAlign::Left, rect.x + rect.w - p - tx);
+        canvas.draw_text_fit(
+            &title,
+            tx,
+            rect.y + p + 1.0,
+            type_scale::BODY,
+            true,
+            theme.text,
+            TextAlign::Left,
+            rect.x + rect.w - p - tx,
+        );
 
         let btn = (rect.h - 2.0 * p - icon_size - 12.0).min(rect.w * 0.2).clamp(40.0, 64.0);
         let row_y = rect.y + rect.h - p - btn;
@@ -201,7 +214,16 @@ fn draw_climate_graph(canvas: &mut Canvas, theme: &Theme, area: Rect, rows: &[[f
     let from = now - hours as f64 * 3_600_000.0;
     let rows: Vec<[f64; 4]> = rows.iter().copied().filter(|r| r[0] <= now).collect();
     if rows.len() < 2 {
-        canvas.draw_text_fit("--", area.x + area.w / 2.0, area.y + area.h / 2.0 - 16.0, 32.0, true, theme.text_muted, TextAlign::Center, area.w);
+        canvas.draw_text_fit(
+            "--",
+            area.x + area.w / 2.0,
+            area.y + area.h / 2.0 - 16.0,
+            32.0,
+            true,
+            theme.text_muted,
+            TextAlign::Center,
+            area.w,
+        );
         return;
     }
     let target = |r: &[f64; 4]| (r[2] > -900.0).then_some(r[2]);
@@ -224,7 +246,9 @@ fn draw_climate_graph(canvas: &mut Canvas, theme: &Theme, area: Rect, rows: &[[f
     canvas.draw_line(plot.x, plot.y + plot.h, plot.x + plot.w, plot.y + plot.h, 1.5, theme.border);
     let offset = theme.utc_offset;
     let time = |t: f64| {
-        chrono::DateTime::from_timestamp_millis(t as i64).map(|d| d.with_timezone(&offset).format("%H:%M").to_string()).unwrap_or_default()
+        chrono::DateTime::from_timestamp_millis(t as i64)
+            .map(|d| d.with_timezone(&offset).format("%H:%M").to_string())
+            .unwrap_or_default()
     };
     let ty = plot.y + plot.h + 6.0;
     // A day back reads the same on the clock: the start says which day
@@ -240,8 +264,12 @@ fn draw_climate_graph(canvas: &mut Canvas, theme: &Theme, area: Rect, rows: &[[f
     canvas.draw_text(&time(now), plot.x + plot.w, ty, label, false, theme.text_muted, TextAlign::Right);
 
     // Each row lasts until the next, the last one until now
-    let spans: Vec<(f64, f64, &[f64; 4])> =
-        rows.iter().enumerate().map(|(i, r)| (r[0], rows.get(i + 1).map_or(now, |n| n[0]), r)).filter(|(a, b, _)| b > a && *b > from).collect();
+    let spans: Vec<(f64, f64, &[f64; 4])> = rows
+        .iter()
+        .enumerate()
+        .map(|(i, r)| (r[0], rows.get(i + 1).map_or(now, |n| n[0]), r))
+        .filter(|(a, b, _)| b > a && *b > from)
+        .collect();
     for (a, b, r) in &spans {
         let tint = match r[3] as i32 {
             1 => theme.heat.tint.mix(theme.heat.solid, 0.3),
@@ -340,10 +368,7 @@ mod tests {
             for value in ["8", "16.5", "21.5", "-12.5"] {
                 let size = temp_font_size(&canvas, value, avail);
                 assert!(size >= 40.0, "{value} has no room on a {w} px card");
-                assert!(
-                    canvas.measure_text(value, size, true).0 <= avail,
-                    "{value} is still cut off on a {w} px card"
-                );
+                assert!(canvas.measure_text(value, size, true).0 <= avail, "{value} is still cut off on a {w} px card");
             }
         }
         assert_eq!(temp_font_size(&canvas, "8", 400.0), 68.0);

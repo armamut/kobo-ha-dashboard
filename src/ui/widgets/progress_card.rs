@@ -50,7 +50,9 @@ pub fn render_progress_card(
         .unwrap_or_else(|| entity_id.to_string());
     let icon = custom_icon.unwrap_or("progress");
     let frac = fraction(state, max);
-    let pct = frac.map(|f| i18n::tf("meta.percent", &[("value", &format!("{:.0}", f * 100.0))])).unwrap_or_else(|| "--".into());
+    let pct = frac
+        .map(|f| i18n::tf("meta.percent", &[("value", &format!("{:.0}", f * 100.0))]))
+        .unwrap_or_else(|| "--".into());
     let extra = secondary_text(secondary, theme.utc_offset);
     let tone = theme.accent;
     let running = frac.is_some_and(|f| f > 0.0 && f < 1.0);
@@ -75,15 +77,42 @@ pub fn render_progress_card(
             _ => pct.clone(),
         };
         let line_y = rect.y + rect.h / 2.0 - 26.0;
-        let rw = canvas.draw_text_fit(&right, rect.x + rect.w - p, line_y, type_scale::BODY, true, theme.text, TextAlign::Right, w * 0.6);
-        canvas.draw_text_fit(&title, x, line_y + 1.0, type_scale::LABEL, true, theme.text_muted, TextAlign::Left, w - rw - 10.0);
+        let rw = canvas.draw_text_fit(
+            &right,
+            rect.x + rect.w - p,
+            line_y,
+            type_scale::BODY,
+            true,
+            theme.text,
+            TextAlign::Right,
+            w * 0.6,
+        );
+        canvas.draw_text_fit(
+            &title,
+            x,
+            line_y + 1.0,
+            type_scale::LABEL,
+            true,
+            theme.text_muted,
+            TextAlign::Left,
+            w - rw - 10.0,
+        );
         bar(canvas, x, rect.y + rect.h / 2.0 + 8.0, w, 12.0);
     } else {
         let badge = if rect.w < 240.0 { 40.0 } else { 52.0 };
         let (bx, by) = (rect.x + PAD, rect.y + PAD);
         draw_icon_badge(canvas, theme, bx, by, badge, icon, tone, running);
         let tx = bx + badge + 14.0;
-        canvas.draw_text_fit(&title, tx, by + badge / 2.0 - 13.0, type_scale::BODY, true, theme.text_muted, TextAlign::Left, rect.x + rect.w - PAD - tx);
+        canvas.draw_text_fit(
+            &title,
+            tx,
+            by + badge / 2.0 - 13.0,
+            type_scale::BODY,
+            true,
+            theme.text_muted,
+            TextAlign::Left,
+            rect.x + rect.w - PAD - tx,
+        );
 
         let bar_h = 16.0;
         let bar_y = rect.y + rect.h - PAD - bar_h;
@@ -101,7 +130,10 @@ pub fn render_progress_card(
         }
         bar(canvas, bx, bar_y, rect.w - 2.0 * PAD, bar_h);
     }
-    targets.push(InteractiveTarget { rect, action: UiAction::Refresh });
+    targets.push(InteractiveTarget {
+        rect,
+        action: UiAction::Refresh,
+    });
 }
 
 #[cfg(test)]
@@ -114,7 +146,13 @@ mod tests {
         if let Some(u) = unit {
             attributes.insert("unit_of_measurement".to_string(), serde_json::json!(u));
         }
-        EntityState { entity_id: "sensor.x".into(), state: value.into(), attributes, last_changed: None, last_updated: None }
+        EntityState {
+            entity_id: "sensor.x".into(),
+            state: value.into(),
+            attributes,
+            last_changed: None,
+            last_updated: None,
+        }
     }
 
     #[test]

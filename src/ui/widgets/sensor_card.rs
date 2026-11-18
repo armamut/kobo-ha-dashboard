@@ -35,7 +35,11 @@ fn fit_value_size(canvas: &Canvas, value: &str, unit: &str, max: f32, max_w: f32
     let mut size = max;
     while size > type_scale::VALUE {
         let unit_size = (size * 0.5).max(20.0);
-        let unit_w = if unit.is_empty() { 0.0 } else { canvas.measure_text(unit, unit_size, false).0 + 6.0 };
+        let unit_w = if unit.is_empty() {
+            0.0
+        } else {
+            canvas.measure_text(unit, unit_size, false).0 + 6.0
+        };
         if canvas.measure_text(value, size, true).0 + unit_w <= max_w {
             break;
         }
@@ -99,7 +103,18 @@ pub fn render_sensor_card(
     if rect.h < ROW_CARD_H {
         render_sensor_row(canvas, theme, rect, &title, &value, &unit, icon, tone);
     } else if rect.h < TILE_CARD_H {
-        draw_compact_tile(canvas, theme, rect, 18.0, icon, tone, &title, &value, &unit, if large_value { 60.0 } else { 52.0 });
+        draw_compact_tile(
+            canvas,
+            theme,
+            rect,
+            18.0,
+            icon,
+            tone,
+            &title,
+            &value,
+            &unit,
+            if large_value { 60.0 } else { 52.0 },
+        );
     } else {
         let badge = if large_value || rect.w < 240.0 { 44.0 } else { 60.0 };
         let bx = rect.x + PAD;
@@ -149,18 +164,7 @@ pub const ROW_CARD_H: f32 = 96.0;
 /// A small icon beside the title, the value below: a short card, or a tile of
 /// a sensor grid with little room.
 #[allow(clippy::too_many_arguments)]
-fn draw_compact_tile(
-    canvas: &mut Canvas,
-    theme: &Theme,
-    cell: Rect,
-    ip: f32,
-    icon: &str,
-    tone: Tone,
-    title: &str,
-    value: &str,
-    unit: &str,
-    max_value: f32,
-) {
+fn draw_compact_tile(canvas: &mut Canvas, theme: &Theme, cell: Rect, ip: f32, icon: &str, tone: Tone, title: &str, value: &str, unit: &str, max_value: f32) {
     let icon_size = 26.0;
     canvas.draw_icon(icon, cell.x + ip, cell.y + ip, icon_size, tone.solid, 2.2);
     canvas.draw_text_fit(
@@ -230,30 +234,19 @@ pub fn render_sensor_grid(
     let col_w = (rect.w - 2.0 * PAD - (cols - 1) as f32 * TILE_GAP) / cols as f32;
     // The tiles share the card's height: a card the grid made taller than
     // the tiles need leaves no empty band at the bottom
-    let tile_h = (rect.y + rect.h - PAD - y - TILE_GAP * (sensors.len().div_ceil(cols) as f32 - 1.0))
-        / sensors.len().div_ceil(cols).max(1) as f32;
+    let tile_h = (rect.y + rect.h - PAD - y - TILE_GAP * (sensors.len().div_ceil(cols) as f32 - 1.0)) / sensors.len().div_ceil(cols).max(1) as f32;
 
     for (idx, item) in sensors.iter().enumerate() {
         let (r, c) = (idx / cols, idx % cols);
-        let cell = Rect::new(
-            rect.x + PAD + c as f32 * (col_w + TILE_GAP),
-            y + r as f32 * (tile_h + TILE_GAP),
-            col_w,
-            tile_h,
-        );
+        let cell = Rect::new(rect.x + PAD + c as f32 * (col_w + TILE_GAP), y + r as f32 * (tile_h + TILE_GAP), col_w, tile_h);
         canvas.fill_rounded_rect(cell.x, cell.y, cell.w, cell.h, 16.0, theme.surface_alt);
 
         let icon = item.icon.as_deref().unwrap_or("zap");
         let state = all_states.get(&item.entity_id);
-        let low_battery = icon == "battery"
-            && state.and_then(|s| s.state.parse::<f32>().ok()).map(|v| v < 20.0).unwrap_or(false);
+        let low_battery = icon == "battery" && state.and_then(|s| s.state.parse::<f32>().ok()).map(|v| v < 20.0).unwrap_or(false);
         let tone = if low_battery { theme.heat } else { tone_for_icon(theme, icon) };
         let value = state.map(format_entity_state).unwrap_or_else(|| "--".to_string());
-        let unit = item
-            .unit
-            .clone()
-            .or_else(|| state.and_then(|s| s.unit_of_measurement()))
-            .unwrap_or_default();
+        let unit = item.unit.clone().or_else(|| state.and_then(|s| s.unit_of_measurement())).unwrap_or_default();
 
         // A short or narrow tile: a small icon beside the title, no badge
         if tile_h < 112.0 || col_w < 170.0 {

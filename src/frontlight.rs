@@ -70,9 +70,8 @@ fn read_u32(path: &Path) -> Option<u32> {
 
 impl Frontlight {
     pub fn detect() -> Option<Self> {
-        Self::detect_in(Path::new("/sys/class/backlight"), Path::new(NICKEL_CONF)).or_else(|| {
-            Self::detect_ntx_io(&std::env::var("PRODUCT").unwrap_or_default(), Path::new(NTX_IO), Path::new(NICKEL_CONF))
-        })
+        Self::detect_in(Path::new("/sys/class/backlight"), Path::new(NICKEL_CONF))
+            .or_else(|| Self::detect_ntx_io(&std::env::var("PRODUCT").unwrap_or_default(), Path::new(NTX_IO), Path::new(NICKEL_CONF)))
     }
 
     fn detect_ntx_io(product: &str, device: &Path, nickel_conf: &Path) -> Option<Self> {
@@ -85,7 +84,13 @@ impl Frontlight {
             Some((level, state)) => (if state.unwrap_or(level > 0) { level } else { 0 }, level),
             None => (0, 0),
         };
-        tracing::info!("Frontlight via {:?} ({}): Nickel settings {:?} -> currently {}", device, product, nickel, current);
+        tracing::info!(
+            "Frontlight via {:?} ({}): Nickel settings {:?} -> currently {}",
+            device,
+            product,
+            nickel,
+            current
+        );
         Some(Self {
             control: Control::NtxIo,
             max: 100,
@@ -340,7 +345,11 @@ mod tests {
         // Some models read back 0 even with the light on
         std::fs::write(dir.join("brightness"), "0").unwrap();
         let conf = base.join("Kobo eReader.conf");
-        std::fs::write(&conf, "[Reading]\nFrontLightLevel=5\n\n[PowerOptions]\nFrontLightLevel=42\nFrontLightState=true\n").unwrap();
+        std::fs::write(
+            &conf,
+            "[Reading]\nFrontLightLevel=5\n\n[PowerOptions]\nFrontLightLevel=42\nFrontLightState=true\n",
+        )
+        .unwrap();
 
         let mut light = Frontlight::detect_in(&base, &conf).unwrap();
         assert!(light.is_on(), "light is on according to Nickel");

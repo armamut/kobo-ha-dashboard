@@ -36,13 +36,9 @@ impl EntityState {
     }
 
     pub fn get_attr_string(&self, key: &str) -> Option<String> {
-        self.attributes.get(key).map(|v| {
-            if let Some(s) = v.as_str() {
-                s.to_string()
-            } else {
-                v.to_string()
-            }
-        })
+        self.attributes
+            .get(key)
+            .map(|v| if let Some(s) = v.as_str() { s.to_string() } else { v.to_string() })
     }
 
     pub fn friendly_name(&self) -> String {
@@ -55,8 +51,7 @@ impl EntityState {
     }
 
     pub fn brightness_percent(&self) -> Option<u8> {
-        self.get_attr_f32("brightness")
-            .map(|b| ((b / 255.0) * 100.0).round().clamp(0.0, 100.0) as u8)
+        self.get_attr_f32("brightness").map(|b| ((b / 255.0) * 100.0).round().clamp(0.0, 100.0) as u8)
     }
 
     pub fn unit_of_measurement(&self) -> Option<String> {

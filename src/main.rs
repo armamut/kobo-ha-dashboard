@@ -3,8 +3,8 @@
 mod config;
 mod display;
 mod frontlight;
-mod i18n;
 mod ha;
+mod i18n;
 mod input;
 mod models;
 mod paths;
@@ -106,10 +106,7 @@ const OTHER_WAKES_MAX: u32 = 3;
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     tracing_subscriber::registry()
-        .with(
-            tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| "kobo_ha_dashboard=info".into()),
-        )
+        .with(tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| "kobo_ha_dashboard=info".into()))
         .with(tracing_subscriber::fmt::layer().with_ansi(false).with_timer(LocalTime))
         .init();
 
@@ -118,8 +115,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let is_kobo = cfg!(target_os = "linux") && Path::new("/mnt/onboard/.kobo").exists();
 
     // Setup tool: explicit subcommand, or plain launch on a computer.
-    let wants_setup = matches!(args.command, Some(Command::Setup { .. }))
-        || (args.command.is_none() && !args.simulator && !args.device && !args.once && !is_kobo);
+    let wants_setup =
+        matches!(args.command, Some(Command::Setup { .. })) || (args.command.is_none() && !args.simulator && !args.device && !args.once && !is_kobo);
     if wants_setup {
         let (no_browser, kobo_binary) = match args.command {
             Some(Command::Setup { no_browser, kobo_binary }) => (no_browser, kobo_binary),
@@ -127,7 +124,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         };
         let config_path = args.config.clone().unwrap_or_else(|| {
             let local = PathBuf::from("config.yaml");
-            if local.exists() { local } else { paths::data_dir().join("config.yaml") }
+            if local.exists() {
+                local
+            } else {
+                paths::data_dir().join("config.yaml")
+            }
         });
         i18n::set_override_dir(config_path.parent().map(|d| d.join("lang")).as_deref());
         return setup::start_setup_server(config_path, args.port, !no_browser, kobo_binary).await;
@@ -191,12 +192,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 }
 
 #[cfg(unix)]
-async fn run_device(
-    config: AppConfig,
-    ha_client: HaClient,
-    once: bool,
-) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    tracing::info!("Starting on Kobo e-reader device, version {} ({})", env!("CARGO_PKG_VERSION"), setup::kobo::BUILD_MARKER);
+async fn run_device(config: AppConfig, ha_client: HaClient, once: bool) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    tracing::info!(
+        "Starting on Kobo e-reader device, version {} ({})",
+        env!("CARGO_PKG_VERSION"),
+        setup::kobo::BUILD_MARKER
+    );
     spawn_log_trim();
     let probed = display::framebuffer::probe_resolution(&config.device.fb_device);
     let (width, height) = config.device.resolve_dimensions(probed);
@@ -999,7 +1000,11 @@ fn wake_time(now: chrono::DateTime<chrono::Utc>, every: Duration) -> chrono::Dat
     let at = now + chrono::Duration::from_std(every).unwrap_or_else(|_| chrono::Duration::minutes(15));
     let into_minute = at.timestamp().rem_euclid(60);
     let rounded = at - chrono::Duration::seconds(into_minute) - chrono::Duration::nanoseconds(at.timestamp_subsec_nanos() as i64);
-    if rounded == at { at } else { rounded + chrono::Duration::minutes(1) }
+    if rounded == at {
+        at
+    } else {
+        rounded + chrono::Duration::minutes(1)
+    }
 }
 
 /// Seconds from now until `at` (at least 1, for the RTC alarm).
@@ -1027,7 +1032,9 @@ const LOG_LIMIT: u64 = 1_000_000;
 /// the next start) and starts again empty. The launcher opens it for
 /// appending (`KOBO_HA_LOG` says where it is), so emptying it is safe.
 fn spawn_log_trim() {
-    let Some(path) = std::env::var_os("KOBO_HA_LOG").map(PathBuf::from) else { return };
+    let Some(path) = std::env::var_os("KOBO_HA_LOG").map(PathBuf::from) else {
+        return;
+    };
     tokio::spawn(async move {
         let mut tick = tokio::time::interval(Duration::from_secs(1800));
         loop {
@@ -1059,11 +1066,7 @@ async fn redraw(renderer: &mut ScreenRenderer, canvas: &mut Canvas, config: &App
 }
 
 fn media(service: &str, entity_id: &str) -> (String, String, serde_json::Value) {
-    (
-        "media_player".to_string(),
-        service.to_string(),
-        serde_json::json!({ "entity_id": entity_id }),
-    )
+    ("media_player".to_string(), service.to_string(), serde_json::json!({ "entity_id": entity_id }))
 }
 
 #[cfg(unix)]

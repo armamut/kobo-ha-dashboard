@@ -20,7 +20,15 @@ pub struct KoboModel {
 }
 
 const fn m(key: &'static str, name: &'static str, model_id: Option<&'static str>, width: u32, height: u32, color: bool, tested: bool) -> KoboModel {
-    KoboModel { key, name, model_id, width, height, color, tested }
+    KoboModel {
+        key,
+        name,
+        model_id,
+        width,
+        height,
+        color,
+        tested,
+    }
 }
 
 pub const MODELS: &[KoboModel] = &[
@@ -72,8 +80,14 @@ mod tests {
         assert!(by_model_id("00000000-0000-0000-0000-000000000376").is_none());
         assert!(by_key("sage").is_some());
         // Glo (issue #1): previews at its real size instead of the Clara's
-        assert_eq!(by_model_id("00000000-0000-0000-0000-000000000330").map(|m| (m.key, m.width, m.height)), Some(("glo", 758, 1024)));
+        assert_eq!(
+            by_model_id("00000000-0000-0000-0000-000000000330").map(|m| (m.key, m.width, m.height)),
+            Some(("glo", 758, 1024))
+        );
         // Touch N905C (issue #7)
-        assert_eq!(by_model_id("00000000-0000-0000-0000-000000000320").map(|m| (m.key, m.width, m.height)), Some(("touch_c", 600, 800)));
+        assert_eq!(
+            by_model_id("00000000-0000-0000-0000-000000000320").map(|m| (m.key, m.width, m.height)),
+            Some(("touch_c", 600, 800))
+        );
     }
 }

@@ -164,13 +164,25 @@ impl HaClient {
         for card in app.pages.iter().flat_map(|p| p.cards.iter()).map(|c| &c.kind) {
             match card {
                 CardConfig::Weather { entity_id, .. } => weather.push(entity_id.clone()),
-                CardConfig::Sensor { entity_id, show_graph: true, .. } => history.push(entity_id.clone()),
+                CardConfig::Sensor {
+                    entity_id, show_graph: true, ..
+                } => history.push(entity_id.clone()),
                 // A picture file is the card's own, not fetched
                 CardConfig::Image { entity_id, file: None, .. } if !entity_id.is_empty() => images.push(entity_id.clone()),
-                CardConfig::Climate { entity_id, show_graph: true, graph_hours, .. } => {
-                    climate.push((entity_id.clone(), graph_hours.unwrap_or(24).clamp(1, 24 * 14)))
-                }
-                CardConfig::Statistics { entity_id, period, days, hours, stat, .. } => stats.push(StatRequest {
+                CardConfig::Climate {
+                    entity_id,
+                    show_graph: true,
+                    graph_hours,
+                    ..
+                } => climate.push((entity_id.clone(), graph_hours.unwrap_or(24).clamp(1, 24 * 14))),
+                CardConfig::Statistics {
+                    entity_id,
+                    period,
+                    days,
+                    hours,
+                    stat,
+                    ..
+                } => stats.push(StatRequest {
                     entity_id: entity_id.clone(),
                     period: period.clone(),
                     hours: crate::ui::widgets::statistics_card::window_hours(*days, *hours),
@@ -189,14 +201,14 @@ impl HaClient {
                 | CardConfig::MediaPlayer { entity_id, .. }
                 | CardConfig::Cover { entity_id, .. }
                 | CardConfig::Scene { entity_id, .. } => all.push(entity_id.clone()),
-                CardConfig::Progress { entity_id, secondary_entity, .. } => {
+                CardConfig::Progress {
+                    entity_id, secondary_entity, ..
+                } => {
                     all.push(entity_id.clone());
                     all.extend(secondary_entity.clone());
                 }
                 CardConfig::SensorGrid { sensors, .. } => all.extend(sensors.iter().map(|s| s.entity_id.clone())),
-                CardConfig::Glance { entities, .. } | CardConfig::Breakdown { entities, .. } => {
-                    all.extend(entities.iter().map(|s| s.entity_id.clone()))
-                }
+                CardConfig::Glance { entities, .. } | CardConfig::Breakdown { entities, .. } => all.extend(entities.iter().map(|s| s.entity_id.clone())),
                 CardConfig::ScenesRow { scenes, .. } => all.extend(scenes.iter().map(|s| s.entity_id.clone())),
                 CardConfig::Heading { .. } => {}
             }
@@ -262,10 +274,14 @@ impl HaClient {
             state.attributes.insert(HISTORY_ATTR.to_string(), serde_json::json!(h));
         }
         if let Some(c) = extras.climate.get(&state.entity_id) {
-            state.attributes.insert(crate::ui::widgets::climate_card::CLIMATE_HISTORY_ATTR.to_string(), c.clone());
+            state
+                .attributes
+                .insert(crate::ui::widgets::climate_card::CLIMATE_HISTORY_ATTR.to_string(), c.clone());
         }
         if let Some(stats) = extras.stats.get(&state.entity_id) {
-            state.attributes.insert(crate::ui::widgets::statistics_card::STATS_ATTR.to_string(), stats.clone());
+            state
+                .attributes
+                .insert(crate::ui::widgets::statistics_card::STATS_ATTR.to_string(), stats.clone());
         }
     }
 
@@ -384,7 +400,12 @@ impl HaClient {
         let (need_forecast, need_history, need_stats, need_climate) = {
             let ex = self.extras.read().await;
             let stale = |t: Option<Instant>| t.map(|t| t.elapsed() > HISTORY_REFRESH).unwrap_or(true);
-            (stale(ex.last_forecast_fetch), stale(ex.last_history_fetch), stale(ex.last_stats_fetch), stale(ex.last_climate_fetch))
+            (
+                stale(ex.last_forecast_fetch),
+                stale(ex.last_history_fetch),
+                stale(ex.last_stats_fetch),
+                stale(ex.last_climate_fetch),
+            )
         };
         let mut fetched = false;
         if need_climate && !self.climate_graphs.is_empty() {
@@ -466,10 +487,7 @@ impl HaClient {
                 .any(|e| states.get(e).map(|s| &s.state) != versions.get(e))
         };
         let stale_images = stale_images || changed;
-        if stale_images
-            && !self.image_entities.is_empty()
-            && !self.images_running.swap(true, Ordering::Relaxed)
-        {
+        if stale_images && !self.image_entities.is_empty() && !self.images_running.swap(true, Ordering::Relaxed) {
             let this = self.clone();
             tokio::spawn(async move {
                 this.refresh_images().await;
@@ -487,7 +505,10 @@ impl HaClient {
         // changes during it is fetched again next time.
         let seen: HashMap<String, String> = {
             let states = self.states.read().await;
-            self.image_entities.iter().filter_map(|e| Some((e.clone(), states.get(e)?.state.clone()))).collect()
+            self.image_entities
+                .iter()
+                .filter_map(|e| Some((e.clone(), states.get(e)?.state.clone())))
+                .collect()
         };
         let (images, unreachable) = self.fetch_images().await;
         // Remembered for a picture that failed too: it is tried again when its
@@ -632,10 +653,9 @@ impl HaClient {
                 if series.is_empty() {
                     continue;
                 }
-                out.entry(entity_id.clone()).or_default().insert(
-                    crate::ui::widgets::statistics_card::stat_key(&period, hours, &stat),
-                    serde_json::json!(series),
-                );
+                out.entry(entity_id.clone())
+                    .or_default()
+                    .insert(crate::ui::widgets::statistics_card::stat_key(&period, hours, &stat), serde_json::json!(series));
             }
         }
         // Entities without long-term statistics (a `number`, a sensor without
@@ -658,10 +678,9 @@ impl HaClient {
                         let start = (end - chrono::Duration::hours(*hours as i64)).timestamp_millis() as f64;
                         let buckets = bucket_history(points, start, end.timestamp_millis() as f64, period, stat);
                         if !buckets.is_empty() {
-                            out.entry(entity.clone()).or_default().insert(
-                                crate::ui::widgets::statistics_card::stat_key(period, *hours, stat),
-                                serde_json::json!(buckets),
-                            );
+                            out.entry(entity.clone())
+                                .or_default()
+                                .insert(crate::ui::widgets::statistics_card::stat_key(period, *hours, stat), serde_json::json!(buckets));
                         }
                     }
                 }
@@ -691,7 +710,9 @@ impl HaClient {
         let series: Vec<Vec<Value>> = crate::ha::read_json(resp).await?;
         let mut out = HashMap::new();
         for points in series {
-            let Some(entity) = points.first().and_then(|p| p.get("entity_id")).and_then(Value::as_str).map(str::to_string) else { continue };
+            let Some(entity) = points.first().and_then(|p| p.get("entity_id")).and_then(Value::as_str).map(str::to_string) else {
+                continue;
+            };
             let want = self.climate_graphs.iter().find(|c| c.0 == entity).map(|c| c.1).unwrap_or(hours);
             let from = (chrono::Utc::now() - chrono::Duration::hours(want as i64)).timestamp_millis() as f64;
             let rows: Vec<[f64; 4]> = points
@@ -730,7 +751,11 @@ impl HaClient {
         let resp = self
             .client
             .get(self.url(&format!("/api/history/period/{}", start.format("%Y-%m-%dT%H:%M:%SZ"))))
-            .query(&[("filter_entity_id", ids.join(",")), ("minimal_response", String::new()), ("no_attributes", String::new())])
+            .query(&[
+                ("filter_entity_id", ids.join(",")),
+                ("minimal_response", String::new()),
+                ("no_attributes", String::new()),
+            ])
             .send()
             .await?;
         if !resp.status().is_success() {
@@ -771,9 +796,7 @@ impl HaClient {
             return Err(format!("HTTP {}", resp.status()).into());
         }
         let body: Value = crate::ha::read_json(resp).await?;
-        Ok(body
-            .pointer(&format!("/service_response/{}/forecast", entity_id.replace('/', "~1")))
-            .cloned())
+        Ok(body.pointer(&format!("/service_response/{}/forecast", entity_id.replace('/', "~1"))).cloned())
     }
 
     async fn fetch_history(&self) -> Result<HashMap<String, Vec<f32>>, Box<dyn std::error::Error + Send + Sync>> {
@@ -801,10 +824,7 @@ impl HaClient {
                 .and_then(|v| v.as_str())
                 .map(str::to_string)
                 .or_else(|| self.history_entities.get(idx).cloned());
-            let values: Vec<f32> = points
-                .iter()
-                .filter_map(|p| p.get("state")?.as_str()?.parse::<f32>().ok())
-                .collect();
+            let values: Vec<f32> = points.iter().filter_map(|p| p.get("state")?.as_str()?.parse::<f32>().ok()).collect();
             if let Some(entity) = entity {
                 out.insert(entity, downsample(&values, HISTORY_POINTS));
             }
@@ -817,12 +837,7 @@ impl HaClient {
         self.apply_mock_service_call(domain, service, data).await;
     }
 
-    pub async fn call_service(
-        &self,
-        domain: &str,
-        service: &str,
-        data: Value,
-    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    pub async fn call_service(&self, domain: &str, service: &str, data: Value) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         if self.is_demo() {
             self.apply_mock_service_call(domain, service, &data).await;
             return Ok(());
@@ -952,7 +967,10 @@ fn period_start(t: f64, kind: &str) -> f64 {
     let Some(at) = Local.timestamp_millis_opt(t as i64).single() else { return t };
     let day = |d: chrono::NaiveDate| Local.from_local_datetime(&d.and_hms_opt(0, 0, 0).unwrap_or_default()).earliest();
     let start = match kind {
-        "5minute" => at.with_minute(at.minute() / 5 * 5).and_then(|a| a.with_second(0)).and_then(|a| a.with_nanosecond(0)),
+        "5minute" => at
+            .with_minute(at.minute() / 5 * 5)
+            .and_then(|a| a.with_second(0))
+            .and_then(|a| a.with_nanosecond(0)),
         "hour" => at.with_minute(0).and_then(|a| a.with_second(0)).and_then(|a| a.with_nanosecond(0)),
         "week" => day(at.date_naive() - chrono::Duration::days(at.weekday().num_days_from_monday() as i64)),
         "month" => at.date_naive().with_day(1).and_then(day),

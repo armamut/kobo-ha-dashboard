@@ -40,11 +40,7 @@ pub struct StatusResponse {
     pub height: u32,
 }
 
-pub async fn start_simulator_server(
-    config: AppConfig,
-    ha_client: HaClient,
-    port: u16,
-) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+pub async fn start_simulator_server(config: AppConfig, ha_client: HaClient, port: u16) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let mut renderer = ScreenRenderer::new(&config);
     // Show the light button like on a real Kobo.
     renderer.frontlight = Some(true);
@@ -109,10 +105,7 @@ async fn handle_screen_png(State(state): State<SimulatorState>) -> Response {
     ([(CONTENT_TYPE, "image/png")], png_bytes).into_response()
 }
 
-async fn handle_touch(
-    State(state): State<SimulatorState>,
-    Json(payload): Json<TouchRequest>,
-) -> StatusCode {
+async fn handle_touch(State(state): State<SimulatorState>, Json(payload): Json<TouchRequest>) -> StatusCode {
     let action = {
         let renderer = state.renderer.read().await;
         renderer.handle_touch(payload.x, payload.y)

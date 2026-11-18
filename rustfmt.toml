@@ -1,0 +1,2 @@
+# Line width that fits the code as it was written (default 100 split too much)
+max_width = 160

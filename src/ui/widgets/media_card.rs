@@ -1,6 +1,6 @@
 use crate::display::{Canvas, TextAlign};
-use crate::i18n;
 use crate::ha::models::EntityState;
+use crate::i18n;
 use crate::ui::layout::{InteractiveTarget, Rect, UiAction};
 use crate::ui::theme::Theme;
 use crate::ui::widgets::{draw_card, draw_round_button, type_scale, PAD};
@@ -52,7 +52,11 @@ pub fn render_media_card(
     let ax = rect.x + PAD;
     if with_art {
         let ay = rect.y + (rect.h - art) / 2.0;
-        let (art_bg, art_fg) = if is_playing { (tone.solid, tone.on_solid) } else { (theme.surface_alt, tone.solid) };
+        let (art_bg, art_fg) = if is_playing {
+            (tone.solid, tone.on_solid)
+        } else {
+            (theme.surface_alt, tone.solid)
+        };
         canvas.fill_rounded_rect(ax, ay, art, art, 18.0, art_bg);
         let icon = art * 0.46;
         canvas.draw_icon("music", ax + (art - icon) / 2.0, ay + (art - icon) / 2.0, icon, art_fg, 2.2);

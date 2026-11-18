@@ -249,4 +249,3 @@ mod tests {
         assert!(rule.repeats, "this machine's rule does not repeat: {text}");
     }
 }
-

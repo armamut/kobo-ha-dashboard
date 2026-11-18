@@ -31,7 +31,11 @@ fn battery_dir() -> Option<PathBuf> {
         .map(|e| e.path())
         .filter(|p| std::fs::read_to_string(p.join("type")).map(|t| t.trim() == "Battery").unwrap_or(false))
         .collect();
-    batteries.iter().find(|p| read_trim(&p.join("capacity")).is_some()).or(batteries.first()).cloned()
+    batteries
+        .iter()
+        .find(|p| read_trim(&p.join("capacity")).is_some())
+        .or(batteries.first())
+        .cloned()
 }
 
 /// `operstate` of the Wi-Fi interface (`INTERFACE` from Nickel: eth0 on
@@ -104,7 +108,15 @@ pub fn log_battery() {
     let wifi = read_trim(&wifi_operstate_path()).unwrap_or_else(|| "absent".into());
     let plugged = if is_plugged() { "plugged in" } else { "on battery" };
     let supplies: Vec<String> = chargers().iter().map(|(name, online)| format!("{}={}", name, online)).collect();
-    tracing::info!("Battery: {}% {}{} ({}; online: {}) | Wi-Fi: {}", capacity, status, current, plugged, supplies.join(" "), wifi);
+    tracing::info!(
+        "Battery: {}% {}{} ({}; online: {}) | Wi-Fi: {}",
+        capacity,
+        status,
+        current,
+        plugged,
+        supplies.join(" "),
+        wifi
+    );
 }
 
 /// Non-battery supplies and their `online` value, e.g. ("usb", "0").
@@ -151,7 +163,8 @@ pub fn connected_to_computer() -> bool {
     let udc = udc_states();
     let supplies = chargers();
     tracing::info!("USB: controller {:?}, supplies {:?}", udc, supplies);
-    udc.iter().any(|(_, s)| matches!(s.as_str(), "default" | "addressed" | "configured" | "suspended"))
+    udc.iter()
+        .any(|(_, s)| matches!(s.as_str(), "default" | "addressed" | "configured" | "suspended"))
         || supplies.iter().any(|(_, online)| online == "2")
 }
 
@@ -457,7 +470,11 @@ pub fn log_wakeup_reason() -> Option<String> {
 /// What the MediaTek sleep manager says woke the last suspend ("wake up by
 /// R12_EINT_EVENT_B, timeout = ..."), if it says.
 fn wake_source(lines: &[&str]) -> Option<String> {
-    let line = lines.iter().rev().take_while(|l| !l.contains("PM: suspend entry")).find(|l| l.contains("wake up by "))?;
+    let line = lines
+        .iter()
+        .rev()
+        .take_while(|l| !l.contains("PM: suspend entry"))
+        .find(|l| l.contains("wake up by "))?;
     let source = line.split("wake up by ").nth(1)?.split(',').next()?.trim();
     (!source.is_empty() && source != "(null)").then(|| source.to_string())
 }
@@ -522,7 +539,12 @@ pub fn log_suspend_diagnostics() {
             tracing::info!("  dmesg: {}", line);
         }
     }
-    for file in ["/sys/power/state", "/sys/power/wakeup_count", "/sys/power/wake_lock", "/sys/power/state-extended"] {
+    for file in [
+        "/sys/power/state",
+        "/sys/power/wakeup_count",
+        "/sys/power/wake_lock",
+        "/sys/power/state-extended",
+    ] {
         if let Some(v) = read_trim(Path::new(file)) {
             tracing::info!("  {}: {}", file, v);
         }
@@ -608,8 +630,13 @@ mod tests {
             PM: Some devices failed to suspend, or early wake event detected\n";
         assert!(blocked_by_bluetooth(refused));
         // An older refusal followed by a good suspend doesn't count
-        assert!(!blocked_by_bluetooth(&format!("{}PM: suspend entry 2026-11-11 21:40:00 UTC\nPM: suspend exit\n", refused)));
-        assert!(!blocked_by_bluetooth("PM: suspend entry\nPM: Device 11230000.mmc failed to suspend: error -16\n"));
+        assert!(!blocked_by_bluetooth(&format!(
+            "{}PM: suspend entry 2026-11-11 21:40:00 UTC\nPM: suspend exit\n",
+            refused
+        )));
+        assert!(!blocked_by_bluetooth(
+            "PM: suspend entry\nPM: Device 11230000.mmc failed to suspend: error -16\n"
+        ));
     }
 
     #[test]
@@ -792,7 +819,10 @@ mod tests {
         assert!(conf("conf6", Some("ctrl_interface=/var/run/wpa_supplicant\nnetwork={\n}\n")).ends_with("onboard/.kobo/wpa_supplicant.conf"));
         // Firmware 4.x: in /etc; an empty file on the user partition doesn't count
         assert_eq!(conf("conf4", None), "/etc/wpa_supplicant/wpa_supplicant.conf");
-        assert_eq!(conf("conf4empty", Some("ctrl_interface=/var/run/wpa_supplicant\n")), "/etc/wpa_supplicant/wpa_supplicant.conf");
+        assert_eq!(
+            conf("conf4empty", Some("ctrl_interface=/var/run/wpa_supplicant\n")),
+            "/etc/wpa_supplicant/wpa_supplicant.conf"
+        );
     }
 
     #[cfg(unix)]
@@ -840,7 +870,11 @@ mod tests {
         let off = launch.lines().find(|l| l.contains("wifi.sh\" off")).expect("launch.sh runs wifi.sh off");
         let pos = launch.find(off).unwrap();
         let condition = launch[..pos].lines().last().unwrap();
-        assert!(condition.contains(r#"[ -e "$WIFI_USED" ]"#), "wifi.sh off without the used check: {}", condition);
+        assert!(
+            condition.contains(r#"[ -e "$WIFI_USED" ]"#),
+            "wifi.sh off without the used check: {}",
+            condition
+        );
     }
 
     #[cfg(unix)]

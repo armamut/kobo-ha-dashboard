@@ -35,12 +35,69 @@ const GRIDSTACK_CSS: &str = include_str!("vendor/gridstack/gridstack.min.css");
 
 /// Icons offered in the editor's icon picker
 pub const ICONS: &[&str] = &[
-    "lightbulb", "lightbulb_on", "power", "plug", "fan", "thermometer", "flame", "snowflake", "droplet", "wind", "zap",
-    "sun", "moon", "cloud", "home", "sofa", "bed", "door", "lock", "tv", "music", "coffee", "washer", "printer",
-    "battery", "clock", "layers", "progress", "play", "refresh", "check", "picture", "lamp", "radiator", "leaf", "plant", "window",
-    "blinds", "garage", "car", "ev_charger", "solar", "gauge", "chart", "camera", "shield", "bell", "person", "motion",
-    "key", "calendar", "mail", "trash", "faucet", "shower", "oven", "fridge", "vacuum", "laptop", "router", "gamepad",
-    "heart", "star",
+    "lightbulb",
+    "lightbulb_on",
+    "power",
+    "plug",
+    "fan",
+    "thermometer",
+    "flame",
+    "snowflake",
+    "droplet",
+    "wind",
+    "zap",
+    "sun",
+    "moon",
+    "cloud",
+    "home",
+    "sofa",
+    "bed",
+    "door",
+    "lock",
+    "tv",
+    "music",
+    "coffee",
+    "washer",
+    "printer",
+    "battery",
+    "clock",
+    "layers",
+    "progress",
+    "play",
+    "refresh",
+    "check",
+    "picture",
+    "lamp",
+    "radiator",
+    "leaf",
+    "plant",
+    "window",
+    "blinds",
+    "garage",
+    "car",
+    "ev_charger",
+    "solar",
+    "gauge",
+    "chart",
+    "camera",
+    "shield",
+    "bell",
+    "person",
+    "motion",
+    "key",
+    "calendar",
+    "mail",
+    "trash",
+    "faucet",
+    "shower",
+    "oven",
+    "fridge",
+    "vacuum",
+    "laptop",
+    "router",
+    "gamepad",
+    "heart",
+    "star",
 ];
 
 struct Inner {
@@ -82,7 +139,10 @@ pub async fn start_setup_server(
         AppConfig::load_or_default(&config_path)
     } else {
         // Fresh start: no demo pages, the user connects HA first.
-        AppConfig { pages: Vec::new(), ..AppConfig::default() }
+        AppConfig {
+            pages: Vec::new(),
+            ..AppConfig::default()
+        }
     };
     let ha = setup_client(&config);
     spawn_refresh(ha.clone());
@@ -108,8 +168,14 @@ pub async fn start_setup_server(
 
     let app = Router::new()
         .route("/", get(|| async { ([(axum::http::header::CACHE_CONTROL, "no-store")], Html(EDITOR_HTML)) }))
-        .route("/vendor/gridstack-all.js", get(|| async { ([(axum::http::header::CONTENT_TYPE, "text/javascript; charset=utf-8")], GRIDSTACK_JS) }))
-        .route("/vendor/gridstack.min.css", get(|| async { ([(axum::http::header::CONTENT_TYPE, "text/css; charset=utf-8")], GRIDSTACK_CSS) }))
+        .route(
+            "/vendor/gridstack-all.js",
+            get(|| async { ([(axum::http::header::CONTENT_TYPE, "text/javascript; charset=utf-8")], GRIDSTACK_JS) }),
+        )
+        .route(
+            "/vendor/gridstack.min.css",
+            get(|| async { ([(axum::http::header::CONTENT_TYPE, "text/css; charset=utf-8")], GRIDSTACK_CSS) }),
+        )
         .route("/api/state", get(get_state))
         .route("/api/config", post(put_config))
         .route("/api/save", post(save_config))
@@ -124,7 +190,10 @@ pub async fn start_setup_server(
         .route("/api/preview.png", get(preview))
         .route("/api/preview/tap", post(preview_tap))
         .route("/api/preview/reset", post(preview_reset))
-        .route("/api/pictures", post(upload_picture).layer(axum::extract::DefaultBodyLimit::max(MAX_PICTURE_BYTES)))
+        .route(
+            "/api/pictures",
+            post(upload_picture).layer(axum::extract::DefaultBodyLimit::max(MAX_PICTURE_BYTES)),
+        )
         .route("/api/icon.png", get(icon_png))
         .route("/api/kobo", get(list_kobos))
         .route("/api/kobo/install", post(install_kobo))
@@ -343,14 +412,26 @@ fn entity_set(c: &AppConfig) -> Vec<String> {
         .flat_map(|p| p.cards.iter())
         .filter_map(|card| match &card.kind {
             CardConfig::Weather { entity_id, .. } => Some(entity_id.clone()),
-            CardConfig::Sensor { entity_id, show_graph: true, .. } => Some(entity_id.clone()),
+            CardConfig::Sensor {
+                entity_id, show_graph: true, ..
+            } => Some(entity_id.clone()),
             // A chart's period and range decide what is fetched, so they are
             // part of the signature that rebuilds the Home Assistant client.
-            CardConfig::Statistics { entity_id, period, days, hours, stat, .. } => {
-                Some(format!("{}#{}:{}:{:?}:{}", entity_id, period, days, hours, stat))
-            }
+            CardConfig::Statistics {
+                entity_id,
+                period,
+                days,
+                hours,
+                stat,
+                ..
+            } => Some(format!("{}#{}:{}:{:?}:{}", entity_id, period, days, hours, stat)),
             CardConfig::Image { entity_id, .. } => Some(entity_id.clone()),
-            CardConfig::Climate { entity_id, show_graph: true, graph_hours, .. } => Some(format!("{}#graph{:?}", entity_id, graph_hours)),
+            CardConfig::Climate {
+                entity_id,
+                show_graph: true,
+                graph_hours,
+                ..
+            } => Some(format!("{}#graph{:?}", entity_id, graph_hours)),
             _ => None,
         })
         .collect()
@@ -440,8 +521,7 @@ async fn import_lovelace(State(s): State<Shared>, Json(req): Json<LovelaceImport
                 cards,
                 result.skipped.len()
             );
-            Json(serde_json::json!({ "pages": result.pages, "skipped": result.skipped, "source": source }))
-                .into_response()
+            Json(serde_json::json!({ "pages": result.pages, "skipped": result.skipped, "source": source })).into_response()
         }
         Err(e) => {
             tracing::warn!("Lovelace import refused: {:?}", e);
@@ -451,11 +531,7 @@ async fn import_lovelace(State(s): State<Shared>, Json(req): Json<LovelaceImport
                     "This dashboard is generated by a strategy, so its cards cannot be read",
                     serde_json::json!({}),
                 ),
-                lovelace::ImportError::Empty => bad_request_key(
-                    "lovelace_empty",
-                    "This dashboard has no cards the Kobo can show",
-                    serde_json::json!({}),
-                ),
+                lovelace::ImportError::Empty => bad_request_key("lovelace_empty", "This dashboard has no cards the Kobo can show", serde_json::json!({})),
             }
         }
     }
@@ -547,7 +623,9 @@ async fn draw_preview(s: &Shared, page: usize, sleep: bool) -> (Canvas, ScreenRe
     states.extend(tapped);
     let live = ha.is_connected().await;
     let (w, h) = config.device.get_dimensions();
-    let battery_entity = Some(config.home_assistant.battery_entity.clone()).filter(|e| !e.is_empty()).unwrap_or_else(|| "sensor.kobo_battery".into());
+    let battery_entity = Some(config.home_assistant.battery_entity.clone())
+        .filter(|e| !e.is_empty())
+        .unwrap_or_else(|| "sensor.kobo_battery".into());
     let battery = states
         .get(&battery_entity)
         .and_then(|b| b.state.parse::<f32>().ok())
@@ -634,7 +712,8 @@ async fn preview_tap(State(s): State<Shared>, Json(t): Json<TapRequest>) -> Json
         crate::ui::layout::UiAction::SetClimateTemp(id, delta) => current(&id).map(|mut e| {
             let t = e.get_attr_f32("temperature").unwrap_or(21.0) + delta;
             let (lo, hi) = (e.get_attr_f32("min_temp").unwrap_or(5.0), e.get_attr_f32("max_temp").unwrap_or(35.0));
-            e.attributes.insert("temperature".into(), serde_json::json!(((t * 2.0).round() / 2.0).clamp(lo, hi)));
+            e.attributes
+                .insert("temperature".into(), serde_json::json!(((t * 2.0).round() / 2.0).clamp(lo, hi)));
             e
         }),
         crate::ui::layout::UiAction::MediaPlayPause(id) => current(&id).map(|mut e| {
@@ -701,7 +780,11 @@ struct InstallRequest {
 
 async fn install_kobo(State(s): State<Shared>, Json(req): Json<InstallRequest>) -> Response {
     let Some(binary) = s.kobo_binary.clone() else {
-        return bad_request_key("binary_missing", "The Kobo program was not found next to the setup tool.", serde_json::json!({}));
+        return bad_request_key(
+            "binary_missing",
+            "The Kobo program was not found next to the setup tool.",
+            serde_json::json!({}),
+        );
     };
     // What goes on the Kobo is also what is saved on this computer.
     if let Err(e) = write_draft(&s).await {
@@ -791,7 +874,11 @@ async fn upload_picture(State(s): State<Shared>, Query(q): Query<UploadQuery>, b
         return bad_request_key("not_a_picture", "This file is not a picture", serde_json::json!({}));
     };
     if w as u64 * h as u64 > crate::display::canvas::MAX_IMAGE_PIXELS {
-        return bad_request_key("picture_too_large", "This picture is larger than 4K", serde_json::json!({ "size": format!("{}×{}", w, h) }));
+        return bad_request_key(
+            "picture_too_large",
+            "This picture is larger than 4K",
+            serde_json::json!({ "size": format!("{}×{}", w, h) }),
+        );
     }
     let ext = format.extensions_str().first().copied().unwrap_or("png");
     let stem: String = Path::new(&q.name)
@@ -813,7 +900,11 @@ async fn upload_picture(State(s): State<Shared>, Query(q): Query<UploadQuery>, b
     }
     let mut n = 1;
     let name = loop {
-        let name = if n == 1 { format!("{}.{}", stem, ext) } else { format!("{}-{}.{}", stem, n, ext) };
+        let name = if n == 1 {
+            format!("{}.{}", stem, ext)
+        } else {
+            format!("{}-{}.{}", stem, n, ext)
+        };
         match std::fs::read(dir.join(&name)) {
             Ok(existing) if existing == body.as_ref() => break name,
             Ok(_) => n += 1,
@@ -884,7 +975,9 @@ struct EjectRequest {
 
 async fn eject_kobo(Json(req): Json<EjectRequest>) -> Response {
     let path = PathBuf::from(&req.path);
-    let result = tokio::task::spawn_blocking(move || kobo::eject(&path)).await.unwrap_or_else(|e| Err(e.to_string()));
+    let result = tokio::task::spawn_blocking(move || kobo::eject(&path))
+        .await
+        .unwrap_or_else(|e| Err(e.to_string()));
     match result {
         Ok(()) => Json(serde_json::json!({ "ok": true })).into_response(),
         Err(e) => bad_request_key("eject_failed", &e, serde_json::json!({ "error": e })),
@@ -905,7 +998,11 @@ async fn install_nickelmenu(Json(req): Json<NickelMenuRequest>) -> Response {
         .filter(|f| !f.is_empty());
     let Some(package) = kobo::nickelmenu_for(firmware.as_deref()) else {
         let version = firmware.unwrap_or_default();
-        return bad_request_key("firmware_unsupported", "No NickelMenu for this Kobo software", serde_json::json!({ "version": version }));
+        return bad_request_key(
+            "firmware_unsupported",
+            "No NickelMenu for this Kobo software",
+            serde_json::json!({ "version": version }),
+        );
     };
     let mut log = vec![kobo::Msg::new("nm_download").arg("version", package.version)];
     let bytes = match paths::nickelmenu_package(package).await {
@@ -917,9 +1014,11 @@ async fn install_nickelmenu(Json(req): Json<NickelMenuRequest>) -> Response {
             log.push(kobo::Msg::new("nm_copied").arg("version", package.version));
             Json(serde_json::json!({ "log": log })).into_response()
         }
-        Err(e) if e == "other_package_pending" => {
-            bad_request_key("nm_other_pending", "Another update package is already waiting on this Kobo", serde_json::json!({}))
-        }
+        Err(e) if e == "other_package_pending" => bad_request_key(
+            "nm_other_pending",
+            "Another update package is already waiting on this Kobo",
+            serde_json::json!({}),
+        ),
         Err(e) => bad_request_key("nm_failed", "Could not install NickelMenu", serde_json::json!({ "error": e })),
     }
 }
@@ -1015,8 +1114,18 @@ mod tests {
     fn every_card_type_has_a_label() {
         let strings = i18n::setup_strings("en");
         for t in [
-            "weather", "light", "switch", "climate", "sensor", "sensor_grid", "media_player", "scenes_row", "scene", "heading",
-            "statistics", "image",
+            "weather",
+            "light",
+            "switch",
+            "climate",
+            "sensor",
+            "sensor_grid",
+            "media_player",
+            "scenes_row",
+            "scene",
+            "heading",
+            "statistics",
+            "image",
         ] {
             assert!(strings.contains_key(&format!("card_types.{}", t)), "card_types.{} missing", t);
         }
@@ -1024,7 +1133,11 @@ mod tests {
 
     #[test]
     fn picture_names_keep_their_letters() {
-        let name: String = "aile fotoğrafı çiçek".chars().map(plain_letter).map(|c| if c.is_ascii_alphanumeric() { c } else { '-' }).collect();
+        let name: String = "aile fotoğrafı çiçek"
+            .chars()
+            .map(plain_letter)
+            .map(|c| if c.is_ascii_alphanumeric() { c } else { '-' })
+            .collect();
         assert_eq!(name, "aile-fotografi-cicek");
     }
 

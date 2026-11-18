@@ -84,7 +84,10 @@ pub async fn check_here() -> bool {
 
 impl UpdateState {
     pub fn load(path: &Path) -> Self {
-        std::fs::read_to_string(path).ok().and_then(|s| serde_json::from_str(&s).ok()).unwrap_or_default()
+        std::fs::read_to_string(path)
+            .ok()
+            .and_then(|s| serde_json::from_str(&s).ok())
+            .unwrap_or_default()
     }
 
     pub fn save(&self, path: &Path) {
@@ -254,8 +257,17 @@ mod tests {
 
     #[test]
     fn a_skipped_or_older_release_is_not_offered() {
-        let r = |v: &str| Release { version: v.into(), title: v.into(), notes: String::new(), url: String::new(), assets: Vec::new() };
-        let mut s = UpdateState { latest: Some(r("0.4.1")), ..Default::default() };
+        let r = |v: &str| Release {
+            version: v.into(),
+            title: v.into(),
+            notes: String::new(),
+            url: String::new(),
+            assets: Vec::new(),
+        };
+        let mut s = UpdateState {
+            latest: Some(r("0.4.1")),
+            ..Default::default()
+        };
         assert_eq!(s.offer("0.4.0").map(|r| r.version.as_str()), Some("0.4.1"));
         assert!(s.offer("0.4.1").is_none());
         s.skipped = Some("0.4.1".into());

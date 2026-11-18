@@ -25,7 +25,10 @@ type BoxError = Box<dyn std::error::Error + Send + Sync>;
 
 fn ws_url(base: &str) -> Option<String> {
     let (base, _) = crate::ha::base_url(base);
-    let rest = base.strip_prefix("https://").map(|r| format!("wss://{}", r)).or_else(|| base.strip_prefix("http://").map(|r| format!("ws://{}", r)))?;
+    let rest = base
+        .strip_prefix("https://")
+        .map(|r| format!("wss://{}", r))
+        .or_else(|| base.strip_prefix("http://").map(|r| format!("ws://{}", r)))?;
     Some(format!("{}/api/websocket", rest))
 }
 
@@ -69,10 +72,7 @@ pub async fn requests(config_url: &str, token: &str, payloads: Vec<Value>) -> Re
     // matched and this would wait for a result that never comes.
     let mut wanted = std::collections::HashSet::new();
     for payload in &payloads {
-        let id = payload
-            .get("id")
-            .and_then(Value::as_u64)
-            .ok_or("every request needs a numeric id")?;
+        let id = payload.get("id").and_then(Value::as_u64).ok_or("every request needs a numeric id")?;
         if !wanted.insert(id) {
             return Err(format!("two requests share the id {}", id).into());
         }
@@ -101,7 +101,11 @@ fn collect_results(payloads: Vec<Value>, mut answers: std::collections::HashMap<
             continue;
         }
         let error = msg.get("error").cloned().unwrap_or(Value::Null);
-        let text = error.get("message").and_then(Value::as_str).map(str::to_string).unwrap_or_else(|| error.to_string());
+        let text = error
+            .get("message")
+            .and_then(Value::as_str)
+            .map(str::to_string)
+            .unwrap_or_else(|| error.to_string());
         return Err(format!("Home Assistant: {}", text).into());
     }
     Ok(out)
@@ -282,7 +286,10 @@ where
     S: StreamExt<Item = Result<Message, tokio_tungstenite::tungstenite::Error>> + Unpin,
 {
     loop {
-        match tokio::time::timeout(Duration::from_secs(15), ws.next()).await.map_err(|_| "Home Assistant did not answer in time")? {
+        match tokio::time::timeout(Duration::from_secs(15), ws.next())
+            .await
+            .map_err(|_| "Home Assistant did not answer in time")?
+        {
             Some(Ok(Message::Text(t))) => return Ok(serde_json::from_str(&t)?),
             Some(Ok(Message::Close(_))) | None => return Err("connection closed during login".into()),
             Some(Ok(_)) => continue,
@@ -300,7 +307,10 @@ mod tests {
     fn websocket_url() {
         assert_eq!(ws_url("http://192.168.1.10:8123/").as_deref(), Some("ws://192.168.1.10:8123/api/websocket"));
         assert_eq!(ws_url("https://ha.example.com").as_deref(), Some("wss://ha.example.com/api/websocket"));
-        assert_eq!(ws_url("http://192.168.1.10:8123/lovelace/0").as_deref(), Some("ws://192.168.1.10:8123/api/websocket"));
+        assert_eq!(
+            ws_url("http://192.168.1.10:8123/lovelace/0").as_deref(),
+            Some("ws://192.168.1.10:8123/api/websocket")
+        );
         assert_eq!(ws_url("ha.local"), None);
     }
 
@@ -332,7 +342,10 @@ mod tests {
         let out = requests(
             &format!("http://127.0.0.1:{}", port),
             "t",
-            vec![json!({ "id": 1, "type": "recorder/statistics_during_period" }), json!({ "id": 2, "type": "lovelace/config" })],
+            vec![
+                json!({ "id": 1, "type": "recorder/statistics_during_period" }),
+                json!({ "id": 2, "type": "lovelace/config" }),
+            ],
         )
         .await
         .expect("both are answered");
@@ -341,7 +354,11 @@ mod tests {
 
     #[tokio::test]
     async fn applies_added_changed_and_removed() {
-        let client = HaClient::new(HomeAssistantConfig { token: "t".into(), demo_mode_fallback: false, ..Default::default() });
+        let client = HaClient::new(HomeAssistantConfig {
+            token: "t".into(),
+            demo_mode_fallback: false,
+            ..Default::default()
+        });
         client
             .apply_compressed(&json!({"a": {
                 "light.desk": {"s": "off", "a": {"friendly_name": "Desk", "brightness": 10}, "lc": 1.0},
@@ -374,7 +391,9 @@ mod tests {
             ws.next().await;
             ws.send(Message::Text(json!({"type": "auth_ok"}).to_string())).await.unwrap();
             ws.next().await;
-            ws.send(Message::Text(json!({"id": 1, "type": "result", "success": true}).to_string())).await.unwrap();
+            ws.send(Message::Text(json!({"id": 1, "type": "result", "success": true}).to_string()))
+                .await
+                .unwrap();
             let event = json!({"id": 1, "type": "event", "event": {"a": {"light.desk": {"s": "on", "a": {}}}}});
             ws.send(Message::Text(event.to_string())).await.unwrap();
             // Runs until the dashboard drops the connection
@@ -397,7 +416,10 @@ mod tests {
         client.network_down().await;
         assert!(!client.is_live_push(), "polling must resume");
         assert!(!client.is_connected().await, "the header must not say live");
-        tokio::time::timeout(Duration::from_secs(5), closed_rx).await.expect("the session was not closed").unwrap();
+        tokio::time::timeout(Duration::from_secs(5), closed_rx)
+            .await
+            .expect("the session was not closed")
+            .unwrap();
     }
 
     /// Manual check against a real Home Assistant:
@@ -408,7 +430,12 @@ mod tests {
         let (Ok(url), Ok(token), Ok(entities)) = (std::env::var("HA_URL"), std::env::var("HA_TOKEN"), std::env::var("HA_ENTITIES")) else {
             panic!("set HA_URL, HA_TOKEN and HA_ENTITIES");
         };
-        let mut client = HaClient::new(HomeAssistantConfig { url, token, demo_mode_fallback: false, ..Default::default() });
+        let mut client = HaClient::new(HomeAssistantConfig {
+            url,
+            token,
+            demo_mode_fallback: false,
+            ..Default::default()
+        });
         client.entity_ids = std::sync::Arc::new(entities.split(',').map(str::to_string).collect());
         let (tx, mut rx) = mpsc::channel(8);
         client.spawn_live_updates(tx);

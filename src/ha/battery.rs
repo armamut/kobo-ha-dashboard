@@ -91,7 +91,11 @@ impl HaClient {
                 *self.battery_sent.lock().unwrap_or_else(|e| e.into_inner()) = Some(Sent { percent, charging, at: now });
             }
             Ok(resp) if matches!(resp.status().as_u16(), 401 | 403) => {
-                tracing::warn!("Battery report to {} refused (HTTP {}): the token must belong to an admin user", entity, resp.status())
+                tracing::warn!(
+                    "Battery report to {} refused (HTTP {}): the token must belong to an admin user",
+                    entity,
+                    resp.status()
+                )
             }
             Ok(resp) => tracing::warn!("Battery report to {} failed: HTTP {}", entity, resp.status()),
             Err(e) => tracing::warn!("Battery report to {} failed: {}", entity, e),
@@ -129,7 +133,11 @@ mod tests {
     #[test]
     fn reports_on_change_force_or_age() {
         let t = Instant::now();
-        let last = Some(Sent { percent: 50, charging: false, at: t });
+        let last = Some(Sent {
+            percent: 50,
+            charging: false,
+            at: t,
+        });
         assert!(due(None, 50, false, false, t));
         assert!(!due(last, 50, false, false, t + Duration::from_secs(60)));
         assert!(due(last, 49, false, false, t));
@@ -159,7 +167,11 @@ mod tests {
                     if let Some(end) = text.find("\r\n\r\n") {
                         let body_len = text
                             .lines()
-                            .find_map(|l| l.to_ascii_lowercase().strip_prefix("content-length:").map(|v| v.trim().parse::<usize>().unwrap_or(0)))
+                            .find_map(|l| {
+                                l.to_ascii_lowercase()
+                                    .strip_prefix("content-length:")
+                                    .map(|v| v.trim().parse::<usize>().unwrap_or(0))
+                            })
                             .unwrap_or(0);
                         if len >= end + 4 + body_len {
                             break;
@@ -167,7 +179,10 @@ mod tests {
                     }
                 }
                 let _ = tx.send(String::from_utf8_lossy(&buf[..len]).to_string());
-                let resp = format!("HTTP/1.1 {} X\r\nContent-Type: application/json\r\nContent-Length: 2\r\nConnection: close\r\n\r\n{{}}", status);
+                let resp = format!(
+                    "HTTP/1.1 {} X\r\nContent-Type: application/json\r\nContent-Length: 2\r\nConnection: close\r\n\r\n{{}}",
+                    status
+                );
                 let _ = sock.write_all(resp.as_bytes()).await;
             }
         });

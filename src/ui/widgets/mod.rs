@@ -62,7 +62,11 @@ pub fn draw_card(canvas: &mut Canvas, theme: &Theme, rect: Rect, active: Option<
 
 /// Round icon badge; filled with the tone when active, neutral otherwise.
 pub fn draw_icon_badge(canvas: &mut Canvas, theme: &Theme, x: f32, y: f32, d: f32, icon: &str, tone: Tone, active: bool) {
-    let (bg, fg) = if active { (tone.solid, tone.on_solid) } else { (theme.surface_alt, tone.solid) };
+    let (bg, fg) = if active {
+        (tone.solid, tone.on_solid)
+    } else {
+        (theme.surface_alt, tone.solid)
+    };
     canvas.fill_circle(x + d / 2.0, y + d / 2.0, d / 2.0, bg);
     if !active {
         canvas.stroke_circle(x + d / 2.0, y + d / 2.0, d / 2.0 - 1.0, 2.0, theme.border);
@@ -121,21 +125,20 @@ pub fn draw_round_button(canvas: &mut Canvas, theme: &Theme, rect: Rect, icon: &
 }
 
 /// Value in big type followed by a smaller unit; returns total width.
-pub fn draw_value_unit(
-    canvas: &mut Canvas,
-    theme: &Theme,
-    x: f32,
-    y: f32,
-    value: &str,
-    unit: &str,
-    size: f32,
-    max_w: f32,
-) -> f32 {
+pub fn draw_value_unit(canvas: &mut Canvas, theme: &Theme, x: f32, y: f32, value: &str, unit: &str, size: f32, max_w: f32) -> f32 {
     let unit_size = (size * 0.5).max(20.0);
     let unit_w = unit_width(canvas, unit, size);
     let vw = canvas.draw_text_fit(value, x, y, size, true, theme.text, TextAlign::Left, (max_w - unit_w).max(10.0));
     if !unit.is_empty() {
-        canvas.draw_text(unit, x + vw + 6.0, y + size * 0.85 - unit_size * 0.85, unit_size, false, theme.text_muted, TextAlign::Left);
+        canvas.draw_text(
+            unit,
+            x + vw + 6.0,
+            y + size * 0.85 - unit_size * 0.85,
+            unit_size,
+            false,
+            theme.text_muted,
+            TextAlign::Left,
+        );
     }
     vw + unit_w
 }

@@ -13,10 +13,8 @@ static FONTS: OnceLock<(Font, Font)> = OnceLock::new();
 
 fn get_fonts() -> &'static (Font, Font) {
     FONTS.get_or_init(|| {
-        let regular = Font::from_bytes(FONT_REGULAR_BYTES, FontSettings::default())
-            .expect("Failed to parse embedded Roboto-Regular font");
-        let bold = Font::from_bytes(FONT_BOLD_BYTES, FontSettings::default())
-            .expect("Failed to parse embedded Roboto-Bold font");
+        let regular = Font::from_bytes(FONT_REGULAR_BYTES, FontSettings::default()).expect("Failed to parse embedded Roboto-Regular font");
+        let bold = Font::from_bytes(FONT_BOLD_BYTES, FontSettings::default()).expect("Failed to parse embedded Roboto-Bold font");
         (regular, bold)
     })
 }
@@ -56,7 +54,10 @@ pub fn load_fallback_font(dirs: &[PathBuf], family: Option<&str>) {
     let mut families: Vec<String> = family.map(|f| vec![f.to_string()]).unwrap_or_default();
     families.push("fallback".to_string());
     let with = |suffix: &str| families.iter().map(|f| format!("{}-{}", f, suffix)).collect::<Vec<_>>();
-    let fallback = read_font(dirs, &with("Regular")).map(|regular| Fallback { regular, bold: read_font(dirs, &with("Bold")) });
+    let fallback = read_font(dirs, &with("Regular")).map(|regular| Fallback {
+        regular,
+        bold: read_font(dirs, &with("Bold")),
+    });
     if let Ok(mut slot) = FALLBACK.write() {
         *slot = fallback.map(Arc::new);
     }
@@ -144,11 +145,19 @@ pub fn fit_image_as(bytes: &[u8], box_w: u32, box_h: u32, fit: crate::config::Im
     if box_w == 0 || box_h == 0 {
         return Err(ImageIssue::Unreadable);
     }
-    let reader = || image::ImageReader::new(std::io::Cursor::new(bytes)).with_guessed_format().map_err(|_| ImageIssue::Unreadable);
+    let reader = || {
+        image::ImageReader::new(std::io::Cursor::new(bytes))
+            .with_guessed_format()
+            .map_err(|_| ImageIssue::Unreadable)
+    };
     // The header alone gives the size: check it before anything is allocated.
     let (w, h) = reader()?.into_dimensions().map_err(|_| ImageIssue::Unreadable)?;
     if w as u64 * h as u64 > MAX_IMAGE_PIXELS {
-        tracing::warn!("Picture is {}x{}, larger than 4K: not shown, to keep the Kobo's memory safe. Make it smaller in Home Assistant.", w, h);
+        tracing::warn!(
+            "Picture is {}x{}, larger than 4K: not shown, to keep the Kobo's memory safe. Make it smaller in Home Assistant.",
+            w,
+            h
+        );
         return Err(ImageIssue::TooLarge(w, h));
     }
     let mut reader = reader()?;
@@ -179,7 +188,10 @@ pub fn fit_image_as(bytes: &[u8], box_w: u32, box_h: u32, fit: crate::config::Im
     let (w, h) = decoded.dimensions();
     let (tw, th) = if fit == ImageFit::Contain {
         let scale = (box_w as f32 / w as f32).min(box_h as f32 / h as f32);
-        (((w as f32 * scale).round() as u32).clamp(1, box_w), ((h as f32 * scale).round() as u32).clamp(1, box_h))
+        (
+            ((w as f32 * scale).round() as u32).clamp(1, box_w),
+            ((h as f32 * scale).round() as u32).clamp(1, box_h),
+        )
     } else {
         (box_w, box_h)
     };
@@ -224,7 +236,10 @@ impl Canvas {
 
     /// A whole device screen, scaled down if it is a small one.
     pub fn for_screen(width: u32, height: u32) -> Self {
-        Self { scale: ui_scale(width, height), ..Self::new(width, height) }
+        Self {
+            scale: ui_scale(width, height),
+            ..Self::new(width, height)
+        }
     }
 
     /// Canvas size in UI units.
@@ -278,21 +293,11 @@ impl Canvas {
             let mut paint = Paint::default();
             paint.set_color(color.to_skia());
             paint.anti_alias = true;
-            self.pixmap
-                .fill_path(&path, &paint, FillRule::Winding, self.transform(), None);
+            self.pixmap.fill_path(&path, &paint, FillRule::Winding, self.transform(), None);
         }
     }
 
-    pub fn stroke_rounded_rect(
-        &mut self,
-        x: f32,
-        y: f32,
-        w: f32,
-        h: f32,
-        radius: f32,
-        stroke_width: f32,
-        color: Color,
-    ) {
+    pub fn stroke_rounded_rect(&mut self, x: f32, y: f32, w: f32, h: f32, radius: f32, stroke_width: f32, color: Color) {
         let r = radius.min(w / 2.0).min(h / 2.0);
         let mut pb = PathBuilder::new();
         pb.move_to(x + r, y);
@@ -314,8 +319,7 @@ impl Canvas {
                 width: stroke_width,
                 ..Default::default()
             };
-            self.pixmap
-                .stroke_path(&path, &paint, &stroke, self.transform(), None);
+            self.pixmap.stroke_path(&path, &paint, &stroke, self.transform(), None);
         }
     }
 
@@ -332,20 +336,11 @@ impl Canvas {
                 line_cap: LineCap::Round,
                 ..Default::default()
             };
-            self.pixmap
-                .stroke_path(&path, &paint, &stroke, self.transform(), None);
+            self.pixmap.stroke_path(&path, &paint, &stroke, self.transform(), None);
         }
     }
 
-    pub fn draw_icon(
-        &mut self,
-        name: &str,
-        x: f32,
-        y: f32,
-        size: f32,
-        color: Color,
-        stroke_width: f32,
-    ) {
+    pub fn draw_icon(&mut self, name: &str, x: f32, y: f32, size: f32, color: Color, stroke_width: f32) {
         // The icon's stroke scales with its size
         let s = self.scale;
         let mut pm_mut = self.pixmap.as_mut();
@@ -402,17 +397,7 @@ impl Canvas {
     }
 
     /// Like `draw_text`, but truncates with an ellipsis beyond `max_width`.
-    pub fn draw_text_fit(
-        &mut self,
-        text: &str,
-        x: f32,
-        y: f32,
-        font_size: f32,
-        bold: bool,
-        color: Color,
-        align: TextAlign,
-        max_width: f32,
-    ) -> f32 {
+    pub fn draw_text_fit(&mut self, text: &str, x: f32, y: f32, font_size: f32, bold: bool, color: Color, align: TextAlign, max_width: f32) -> f32 {
         let fitted = self.fit_text(text, font_size, bold, max_width);
         self.draw_text(&fitted, x, y, font_size, bold, color, align);
         self.measure_text(&fitted, font_size, bold).0
@@ -466,7 +451,10 @@ impl Canvas {
             let mut paint = Paint::default();
             paint.set_color(color.to_skia());
             paint.anti_alias = true;
-            let stroke = Stroke { width: stroke_width, ..Default::default() };
+            let stroke = Stroke {
+                width: stroke_width,
+                ..Default::default()
+            };
             self.pixmap.stroke_path(&path, &paint, &stroke, self.transform(), None);
         }
     }
@@ -477,16 +465,7 @@ impl Canvas {
         draw_weather_art(&mut pm_mut, condition, x * s, y * s, size * s, ink);
     }
 
-    pub fn draw_text(
-        &mut self,
-        text: &str,
-        x: f32,
-        y: f32,
-        font_size: f32,
-        bold: bool,
-        color: Color,
-        align: TextAlign,
-    ) {
+    pub fn draw_text(&mut self, text: &str, x: f32, y: f32, font_size: f32, bold: bool, color: Color, align: TextAlign) {
         let (regular, bold_font) = get_fonts();
         let font = if bold { bold_font } else { regular };
 
@@ -541,15 +520,7 @@ impl Canvas {
         }
     }
 
-    fn blend_glyph(
-        &mut self,
-        start_x: i32,
-        start_y: i32,
-        width: usize,
-        height: usize,
-        bitmap: &[u8],
-        color: Color,
-    ) {
+    fn blend_glyph(&mut self, start_x: i32, start_y: i32, width: usize, height: usize, bitmap: &[u8], color: Color) {
         let fb_w = self.width as i32;
         let fb_h = self.height as i32;
         let pixels = self.pixmap.data_mut();
@@ -598,17 +569,7 @@ impl Canvas {
         }
     }
 
-    pub fn draw_progress_bar(
-        &mut self,
-        x: f32,
-        y: f32,
-        w: f32,
-        h: f32,
-        radius: f32,
-        progress: f32,
-        bg_color: Color,
-        fill_color: Color,
-    ) {
+    pub fn draw_progress_bar(&mut self, x: f32, y: f32, w: f32, h: f32, radius: f32, progress: f32, bg_color: Color, fill_color: Color) {
         self.fill_rounded_rect(x, y, w, h, radius, bg_color);
         let progress = progress.clamp(0.0, 1.0);
         if progress > 0.01 {
@@ -618,17 +579,7 @@ impl Canvas {
     }
 
     /// Line chart with an optional soft area fill underneath.
-    pub fn draw_sparkline(
-        &mut self,
-        x: f32,
-        y: f32,
-        w: f32,
-        h: f32,
-        values: &[f32],
-        color: Color,
-        stroke_width: f32,
-        area: Option<Color>,
-    ) {
+    pub fn draw_sparkline(&mut self, x: f32, y: f32, w: f32, h: f32, values: &[f32], color: Color, stroke_width: f32, area: Option<Color>) {
         if values.len() < 2 {
             return;
         }
@@ -727,9 +678,9 @@ impl Canvas {
         for i in 0..pixel_count {
             let src = i * 4;
             let dst = i * 4;
-            bytes[dst] = data[src + 2];     // B
+            bytes[dst] = data[src + 2]; // B
             bytes[dst + 1] = data[src + 1]; // G
-            bytes[dst + 2] = data[src];     // R
+            bytes[dst + 2] = data[src]; // R
             bytes[dst + 3] = data[src + 3]; // A
         }
         bytes

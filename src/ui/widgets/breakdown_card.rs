@@ -20,7 +20,14 @@ fn tones(theme: &Theme) -> [Tone; 6] {
 pub fn shares(items: &[SensorItemConfig], states: &HashMap<String, EntityState>) -> Vec<f64> {
     items
         .iter()
-        .map(|i| states.get(&i.entity_id).and_then(|s| s.state.parse::<f64>().ok()).filter(|v| v.is_finite()).unwrap_or(0.0).max(0.0))
+        .map(|i| {
+            states
+                .get(&i.entity_id)
+                .and_then(|s| s.state.parse::<f64>().ok())
+                .filter(|v| v.is_finite())
+                .unwrap_or(0.0)
+                .max(0.0)
+        })
         .collect()
 }
 
@@ -36,7 +43,16 @@ pub fn render_breakdown_card(
     draw_card(canvas, theme, rect, None);
     let mut top = rect.y + PAD;
     if let Some(title) = custom_title {
-        canvas.draw_text_fit(title, rect.x + PAD, top - 2.0, type_scale::BODY, true, theme.text_muted, TextAlign::Left, rect.w - 2.0 * PAD);
+        canvas.draw_text_fit(
+            title,
+            rect.x + PAD,
+            top - 2.0,
+            type_scale::BODY,
+            true,
+            theme.text_muted,
+            TextAlign::Left,
+            rect.w - 2.0 * PAD,
+        );
         top += TITLE_H;
     }
     let area = Rect::new(rect.x + PAD, top, rect.w - 2.0 * PAD, rect.y + rect.h - PAD - top);
@@ -48,13 +64,26 @@ pub fn render_breakdown_card(
         .unwrap_or_default();
     let with_unit = |v: f64| {
         let n = format_number(&format!("{:.1}", v));
-        if unit.is_empty() { n } else { format!("{} {}", n, unit) }
+        if unit.is_empty() {
+            n
+        } else {
+            format!("{} {}", n, unit)
+        }
     };
 
     // Legend beside the ring on a wide card, below it on a narrow one
     let side = area.w >= area.h * 1.3;
-    let d = if side { area.h.min(area.w * 0.45) } else { (area.h - items.len() as f32 * ROW_H - 12.0).min(area.w) }.max(60.0);
-    let (cx, cy) = if side { (area.x + d / 2.0, area.y + area.h / 2.0) } else { (area.x + area.w / 2.0, area.y + d / 2.0) };
+    let d = if side {
+        area.h.min(area.w * 0.45)
+    } else {
+        (area.h - items.len() as f32 * ROW_H - 12.0).min(area.w)
+    }
+    .max(60.0);
+    let (cx, cy) = if side {
+        (area.x + d / 2.0, area.y + area.h / 2.0)
+    } else {
+        (area.x + area.w / 2.0, area.y + d / 2.0)
+    };
     let r = d / 2.0;
     let tones = tones(theme);
     if total > 0.0 {
@@ -82,11 +111,17 @@ pub fn render_breakdown_card(
     }
     canvas.draw_text_fit(&total_s, cx, cy - size / 2.0 - 2.0, size, true, theme.text, TextAlign::Center, inner);
 
-    let (lx, ly, lw) = if side { (area.x + d + 24.0, cy - items.len() as f32 * ROW_H / 2.0, area.w - d - 24.0) } else { (area.x, area.y + d + 12.0, area.w) };
+    let (lx, ly, lw) = if side {
+        (area.x + d + 24.0, cy - items.len() as f32 * ROW_H / 2.0, area.w - d - 24.0)
+    } else {
+        (area.x, area.y + d + 12.0, area.w)
+    };
     let size = type_scale::LABEL;
     let pct_of = |v: f64| if total > 0.0 { format!("{:.0}%", v / total * 100.0) } else { "--".into() };
     // Values and shares where every row has room for both, else the shares alone
-    let both = values.iter().all(|v| canvas.measure_text(&format!("{}  {}", with_unit(*v), pct_of(*v)), size, true).0 <= lw * 0.5);
+    let both = values
+        .iter()
+        .all(|v| canvas.measure_text(&format!("{}  {}", with_unit(*v), pct_of(*v)), size, true).0 <= lw * 0.5);
     for (k, (item, v)) in items.iter().zip(&values).enumerate() {
         let y = ly + k as f32 * ROW_H;
         if y + ROW_H > rect.y + rect.h - PAD + 6.0 {
@@ -95,9 +130,21 @@ pub fn render_breakdown_card(
         canvas.fill_rounded_rect(lx, y + 6.0, 16.0, 16.0, 4.0, tones[k % tones.len()].solid);
         let right = if both { format!("{}  {}", with_unit(*v), pct_of(*v)) } else { pct_of(*v) };
         let rw = canvas.draw_text_fit(&right, lx + lw, y + 3.0, size, true, theme.text, TextAlign::Right, lw * 0.5);
-        canvas.draw_text_fit(&item.title, lx + 26.0, y + 3.0, size, false, theme.text_muted, TextAlign::Left, lw - 26.0 - rw - 10.0);
+        canvas.draw_text_fit(
+            &item.title,
+            lx + 26.0,
+            y + 3.0,
+            size,
+            false,
+            theme.text_muted,
+            TextAlign::Left,
+            lw - 26.0 - rw - 10.0,
+        );
     }
-    targets.push(InteractiveTarget { rect, action: UiAction::Refresh });
+    targets.push(InteractiveTarget {
+        rect,
+        action: UiAction::Refresh,
+    });
 }
 
 /// Natural and smallest height at `width` for `count` entities
@@ -118,10 +165,24 @@ mod tests {
 
     #[test]
     fn values_that_are_not_amounts_count_as_nothing() {
-        let item = |id: &str| SensorItemConfig { entity_id: id.into(), title: id.into(), icon: None, unit: None };
+        let item = |id: &str| SensorItemConfig {
+            entity_id: id.into(),
+            title: id.into(),
+            icon: None,
+            unit: None,
+        };
         let mut states = HashMap::new();
         for (id, v) in [("a", "120"), ("b", "-5"), ("c", "unavailable")] {
-            states.insert(id.to_string(), EntityState { entity_id: id.into(), state: v.into(), attributes: HashMap::new(), last_changed: None, last_updated: None });
+            states.insert(
+                id.to_string(),
+                EntityState {
+                    entity_id: id.into(),
+                    state: v.into(),
+                    attributes: HashMap::new(),
+                    last_changed: None,
+                    last_updated: None,
+                },
+            );
         }
         assert_eq!(shares(&[item("a"), item("b"), item("c"), item("d")], &states), vec![120.0, 0.0, 0.0, 0.0]);
     }

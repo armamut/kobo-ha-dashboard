@@ -1,8 +1,8 @@
 //! Home Assistant discovery and starter-dashboard generation for the setup tool.
 
 use crate::config::{CardConfig, PageConfig, SceneItemConfig, SensorItemConfig};
-use crate::setup::kobo::Msg;
 use crate::i18n;
+use crate::setup::kobo::Msg;
 use crate::ui::screen::flow_hidden_count;
 #[cfg(test)]
 use crate::ui::screen::hidden_card_count;
@@ -147,7 +147,14 @@ pub async fn test_connection(url: &str, token: &str) -> ConnectionReport {
                 }
             }
             let message = Msg::new("unreachable").arg("error", e.to_string());
-            ConnectionReport { ok: false, message, version: None, location: None, warnings, suggested_url }
+            ConnectionReport {
+                ok: false,
+                message,
+                version: None,
+                location: None,
+                warnings,
+                suggested_url,
+            }
         }
     }
 }
@@ -235,11 +242,36 @@ pub async fn fetch_entities(url: &str, token: &str) -> Result<Vec<EntityInfo>, B
 /// Switch entities that are device settings rather than things to control.
 fn is_technical(e: &EntityInfo) -> bool {
     const PATTERNS: &[&str] = &[
-        "child_lock", "network_led", "_led", "led_", "indicator", "turbo", "detach", "power_outage", "outage_memory",
-        "adaptive", "open_window", "window_detection", "external_temperature", "inverted", "detection", "buzzer",
-        "auto_off", "restart", "reboot", "firmware", "calibration", "do_not_disturb", "privacy", "lock_",
+        "child_lock",
+        "network_led",
+        "_led",
+        "led_",
+        "indicator",
+        "turbo",
+        "detach",
+        "power_outage",
+        "outage_memory",
+        "adaptive",
+        "open_window",
+        "window_detection",
+        "external_temperature",
+        "inverted",
+        "detection",
+        "buzzer",
+        "auto_off",
+        "restart",
+        "reboot",
+        "firmware",
+        "calibration",
+        "do_not_disturb",
+        "privacy",
+        "lock_",
         // Enable switches of thermostatic radiator valves
-        "trv", "thermostat", "termostat", "valve", "vana",
+        "trv",
+        "thermostat",
+        "termostat",
+        "valve",
+        "vana",
     ];
     let id = e.entity_id.to_lowercase();
     PATTERNS.iter().any(|p| id.contains(p))
@@ -287,8 +319,17 @@ fn card_for(e: &EntityInfo) -> Option<CardConfig> {
             subtitle,
             icon: if e.domain == "fan" { Some("fan".into()) } else { None },
         },
-        "climate" => CardConfig::Climate { entity_id: e.entity_id.clone(), title, step: 0.5, show_graph: false, graph_hours: None },
-        "media_player" => CardConfig::MediaPlayer { entity_id: e.entity_id.clone(), title },
+        "climate" => CardConfig::Climate {
+            entity_id: e.entity_id.clone(),
+            title,
+            step: 0.5,
+            show_graph: false,
+            graph_hours: None,
+        },
+        "media_player" => CardConfig::MediaPlayer {
+            entity_id: e.entity_id.clone(),
+            title,
+        },
         _ => return None,
     })
 }
@@ -303,8 +344,7 @@ pub fn generate(entities: &[EntityInfo], screen: (u32, u32)) -> Vec<PageConfig> 
         .collect();
 
     // A "switch as light" keeps a hidden or same-named switch around; drop it.
-    let light_names: HashSet<String> =
-        usable.iter().filter(|e| e.domain == "light").map(|e| e.name.to_lowercase()).collect();
+    let light_names: HashSet<String> = usable.iter().filter(|e| e.domain == "light").map(|e| e.name.to_lowercase()).collect();
     let mut seen_media = HashSet::new();
     let usable: Vec<&EntityInfo> = usable
         .into_iter()
@@ -315,7 +355,10 @@ pub fn generate(entities: &[EntityInfo], screen: (u32, u32)) -> Vec<PageConfig> 
     // Rank areas by size: the busiest one is usually the living room, so the
     // overview picks its lights and thermostat first.
     let mut area_size: BTreeMap<&str, usize> = BTreeMap::new();
-    for e in usable.iter().filter(|e| matches!(e.domain.as_str(), "light" | "switch" | "climate" | "media_player")) {
+    for e in usable
+        .iter()
+        .filter(|e| matches!(e.domain.as_str(), "light" | "switch" | "climate" | "media_player"))
+    {
         if let Some(a) = e.area.as_deref() {
             *area_size.entry(a).or_default() += 1;
         }
@@ -329,7 +372,11 @@ pub fn generate(entities: &[EntityInfo], screen: (u32, u32)) -> Vec<PageConfig> 
     // Overview
     let mut overview = Vec::new();
     if let Some(w) = usable.iter().find(|e| e.domain == "weather") {
-        overview.push(CardConfig::Weather { entity_id: w.entity_id.clone(), title: None, forecast_days: 5 });
+        overview.push(CardConfig::Weather {
+            entity_id: w.entity_id.clone(),
+            title: None,
+            forecast_days: 5,
+        });
     }
     let scenes: Vec<SceneItemConfig> = usable
         .iter()
@@ -342,7 +389,10 @@ pub fn generate(entities: &[EntityInfo], screen: (u32, u32)) -> Vec<PageConfig> 
         })
         .collect();
     if !scenes.is_empty() {
-        overview.push(CardConfig::ScenesRow { title: Some(i18n::t("generated.scenes")), scenes });
+        overview.push(CardConfig::ScenesRow {
+            title: Some(i18n::t("generated.scenes")),
+            scenes,
+        });
     }
     for e in by_area.iter().filter(|e| e.domain == "light").take(4) {
         overview.extend(card_for(e));
@@ -354,13 +404,23 @@ pub fn generate(entities: &[EntityInfo], screen: (u32, u32)) -> Vec<PageConfig> 
         overview.extend(card_for(m));
     }
     if !overview.is_empty() {
-        pages.push(PageConfig { id: "home".into(), title: i18n::t("generated.overview"), icon: "home".into(), grid: None, cards: crate::config::into_cards(overview), imported_from: None });
+        pages.push(PageConfig {
+            id: "home".into(),
+            title: i18n::t("generated.overview"),
+            icon: "home".into(),
+            grid: None,
+            cards: crate::config::into_cards(overview),
+            imported_from: None,
+        });
     }
 
     // Per area, biggest areas first; entities without an area go to "Other".
     let mut areas: BTreeMap<String, Vec<&EntityInfo>> = BTreeMap::new();
     for e in &usable {
-        if matches!(e.domain.as_str(), "light" | "switch" | "fan" | "input_boolean" | "climate" | "media_player" | "sensor") {
+        if matches!(
+            e.domain.as_str(),
+            "light" | "switch" | "fan" | "input_boolean" | "climate" | "media_player" | "sensor"
+        ) {
             let area = e.area.clone().unwrap_or_else(|| i18n::t("generated.other"));
             areas.entry(area).or_default().push(e);
         }
@@ -397,7 +457,11 @@ pub fn generate(entities: &[EntityInfo], screen: (u32, u32)) -> Vec<PageConfig> 
                 })
                 .collect();
             if !sensors.is_empty() && !cards.is_empty() {
-                cards.push(CardConfig::SensorGrid { title: None, sensors, large_value: false });
+                cards.push(CardConfig::SensorGrid {
+                    title: None,
+                    sensors,
+                    large_value: false,
+                });
             }
             (!cards.is_empty()).then_some((area, cards))
         })
@@ -419,7 +483,11 @@ pub fn generate(entities: &[EntityInfo], screen: (u32, u32)) -> Vec<PageConfig> 
 
     let (w, h) = screen;
     for (area, cards) in area_pages {
-        let icon = if cards.iter().any(|c| matches!(c, CardConfig::Light { .. })) { "lightbulb" } else { "home" };
+        let icon = if cards.iter().any(|c| matches!(c, CardConfig::Light { .. })) {
+            "lightbulb"
+        } else {
+            "home"
+        };
         let mut chunk: Vec<CardConfig> = Vec::new();
         let mut part = 1;
         for card in cards {
@@ -441,12 +509,15 @@ pub fn generate(entities: &[EntityInfo], screen: (u32, u32)) -> Vec<PageConfig> 
 
 fn page(area: &str, part: usize, icon: &str, cards: Vec<CardConfig>) -> PageConfig {
     let title = if part == 1 { area.to_string() } else { format!("{} {}", area, part) };
-    let id: String = title
-        .to_lowercase()
-        .chars()
-        .map(|c| if c.is_alphanumeric() { c } else { '_' })
-        .collect();
-    PageConfig { id, title, icon: icon.to_string(), grid: None, cards: crate::config::into_cards(cards), imported_from: None }
+    let id: String = title.to_lowercase().chars().map(|c| if c.is_alphanumeric() { c } else { '_' }).collect();
+    PageConfig {
+        id,
+        title,
+        icon: icon.to_string(),
+        grid: None,
+        cards: crate::config::into_cards(cards),
+        imported_from: None,
+    }
 }
 
 #[cfg(test)]
@@ -485,9 +556,7 @@ mod tests {
             .iter()
             .flat_map(|p| p.cards.iter().map(|c| &c.kind))
             .filter_map(|c| match c {
-                CardConfig::Light { entity_id, .. }
-                | CardConfig::Switch { entity_id, .. }
-                | CardConfig::Climate { entity_id, .. } => Some(entity_id.clone()),
+                CardConfig::Light { entity_id, .. } | CardConfig::Switch { entity_id, .. } | CardConfig::Climate { entity_id, .. } => Some(entity_id.clone()),
                 _ => None,
             })
             .collect();
@@ -511,8 +580,9 @@ mod tests {
     fn long_areas_are_split_into_pages_that_fit() {
         let _guard = i18n::TEST_LANGUAGE_LOCK.lock().unwrap_or_else(|e| e.into_inner());
         i18n::set_language("en");
-        let entities: Vec<EntityInfo> =
-            (0..30).map(|i| ent(&format!("light.l{}", i), &format!("Light {}", i), Some("Big"), "off")).collect();
+        let entities: Vec<EntityInfo> = (0..30)
+            .map(|i| ent(&format!("light.l{}", i), &format!("Light {}", i), Some("Big"), "off"))
+            .collect();
         let pages = generate(&entities, (1072, 1448));
         let big: Vec<&PageConfig> = pages.iter().filter(|p| p.title.starts_with("Big")).collect();
         assert!(big.len() >= 2);

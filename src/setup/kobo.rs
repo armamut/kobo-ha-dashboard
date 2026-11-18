@@ -167,7 +167,9 @@ pub fn install_nickelmenu(root: &Path, package: &[u8], file_name: &str) -> Resul
 /// Logs in the app folder that are no longer written: the previous run's
 /// (`*.log.old`) and saved incident logs (`incident-*.log`)
 pub fn old_logs(root: &Path) -> Vec<(String, u64)> {
-    let Ok(entries) = std::fs::read_dir(root.join(".kobo-ha")) else { return Vec::new() };
+    let Ok(entries) = std::fs::read_dir(root.join(".kobo-ha")) else {
+        return Vec::new();
+    };
     let mut out: Vec<(String, u64)> = entries
         .flatten()
         .filter_map(|e| {
@@ -204,7 +206,13 @@ pub fn eject(root: &Path) -> Result<(), String> {
             .args(args)
             .output()
             .map_err(|e| format!("{}: {}", cmd, e))
-            .and_then(|o| if o.status.success() { Ok(()) } else { Err(String::from_utf8_lossy(&o.stderr).trim().to_string()) })
+            .and_then(|o| {
+                if o.status.success() {
+                    Ok(())
+                } else {
+                    Err(String::from_utf8_lossy(&o.stderr).trim().to_string())
+                }
+            })
     };
     let path = root.to_string_lossy().to_string();
     if cfg!(target_os = "macos") {
@@ -212,7 +220,10 @@ pub fn eject(root: &Path) -> Result<(), String> {
     } else if cfg!(target_os = "windows") {
         // The drive letter, as Explorer's own Eject takes it
         let drive = path.trim_end_matches(['\\', '/']).to_string();
-        let script = format!("(New-Object -ComObject Shell.Application).Namespace(17).ParseName('{}').InvokeVerb('Eject')", drive.replace('\'', ""));
+        let script = format!(
+            "(New-Object -ComObject Shell.Application).Namespace(17).ParseName('{}').InvokeVerb('Eject')",
+            drive.replace('\'', "")
+        );
         run("powershell", &["-NoProfile", "-Command", &script])?;
         // The verb returns at once; the drive is gone a moment later
         for _ in 0..20 {
@@ -321,7 +332,10 @@ pub struct Msg {
 
 impl Msg {
     pub fn new(key: &str) -> Self {
-        Self { key: key.to_string(), args: BTreeMap::new() }
+        Self {
+            key: key.to_string(),
+            args: BTreeMap::new(),
+        }
     }
 
     pub fn arg(mut self, name: &str, value: impl Into<String>) -> Self {
@@ -331,14 +345,7 @@ impl Msg {
 }
 
 /// Copy binary, launcher, config, menu entry and fonts. Returns a log.
-pub fn install(
-    root: &Path,
-    config: &AppConfig,
-    menu_name: &str,
-    kobo_binary: &Path,
-    fonts: &[PathBuf],
-    pictures: &[PathBuf],
-) -> Result<Vec<Msg>, String> {
+pub fn install(root: &Path, config: &AppConfig, menu_name: &str, kobo_binary: &Path, fonts: &[PathBuf], pictures: &[PathBuf]) -> Result<Vec<Msg>, String> {
     let mut log = Vec::new();
     let err = |what: &str, e: std::io::Error| format!("{}: {}", what, e);
     if !root.join(".kobo").is_dir() {
@@ -352,8 +359,7 @@ pub fn install(
     log.push(Msg::new("binary"));
 
     let tz_rule = timezone::posix_rule();
-    std::fs::write(app.join("launch.sh"), launcher(tz_rule.as_ref().map(|r| r.text.as_str())))
-        .map_err(|e| err("Writing launch.sh", e))?;
+    std::fs::write(app.join("launch.sh"), launcher(tz_rule.as_ref().map(|r| r.text.as_str()))).map_err(|e| err("Writing launch.sh", e))?;
     std::fs::write(app.join("wifi.sh"), WIFI_SH).map_err(|e| err("Writing wifi.sh", e))?;
     log.push(Msg::new("launcher"));
     match tz_rule {

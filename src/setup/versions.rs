@@ -56,9 +56,7 @@ pub fn save(config_path: &Path, yaml: &str) -> std::io::Result<()> {
 }
 
 fn prune(dir: &Path) {
-    let mut files: Vec<PathBuf> = std::fs::read_dir(dir)
-        .map(|rd| rd.flatten().map(|e| e.path()).collect())
-        .unwrap_or_default();
+    let mut files: Vec<PathBuf> = std::fs::read_dir(dir).map(|rd| rd.flatten().map(|e| e.path()).collect()).unwrap_or_default();
     files.retain(|p| p.file_name().and_then(|n| n.to_str()).map(valid_id).unwrap_or(false));
     files.sort();
     while files.len() > KEEP {

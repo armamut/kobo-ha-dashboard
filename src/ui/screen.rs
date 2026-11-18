@@ -1,11 +1,12 @@
 use crate::config::{AppConfig, Card, CardConfig, GridPos, GridSize, ImageFit, PageConfig, SceneItemConfig};
 use crate::display::canvas::ui_size;
+use crate::display::canvas::ImageIssue;
 use crate::display::{Canvas, TextAlign};
 use crate::ha::models::EntityState;
 use crate::ui::layout::{InteractiveTarget, Rect, UiAction};
 use crate::ui::theme::Theme;
-use crate::ui::widgets::climate_card::{self, CLIMATE_WIDE};
 use crate::ui::widgets::breakdown_card;
+use crate::ui::widgets::climate_card::{self, CLIMATE_WIDE};
 use crate::ui::widgets::cover_card::COVER_WIDE;
 use crate::ui::widgets::glance_card::{self, glance_height};
 use crate::ui::widgets::header::{read_device_status, HeaderStatus, SIDE_PAD};
@@ -14,7 +15,6 @@ use crate::ui::widgets::sensor_card::{sensor_grid_columns, sensor_grid_height, s
 use crate::ui::widgets::*;
 use chrono::{DateTime, Utc};
 use std::collections::HashMap;
-use crate::display::canvas::ImageIssue;
 use std::sync::Arc;
 
 const GAP: f32 = 18.0;
@@ -158,7 +158,11 @@ fn layout_zone(cards: &[&CardConfig], x: f32, y: f32, w: f32, avail_h: f32) -> V
     let gaps = GAP * rows.len().saturating_sub(1) as f32;
     let natural: f32 = row_heights.iter().map(|h| h.0).sum::<f32>() + gaps;
     let slack: f32 = row_heights.iter().map(|h| h.0 - h.1).sum();
-    let k = if natural > avail_h && slack > 0.0 { ((natural - avail_h) / slack).min(1.0) } else { 0.0 };
+    let k = if natural > avail_h && slack > 0.0 {
+        ((natural - avail_h) / slack).min(1.0)
+    } else {
+        0.0
+    };
 
     let mut out = Vec::new();
     let mut shown = 0;
@@ -215,8 +219,10 @@ fn flow_zones(cards: &[&CardConfig], area: Rect) -> Vec<(usize, Rect)> {
             let right_x = area.x + LANDSCAPE_LEFT_W + GAP;
             let l: Vec<&CardConfig> = left.iter().map(|&i| cards[i]).collect();
             let r: Vec<&CardConfig> = right.iter().map(|&i| cards[i]).collect();
-            let mut v: Vec<(usize, Rect)> =
-                layout_zone(&l, area.x, area.y, LANDSCAPE_LEFT_W, area.h).into_iter().map(|(i, rect)| (left[i], rect)).collect();
+            let mut v: Vec<(usize, Rect)> = layout_zone(&l, area.x, area.y, LANDSCAPE_LEFT_W, area.h)
+                .into_iter()
+                .map(|(i, rect)| (left[i], rect))
+                .collect();
             v.extend(layout_zone(&r, right_x, area.y, right_w, area.h).into_iter().map(|(i, rect)| (right[i], rect)));
             return v;
         }
@@ -322,7 +328,17 @@ pub fn min_cells(card: &CardConfig, grid: GridSize, area: Rect, w: u8) -> (u8, u
     let pitch_x = (area.w + GAP) / grid.columns as f32;
     let pitch_y = (area.h + GAP) / grid.rows as f32;
     let min_w = cells_for(grid_min(card, 0.0).0, pitch_x, grid.columns);
-    let width = cell_rect(area, grid, GridPos { x: 0, y: 0, w: w.max(min_w).min(grid.columns), h: 1 }).w;
+    let width = cell_rect(
+        area,
+        grid,
+        GridPos {
+            x: 0,
+            y: 0,
+            w: w.max(min_w).min(grid.columns),
+            h: 1,
+        },
+    )
+    .w;
     (min_w, cells_for(grid_min(card, width).1, pitch_y, grid.rows))
 }
 
@@ -334,9 +350,7 @@ pub fn min_cells(card: &CardConfig, grid: GridSize, area: Rect, w: u8) -> (u8, u
 pub fn grid_places(cards: &[Card], grid: GridSize, area: Rect) -> Vec<Option<GridPos>> {
     let grid = grid.clamped();
     let mut taken = vec![vec![false; grid.columns as usize]; grid.rows as usize];
-    let free = |taken: &[Vec<bool>], p: GridPos| {
-        (p.y..p.y + p.h).all(|r| (p.x..p.x + p.w).all(|c| !taken[r as usize][c as usize]))
-    };
+    let free = |taken: &[Vec<bool>], p: GridPos| (p.y..p.y + p.h).all(|r| (p.x..p.x + p.w).all(|c| !taken[r as usize][c as usize]));
     let take = |taken: &mut [Vec<bool>], p: GridPos| {
         for row in &mut taken[p.y as usize..(p.y + p.h) as usize] {
             row[p.x as usize..(p.x + p.w) as usize].fill(true);
@@ -349,7 +363,12 @@ pub fn grid_places(cards: &[Card], grid: GridSize, area: Rect) -> Vec<Option<Gri
             let p = card.pos.filter(|_| !card.parked).and_then(|p| clip(p, grid))?;
             let (mw, mh) = min_cells(card, grid, area, p.w);
             let (w, h) = (p.w.max(mw).min(grid.columns), p.h.max(mh).min(grid.rows));
-            Some(GridPos { x: p.x.min(grid.columns - w), y: p.y.min(grid.rows - h), w, h })
+            Some(GridPos {
+                x: p.x.min(grid.columns - w),
+                y: p.y.min(grid.rows - h),
+                w,
+                h,
+            })
         })
         .collect();
     let mut placed: Vec<Option<GridPos>> = vec![None; cards.len()];
@@ -369,7 +388,12 @@ pub fn grid_places(cards: &[Card], grid: GridSize, area: Rect) -> Vec<Option<Gri
         // at its smallest size, rather than not at all
         let (mw, mh) = min_cells(&cards[i], grid, area, p.w);
         let lower = GridPos { h: mh.min(p.h), ..p };
-        let small = GridPos { w: mw.min(p.w), h: mh.min(p.h), x: p.x.min(grid.columns - mw.min(p.w)), ..p };
+        let small = GridPos {
+            w: mw.min(p.w),
+            h: mh.min(p.h),
+            x: p.x.min(grid.columns - mw.min(p.w)),
+            ..p
+        };
         let spot = [p, lower, small].into_iter().find_map(|p| {
             let below = (p.y..=grid.rows.saturating_sub(p.h)).map(|y| GridPos { y, ..p }).find(|q| free(&taken, *q));
             below.or_else(|| free_spot(&taken, p.w, p.h).map(|(x, y)| GridPos { x, y, ..p }))
@@ -438,7 +462,11 @@ fn grid_zones(cards: &[Card], grid: GridSize, area: Rect) -> Vec<(usize, Rect)> 
     if shown < cards.len() {
         tracing::debug!("{} card(s) have no room on the grid", cards.len() - shown);
     }
-    placed.into_iter().enumerate().filter_map(|(i, p)| p.map(|p| (i, cell_rect(area, grid, p)))).collect()
+    placed
+        .into_iter()
+        .enumerate()
+        .filter_map(|(i, p)| p.map(|p| (i, cell_rect(area, grid, p))))
+        .collect()
 }
 
 /// What the setup tool's layout editor needs to lay its grid over the preview:
@@ -468,21 +496,88 @@ pub struct GridLayout {
 fn new_cards() -> Vec<CardConfig> {
     let e = "";
     vec![
-        CardConfig::Weather { entity_id: e.into(), title: None, forecast_days: 5 },
-        CardConfig::Light { entity_id: e.into(), title: None, subtitle: None, icon: None, show_brightness: false },
-        CardConfig::Switch { entity_id: e.into(), title: None, subtitle: None, icon: None },
-        CardConfig::Climate { entity_id: e.into(), title: None, step: 0.5, show_graph: false, graph_hours: None },
-        CardConfig::Sensor { entity_id: e.into(), title: None, unit: None, icon: None, show_graph: false, large_value: false },
-        CardConfig::SensorGrid { title: None, sensors: Vec::new(), large_value: false },
-        CardConfig::MediaPlayer { entity_id: e.into(), title: None },
-        CardConfig::ScenesRow { title: None, scenes: Vec::new() },
-        CardConfig::Scene { entity_id: e.into(), title: String::new(), icon: None },
-        CardConfig::Image { entity_id: e.into(), title: None, frameless: false, fit: ImageFit::Contain, file: None },
-        CardConfig::Progress { entity_id: e.into(), title: None, icon: None, secondary_entity: None, max: None },
-        CardConfig::Cover { entity_id: e.into(), title: None, icon: None },
-        CardConfig::Glance { title: None, entities: Vec::new() },
-        CardConfig::Breakdown { title: None, entities: Vec::new() },
-        CardConfig::Heading { title: String::new(), icon: None },
+        CardConfig::Weather {
+            entity_id: e.into(),
+            title: None,
+            forecast_days: 5,
+        },
+        CardConfig::Light {
+            entity_id: e.into(),
+            title: None,
+            subtitle: None,
+            icon: None,
+            show_brightness: false,
+        },
+        CardConfig::Switch {
+            entity_id: e.into(),
+            title: None,
+            subtitle: None,
+            icon: None,
+        },
+        CardConfig::Climate {
+            entity_id: e.into(),
+            title: None,
+            step: 0.5,
+            show_graph: false,
+            graph_hours: None,
+        },
+        CardConfig::Sensor {
+            entity_id: e.into(),
+            title: None,
+            unit: None,
+            icon: None,
+            show_graph: false,
+            large_value: false,
+        },
+        CardConfig::SensorGrid {
+            title: None,
+            sensors: Vec::new(),
+            large_value: false,
+        },
+        CardConfig::MediaPlayer {
+            entity_id: e.into(),
+            title: None,
+        },
+        CardConfig::ScenesRow {
+            title: None,
+            scenes: Vec::new(),
+        },
+        CardConfig::Scene {
+            entity_id: e.into(),
+            title: String::new(),
+            icon: None,
+        },
+        CardConfig::Image {
+            entity_id: e.into(),
+            title: None,
+            frameless: false,
+            fit: ImageFit::Contain,
+            file: None,
+        },
+        CardConfig::Progress {
+            entity_id: e.into(),
+            title: None,
+            icon: None,
+            secondary_entity: None,
+            max: None,
+        },
+        CardConfig::Cover {
+            entity_id: e.into(),
+            title: None,
+            icon: None,
+        },
+        CardConfig::Glance {
+            title: None,
+            entities: Vec::new(),
+        },
+        CardConfig::Breakdown {
+            title: None,
+            entities: Vec::new(),
+        },
+        CardConfig::Heading {
+            title: String::new(),
+            icon: None,
+        },
         CardConfig::Statistics {
             entity_id: e.into(),
             title: None,
@@ -532,7 +627,17 @@ pub fn grid_layout(page: &PageConfig, w: u32, h: u32, with_tabs: bool) -> Option
         })
         .collect();
     let tab_bar = with_tabs.then(|| tab_bar(w));
-    Some(GridLayout { screen: (w, h), area, gap: GAP, grid, places, mins, tab_bar, naturals, new_sizes })
+    Some(GridLayout {
+        screen: (w, h),
+        area,
+        gap: GAP,
+        grid,
+        places,
+        mins,
+        tab_bar,
+        naturals,
+        new_sizes,
+    })
 }
 
 /// Where each card of `page` goes on a `cw`x`ch` screen whose header ends at
@@ -643,14 +748,23 @@ fn pack_flow(page: &PageConfig, grid: GridSize, w: f32, h: f32, with_tabs: bool)
             let end = k + wants[k..].iter().take_while(|w| w.1.y == r0.y && w.1.h == r0.h).count();
             let row = &wants[k..end];
             let hh = row.iter().map(|w| if use_min { w.5 } else { w.4 }).max().unwrap_or(1);
-            let top = row.iter().map(|w| floor[w.2 as usize..w.3 as usize].iter().copied().max().unwrap_or(0)).max().unwrap_or(0);
+            let top = row
+                .iter()
+                .map(|w| floor[w.2 as usize..w.3 as usize].iter().copied().max().unwrap_or(0))
+                .max()
+                .unwrap_or(0);
             if top as u16 + hh as u16 > grid.rows as u16 {
                 fits = false;
                 k = end;
                 continue;
             }
             for &(i, _, x0, x1, ..) in row {
-                out[i] = Some(GridPos { x: x0, y: top, w: x1 - x0, h: hh });
+                out[i] = Some(GridPos {
+                    x: x0,
+                    y: top,
+                    w: x1 - x0,
+                    h: hh,
+                });
                 floor[x0 as usize..x1 as usize].fill(top + hh);
             }
             k = end;
@@ -712,10 +826,7 @@ pub fn set_pictures_dir(dir: Option<std::path::PathBuf>) {
 
 /// A picture's file name as it may be stored: no folders, no hidden files
 pub fn safe_file_name(name: &str) -> Option<&str> {
-    let ok = !name.is_empty()
-        && !name.starts_with('.')
-        && name.len() <= 100
-        && name.chars().all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '-' | '_'));
+    let ok = !name.is_empty() && !name.starts_with('.') && name.len() <= 100 && name.chars().all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '-' | '_'));
     ok.then_some(name)
 }
 
@@ -767,7 +878,14 @@ impl ScreenRenderer {
 
     /// Decoded picture for one card, scaled to its box, or why it can't be
     /// shown. `None` while it has not been fetched.
-    fn image_pixmap(&mut self, entity_id: &str, file: Option<&str>, area: Rect, fit: ImageFit, scale: f32) -> Option<Result<Arc<tiny_skia::Pixmap>, ImageIssue>> {
+    fn image_pixmap(
+        &mut self,
+        entity_id: &str,
+        file: Option<&str>,
+        area: Rect,
+        fit: ImageFit,
+        scale: f32,
+    ) -> Option<Result<Arc<tiny_skia::Pixmap>, ImageIssue>> {
         let bytes = match file {
             Some(f) => self.picture_file(f)?,
             None => self.images.get(entity_id)?.clone(),
@@ -788,14 +906,7 @@ impl ScreenRenderer {
         Some(pixmap)
     }
 
-    pub fn render(
-        &mut self,
-        canvas: &mut Canvas,
-        config: &AppConfig,
-        active_page_idx: usize,
-        states: &HashMap<String, EntityState>,
-        is_live: bool,
-    ) {
+    pub fn render(&mut self, canvas: &mut Canvas, config: &AppConfig, active_page_idx: usize, states: &HashMap<String, EntityState>, is_live: bool) {
         self.targets.clear();
         self.hidden_cards = 0;
         self.scale = canvas.scale;
@@ -823,15 +934,7 @@ impl ScreenRenderer {
             update: self.update_offer.is_some(),
         };
 
-        let header_bottom = render_header(
-            canvas,
-            &self.theme,
-            &config.theme,
-            &config.pages,
-            active_page_idx,
-            &status,
-            &mut self.targets,
-        );
+        let header_bottom = render_header(canvas, &self.theme, &config.theme, &config.pages, active_page_idx, &status, &mut self.targets);
 
         if self.show_update {
             if let Some((version, notes)) = self.update_offer.clone() {
@@ -856,7 +959,13 @@ impl ScreenRenderer {
         let prepared: Vec<Option<Result<Arc<tiny_skia::Pixmap>, ImageIssue>>> = placements
             .iter()
             .map(|(card, rect)| match card {
-                CardConfig::Image { entity_id, title, frameless, fit, file } => self.image_pixmap(
+                CardConfig::Image {
+                    entity_id,
+                    title,
+                    frameless,
+                    fit,
+                    file,
+                } => self.image_pixmap(
                     entity_id,
                     file.as_deref().filter(|f| !f.is_empty()),
                     image_card::picture_box(*rect, title.is_some(), *frameless),
@@ -896,7 +1005,16 @@ impl ScreenRenderer {
         let x = card.x + PAD;
         let tw = card.w - 2.0 * PAD;
         let mut y = card.y + PAD;
-        canvas.draw_text_fit(&i18n::tf("update.title", &[("version", version)]), x, y, type_scale::TITLE, true, self.theme.text, TextAlign::Left, tw);
+        canvas.draw_text_fit(
+            &i18n::tf("update.title", &[("version", version)]),
+            x,
+            y,
+            type_scale::TITLE,
+            true,
+            self.theme.text,
+            TextAlign::Left,
+            tw,
+        );
         y += 44.0;
         for line in wrap_text(canvas, &i18n::t("update.how"), type_scale::BODY, false, tw) {
             canvas.draw_text(&line, x, y, type_scale::BODY, false, self.theme.text_muted, TextAlign::Left);
@@ -928,13 +1046,32 @@ impl ScreenRenderer {
         let skip = Rect::new(x, by, bw, btn_h);
         let close = Rect::new(x + bw + 16.0, by, bw, btn_h);
         for (r, label, primary) in [(skip, i18n::t("update.skip"), false), (close, i18n::t("update.close"), true)] {
-            let (bg, fg) = if primary { (self.theme.text, self.theme.surface) } else { (self.theme.surface, self.theme.text) };
+            let (bg, fg) = if primary {
+                (self.theme.text, self.theme.surface)
+            } else {
+                (self.theme.surface, self.theme.text)
+            };
             canvas.fill_rounded_rect(r.x, r.y, r.w, r.h, 18.0, bg);
             canvas.stroke_rounded_rect(r.x + 1.0, r.y + 1.0, r.w - 2.0, r.h - 2.0, 17.0, 2.0, self.theme.border_strong);
-            canvas.draw_text_fit(&label, r.x + r.w / 2.0, r.y + r.h / 2.0 - 14.0, type_scale::BODY, true, fg, TextAlign::Center, r.w - 24.0);
+            canvas.draw_text_fit(
+                &label,
+                r.x + r.w / 2.0,
+                r.y + r.h / 2.0 - 14.0,
+                type_scale::BODY,
+                true,
+                fg,
+                TextAlign::Center,
+                r.w - 24.0,
+            );
         }
-        self.targets.push(InteractiveTarget { rect: skip, action: UiAction::SkipUpdate(version.to_string()) });
-        self.targets.push(InteractiveTarget { rect: close, action: UiAction::CloseUpdate });
+        self.targets.push(InteractiveTarget {
+            rect: skip,
+            action: UiAction::SkipUpdate(version.to_string()),
+        });
+        self.targets.push(InteractiveTarget {
+            rect: close,
+            action: UiAction::CloseUpdate,
+        });
     }
 
     fn render_battery_empty(&self, canvas: &mut Canvas) {
@@ -946,8 +1083,26 @@ impl ScreenRenderer {
         let top = h / 2.0 - icon / 2.0 - 90.0;
         let max_w = w - 2.0 * SIDE_PAD;
         canvas.draw_icon("battery_empty", w / 2.0 - icon / 2.0, top, icon, theme.text, 3.0);
-        canvas.draw_text_fit(&i18n::t("sleep.battery_empty"), w / 2.0, top + icon + 24.0, 60.0, true, theme.text, TextAlign::Center, max_w);
-        canvas.draw_text_fit(&i18n::t("sleep.charge_hint"), w / 2.0, top + icon + 108.0, 32.0, false, theme.text, TextAlign::Center, max_w);
+        canvas.draw_text_fit(
+            &i18n::t("sleep.battery_empty"),
+            w / 2.0,
+            top + icon + 24.0,
+            60.0,
+            true,
+            theme.text,
+            TextAlign::Center,
+            max_w,
+        );
+        canvas.draw_text_fit(
+            &i18n::t("sleep.charge_hint"),
+            w / 2.0,
+            top + icon + 108.0,
+            32.0,
+            false,
+            theme.text,
+            TextAlign::Center,
+            max_w,
+        );
     }
 
     fn render_sleep_note(&self, canvas: &mut Canvas, bar: Rect, next: &str) {
@@ -967,12 +1122,30 @@ impl ScreenRenderer {
             let hint_x = tx + tw + 18.0;
             if hint_x + 120.0 < tx + max_w {
                 let muted = theme.surface.mix(theme.text, 0.35);
-                canvas.draw_text_fit(&i18n::t("sleep.wake_hint"), hint_x, bar.y + bar.h / 2.0 - 11.0, 22.0, false, muted, TextAlign::Left, tx + max_w - hint_x);
+                canvas.draw_text_fit(
+                    &i18n::t("sleep.wake_hint"),
+                    hint_x,
+                    bar.y + bar.h / 2.0 - 11.0,
+                    22.0,
+                    false,
+                    muted,
+                    TextAlign::Left,
+                    tx + max_w - hint_x,
+                );
             }
         } else {
             let (line, size) = sleep_line(canvas, next, max_w, 26.0);
             canvas.draw_text_fit(&line, tx, bar.y + 16.0 + (26.0 - size) / 2.0, size, true, theme.surface, TextAlign::Left, max_w);
-            canvas.draw_text_fit(&i18n::t("sleep.wake_hint"), tx, bar.y + 52.0, 22.0, false, theme.surface, TextAlign::Left, max_w);
+            canvas.draw_text_fit(
+                &i18n::t("sleep.wake_hint"),
+                tx,
+                bar.y + 52.0,
+                22.0,
+                false,
+                theme.surface,
+                TextAlign::Left,
+                max_w,
+            );
         }
     }
 
@@ -987,17 +1160,23 @@ impl ScreenRenderer {
         let theme = &self.theme;
         let targets = &mut self.targets;
         match card {
-            CardConfig::Weather { entity_id, title, forecast_days } => {
-                render_weather_card(canvas, theme, rect, entity_id, states.get(entity_id), title.as_deref(), *forecast_days, targets)
-            }
+            CardConfig::Weather {
+                entity_id,
+                title,
+                forecast_days,
+            } => render_weather_card(canvas, theme, rect, entity_id, states.get(entity_id), title.as_deref(), *forecast_days, targets),
             CardConfig::ScenesRow { title, scenes } => render_scenes_row(canvas, theme, rect, title.as_deref(), scenes, targets),
             CardConfig::SensorGrid { title, sensors, large_value } => {
                 render_sensor_grid(canvas, theme, rect, title.as_deref(), sensors, *large_value, states, targets)
             }
-            CardConfig::MediaPlayer { entity_id, title } => {
-                render_media_card(canvas, theme, rect, entity_id, states.get(entity_id), title.as_deref(), targets)
-            }
-            CardConfig::Climate { entity_id, title, step, show_graph, graph_hours } => render_climate_card(
+            CardConfig::MediaPlayer { entity_id, title } => render_media_card(canvas, theme, rect, entity_id, states.get(entity_id), title.as_deref(), targets),
+            CardConfig::Climate {
+                entity_id,
+                title,
+                step,
+                show_graph,
+                graph_hours,
+            } => render_climate_card(
                 canvas,
                 theme,
                 rect,
@@ -1008,7 +1187,13 @@ impl ScreenRenderer {
                 show_graph.then(|| graph_hours.unwrap_or(24)),
                 targets,
             ),
-            CardConfig::Light { entity_id, title, subtitle, icon, show_brightness } => render_light_card(
+            CardConfig::Light {
+                entity_id,
+                title,
+                subtitle,
+                icon,
+                show_brightness,
+            } => render_light_card(
                 canvas,
                 theme,
                 rect,
@@ -1020,7 +1205,12 @@ impl ScreenRenderer {
                 *show_brightness,
                 targets,
             ),
-            CardConfig::Switch { entity_id, title, subtitle, icon } => render_switch_card(
+            CardConfig::Switch {
+                entity_id,
+                title,
+                subtitle,
+                icon,
+            } => render_switch_card(
                 canvas,
                 theme,
                 rect,
@@ -1031,7 +1221,14 @@ impl ScreenRenderer {
                 icon.as_deref(),
                 targets,
             ),
-            CardConfig::Sensor { entity_id, title, unit, icon, show_graph, large_value } => render_sensor_card(
+            CardConfig::Sensor {
+                entity_id,
+                title,
+                unit,
+                icon,
+                show_graph,
+                large_value,
+            } => render_sensor_card(
                 canvas,
                 theme,
                 rect,
@@ -1053,7 +1250,16 @@ impl ScreenRenderer {
                 render_scenes_row(canvas, theme, rect, None, &item, targets)
             }
             CardConfig::Heading { title, icon } => render_heading_card(canvas, theme, rect, title, icon.as_deref()),
-            CardConfig::Statistics { entity_id, title, period, days, hours, stat, unit, chart } => render_statistics_card(
+            CardConfig::Statistics {
+                entity_id,
+                title,
+                period,
+                days,
+                hours,
+                stat,
+                unit,
+                chart,
+            } => render_statistics_card(
                 canvas,
                 theme,
                 rect,
@@ -1067,7 +1273,13 @@ impl ScreenRenderer {
                 *chart,
                 targets,
             ),
-            CardConfig::Progress { entity_id, title, icon, secondary_entity, max } => render_progress_card(
+            CardConfig::Progress {
+                entity_id,
+                title,
+                icon,
+                secondary_entity,
+                max,
+            } => render_progress_card(
                 canvas,
                 theme,
                 rect,
@@ -1079,18 +1291,21 @@ impl ScreenRenderer {
                 max.unwrap_or(100.0),
                 targets,
             ),
-            CardConfig::Cover { entity_id, title, icon } => {
-                render_cover_card(canvas, theme, rect, entity_id, states.get(entity_id), title.as_deref(), icon.as_deref(), targets)
-            }
-            CardConfig::Glance { title, entities } => {
-                render_glance_card(canvas, theme, rect, title.as_deref(), entities, states, targets)
-            }
-            CardConfig::Breakdown { title, entities } => {
-                render_breakdown_card(canvas, theme, rect, title.as_deref(), entities, states, targets)
-            }
-            CardConfig::Image { entity_id, title, frameless, .. } => {
-                render_image_card(canvas, theme, rect, entity_id, title.as_deref(), *frameless, image, targets)
-            }
+            CardConfig::Cover { entity_id, title, icon } => render_cover_card(
+                canvas,
+                theme,
+                rect,
+                entity_id,
+                states.get(entity_id),
+                title.as_deref(),
+                icon.as_deref(),
+                targets,
+            ),
+            CardConfig::Glance { title, entities } => render_glance_card(canvas, theme, rect, title.as_deref(), entities, states, targets),
+            CardConfig::Breakdown { title, entities } => render_breakdown_card(canvas, theme, rect, title.as_deref(), entities, states, targets),
+            CardConfig::Image {
+                entity_id, title, frameless, ..
+            } => render_image_card(canvas, theme, rect, entity_id, title.as_deref(), *frameless, image, targets),
         }
     }
 
@@ -1169,7 +1384,10 @@ mod tests {
 
     #[test]
     fn a_heading_does_not_stay_behind_when_its_cards_are_cut_off() {
-        let heading = CardConfig::Heading { title: "Pictures".into(), icon: None };
+        let heading = CardConfig::Heading {
+            title: "Pictures".into(),
+            icon: None,
+        };
         let sensor = |id: &str| CardConfig::Sensor {
             entity_id: id.into(),
             title: None,
@@ -1192,7 +1410,14 @@ mod tests {
     fn renders_an_image_card_from_fetched_bytes() {
         let mut config = AppConfig::default();
         let page = &mut config.pages[0];
-        page.cards = vec![CardConfig::Image { entity_id: "image.chart".into(), title: Some("Prices".into()), frameless: false, fit: ImageFit::Contain, file: None }.into()];
+        page.cards = vec![CardConfig::Image {
+            entity_id: "image.chart".into(),
+            title: Some("Prices".into()),
+            frameless: false,
+            fit: ImageFit::Contain,
+            file: None,
+        }
+        .into()];
 
         // A red PNG, as Home Assistant would serve it from /api/image_proxy
         let mut img = image::RgbaImage::new(400, 200);
@@ -1329,11 +1554,11 @@ mod tests {
             let mut canvas = Canvas::new(w, h);
             let mut renderer = ScreenRenderer::new(&config);
             let mut states = crate::ha::mock::generate_mock_states();
-        let bars: Vec<(f64, f64)> = (0..14).map(|i| (1.7e12 + i as f64 * 86.4e6, 3.0 + (i * 7 % 5) as f64)).collect();
-        states.get_mut("sensor.energy_today").unwrap().attributes.insert(
-            crate::ui::widgets::statistics_card::STATS_ATTR.into(),
-            serde_json::json!({ crate::ui::widgets::statistics_card::stat_key("day", 14 * 24, "change"): bars }),
-        );
+            let bars: Vec<(f64, f64)> = (0..14).map(|i| (1.7e12 + i as f64 * 86.4e6, 3.0 + (i * 7 % 5) as f64)).collect();
+            states.get_mut("sensor.energy_today").unwrap().attributes.insert(
+                crate::ui::widgets::statistics_card::STATS_ATTR.into(),
+                serde_json::json!({ crate::ui::widgets::statistics_card::stat_key("day", 14 * 24, "change"): bars }),
+            );
             for page in 0..config.pages.len() {
                 renderer.render(&mut canvas, &config, page, &states, false);
                 let rects: Vec<Rect> = renderer.targets.iter().map(|t| t.rect).collect();
@@ -1358,7 +1583,12 @@ mod tests {
 
     fn switch(id: &str, pos: Option<GridPos>) -> Card {
         Card {
-            kind: CardConfig::Switch { entity_id: id.into(), title: None, subtitle: None, icon: None },
+            kind: CardConfig::Switch {
+                entity_id: id.into(),
+                title: None,
+                subtitle: None,
+                icon: None,
+            },
             pos,
             parked: false,
         }
@@ -1532,7 +1762,13 @@ mod tests {
 
         // Smaller than it can be drawn: grown, and kept on the grid
         let climate = Card {
-            kind: CardConfig::Climate { entity_id: "climate.a".into(), title: None, step: 0.5, show_graph: false, graph_hours: None },
+            kind: CardConfig::Climate {
+                entity_id: "climate.a".into(),
+                title: None,
+                step: 0.5,
+                show_graph: false,
+                graph_hours: None,
+            },
             pos: Some(GridPos { x: 5, y: 11, w: 1, h: 1 }),
             parked: false,
         };
@@ -1556,7 +1792,17 @@ mod tests {
                 for (i, (place, (mw, mh))) in layout.places.iter().zip(&layout.mins).enumerate() {
                     // Hidden before too: the page is full on this screen
                     let Some(place) = place else { continue };
-                    assert!(place.w >= *mw && place.h >= *mh, "{} {}x{}: card {} at {:?}, smallest {}x{}", page.id, w, h, i, place, mw, mh);
+                    assert!(
+                        place.w >= *mw && place.h >= *mh,
+                        "{} {}x{}: card {} at {:?}, smallest {}x{}",
+                        page.id,
+                        w,
+                        h,
+                        i,
+                        place,
+                        mw,
+                        mh
+                    );
                 }
             }
         }
@@ -1638,7 +1884,13 @@ mod tests {
         };
         assert_eq!(min_cells(&sensor, grid, area, 1), (1, 1));
         assert_eq!(min_cells(&switch("switch.a", None).kind, grid, area, 1), (1, 1));
-        let climate = CardConfig::Climate { entity_id: "climate.a".into(), title: None, step: 0.5, show_graph: false, graph_hours: None };
+        let climate = CardConfig::Climate {
+            entity_id: "climate.a".into(),
+            title: None,
+            step: 0.5,
+            show_graph: false,
+            graph_hours: None,
+        };
         let (w, h) = min_cells(&climate, grid, area, 1);
         assert!(w >= 2 && h >= 2, "{}x{}", w, h);
     }
@@ -1656,7 +1908,6 @@ mod tests {
         assert_eq!((p.y, p.h), (16, 2));
     }
 
-
     /// The pictures in the README, from a page that shows the newer cards:
     /// `README_IMAGES=docs/images cargo test readme_images -- --ignored`
     #[test]
@@ -1670,28 +1921,73 @@ mod tests {
             .map(|i| {
                 let target = if i < 28 { 20.5 } else { 22.5 };
                 let room = target - 0.6 + ((i as f64) * 0.55).sin() * 0.9;
-                [ms - (96 - i) as f64 * 900_000.0, (room * 10.0f64).round() / 10.0, target, if room < target { 1.0 } else { 0.0 }]
+                [
+                    ms - (96 - i) as f64 * 900_000.0,
+                    (room * 10.0f64).round() / 10.0,
+                    target,
+                    if room < target { 1.0 } else { 0.0 },
+                ]
             })
             .collect();
         if let Some(c) = states.get_mut("climate.living_room") {
-            c.attributes.insert(crate::ui::widgets::climate_card::CLIMATE_HISTORY_ATTR.into(), serde_json::json!(rows));
+            c.attributes
+                .insert(crate::ui::widgets::climate_card::CLIMATE_HISTORY_ATTR.into(), serde_json::json!(rows));
         }
         let mut add = |id: &str, state: &str, attrs: serde_json::Value| {
             let attributes = attrs.as_object().unwrap().iter().map(|(k, v)| (k.clone(), v.clone())).collect();
-            states.insert(id.into(), EntityState { entity_id: id.into(), state: state.into(), attributes, last_changed: None, last_updated: None });
+            states.insert(
+                id.into(),
+                EntityState {
+                    entity_id: id.into(),
+                    state: state.into(),
+                    attributes,
+                    last_changed: None,
+                    last_updated: None,
+                },
+            );
         };
         add("sensor.printer_progress", "64", serde_json::json!({ "unit_of_measurement": "%" }));
         let end = (now + chrono::Duration::minutes(47)).to_rfc3339();
         add("sensor.printer_end", &end, serde_json::json!({ "device_class": "timestamp" }));
-        add("cover.living_room", "open", serde_json::json!({ "current_position": 70, "device_class": "shutter", "friendly_name": "Blinds" }));
-        add("binary_sensor.front_door", "off", serde_json::json!({ "device_class": "door", "friendly_name": "Front door" }));
+        add(
+            "cover.living_room",
+            "open",
+            serde_json::json!({ "current_position": 70, "device_class": "shutter", "friendly_name": "Blinds" }),
+        );
+        add(
+            "binary_sensor.front_door",
+            "off",
+            serde_json::json!({ "device_class": "door", "friendly_name": "Front door" }),
+        );
 
         let pages = |landscape: bool| -> String {
             let at = |p: (u8, u8, u8, u8)| format!("{{x: {}, y: {}, w: {}, h: {}}}", p.0, p.1, p.2, p.3);
             let (grid, weather, l1, l2, climate, print, cover, s1, s2, s3) = if landscape {
-                ("{columns: 12, rows: 8}", (0, 0, 5, 4), (0, 4, 3, 2), (3, 4, 2, 2), (5, 0, 7, 4), (0, 6, 5, 2), (5, 4, 7, 2), (5, 6, 3, 2), (8, 6, 2, 2), (10, 6, 2, 2))
+                (
+                    "{columns: 12, rows: 8}",
+                    (0, 0, 5, 4),
+                    (0, 4, 3, 2),
+                    (3, 4, 2, 2),
+                    (5, 0, 7, 4),
+                    (0, 6, 5, 2),
+                    (5, 4, 7, 2),
+                    (5, 6, 3, 2),
+                    (8, 6, 2, 2),
+                    (10, 6, 2, 2),
+                )
             } else {
-                ("{columns: 6, rows: 12}", (0, 0, 6, 3), (0, 3, 3, 2), (3, 3, 3, 2), (0, 5, 6, 4), (0, 9, 3, 2), (3, 9, 3, 2), (0, 11, 2, 1), (2, 11, 2, 1), (4, 11, 2, 1))
+                (
+                    "{columns: 6, rows: 12}",
+                    (0, 0, 6, 3),
+                    (0, 3, 3, 2),
+                    (3, 3, 3, 2),
+                    (0, 5, 6, 4),
+                    (0, 9, 3, 2),
+                    (3, 9, 3, 2),
+                    (0, 11, 2, 1),
+                    (2, 11, 2, 1),
+                    (4, 11, 2, 1),
+                )
             };
             format!(
                 r#"
@@ -1714,7 +2010,15 @@ mod tests {
   icon: zap
   cards: []
 "#,
-                at(weather), at(l1), at(l2), at(climate), at(print), at(cover), at(s1), at(s2), at(s3)
+                at(weather),
+                at(l1),
+                at(l2),
+                at(climate),
+                at(print),
+                at(cover),
+                at(s1),
+                at(s2),
+                at(s3)
             )
         };
         for (name, w, h, landscape) in [("dashboard-portrait", 1072u32, 1448u32, false), ("dashboard-landscape", 1448, 1072, true)] {
@@ -1819,8 +2123,7 @@ mod tests {
             (w, h.max(grid_min(card, w).1 - SHORT_BY))
         };
         let width = sizes.iter().map(|s| s.0 + GAP).sum::<f32>() + GAP + 200.0;
-        let row_h: Vec<f32> =
-            cards.iter().map(|c| sizes.iter().map(|s| size_of(c, *s).1).fold(0.0, f32::max)).collect();
+        let row_h: Vec<f32> = cards.iter().map(|c| sizes.iter().map(|s| size_of(c, *s).1).fold(0.0, f32::max)).collect();
         let height = row_h.iter().map(|h| h + GAP).sum::<f32>() + GAP;
         let config = AppConfig::default();
         let mut renderer = ScreenRenderer::new(&config);
@@ -1835,15 +2138,33 @@ mod tests {
             })
             .collect();
         if let Some(c) = states.get_mut("climate.living_room") {
-            c.attributes.insert(crate::ui::widgets::climate_card::CLIMATE_HISTORY_ATTR.into(), serde_json::json!(rows));
+            c.attributes
+                .insert(crate::ui::widgets::climate_card::CLIMATE_HISTORY_ATTR.into(), serde_json::json!(rows));
         }
         let mut add = |id: &str, state: &str, attrs: serde_json::Value| {
             let attributes = attrs.as_object().unwrap().iter().map(|(k, v)| (k.clone(), v.clone())).collect();
-            states.insert(id.into(), EntityState { entity_id: id.into(), state: state.into(), attributes, last_changed: None, last_updated: None });
+            states.insert(
+                id.into(),
+                EntityState {
+                    entity_id: id.into(),
+                    state: state.into(),
+                    attributes,
+                    last_changed: None,
+                    last_updated: None,
+                },
+            );
         };
         add("sensor.print_progress", "42", serde_json::json!({ "unit_of_measurement": "%" }));
-        add("sensor.print_end", "2026-11-18T19:05:00+00:00", serde_json::json!({ "device_class": "timestamp" }));
-        add("cover.living_room", "open", serde_json::json!({ "current_position": 60, "device_class": "shutter", "friendly_name": "Blinds" }));
+        add(
+            "sensor.print_end",
+            "2026-11-18T19:05:00+00:00",
+            serde_json::json!({ "device_class": "timestamp" }),
+        );
+        add(
+            "cover.living_room",
+            "open",
+            serde_json::json!({ "current_position": 60, "device_class": "shutter", "friendly_name": "Blinds" }),
+        );
         let bars: Vec<(f64, f64)> = (0..14).map(|i| (1.7e12 + i as f64 * 86.4e6, 3.0 + (i * 7 % 5) as f64)).collect();
         states.get_mut("sensor.energy_today").unwrap().attributes.insert(
             crate::ui::widgets::statistics_card::STATS_ATTR.into(),

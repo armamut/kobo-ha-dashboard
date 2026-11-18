@@ -86,10 +86,25 @@ pub fn render_statistics_card(
         .or_else(|| state.and_then(|s| s.unit_of_measurement()))
         .unwrap_or_default();
     let points = series(state, &stat_key(period, hours, stat));
-    let with_unit = |v: f64| format!("{}{}", format_number(&format!("{:.1}", v)), if unit.is_empty() { String::new() } else { format!(" {}", unit) });
+    let with_unit = |v: f64| {
+        format!(
+            "{}{}",
+            format_number(&format!("{:.1}", v)),
+            if unit.is_empty() { String::new() } else { format!(" {}", unit) }
+        )
+    };
 
     let inner_w = rect.w - 2.0 * PAD;
-    canvas.draw_text_fit(&title, rect.x + PAD, rect.y + PAD, type_scale::BODY, true, theme.text_muted, TextAlign::Left, inner_w);
+    canvas.draw_text_fit(
+        &title,
+        rect.x + PAD,
+        rect.y + PAD,
+        type_scale::BODY,
+        true,
+        theme.text_muted,
+        TextAlign::Left,
+        inner_w,
+    );
 
     let labels_h = if chart_kind == ChartKind::Hbar { 0.0 } else { 34.0 };
     let chart_top = rect.y + PAD + 44.0;
@@ -107,7 +122,10 @@ pub fn render_statistics_card(
             TextAlign::Center,
             chart.w,
         );
-        targets.push(InteractiveTarget { rect, action: UiAction::Refresh });
+        targets.push(InteractiveTarget {
+            rect,
+            action: UiAction::Refresh,
+        });
         return;
     }
 
@@ -125,8 +143,16 @@ pub fn render_statistics_card(
         let shown = &points[n - rows..];
         let row_h = chart.h / rows as f32;
         let size = (row_h * 0.7).clamp(14.0, 20.0);
-        let label_w = shown.iter().map(|(t, _)| canvas.measure_text(&period_label(*t, offset, period), size, false).0).fold(0.0f32, f32::max) + 10.0;
-        let value_w = shown.iter().map(|(_, v)| canvas.measure_text(&with_unit(*v), size, true).0).fold(0.0f32, f32::max) + 10.0;
+        let label_w = shown
+            .iter()
+            .map(|(t, _)| canvas.measure_text(&period_label(*t, offset, period), size, false).0)
+            .fold(0.0f32, f32::max)
+            + 10.0;
+        let value_w = shown
+            .iter()
+            .map(|(_, v)| canvas.measure_text(&with_unit(*v), size, true).0)
+            .fold(0.0f32, f32::max)
+            + 10.0;
         let bars_x = chart.x + label_w;
         let bars_w = (chart.w - label_w - value_w).max(10.0);
         let zero_x = bars_x + bars_w * (-lo / span) as f32;
@@ -141,13 +167,25 @@ pub fn render_statistics_card(
             canvas.draw_text(&period_label(*t, offset, period), chart.x, ty, size, false, theme.text_muted, TextAlign::Left);
             canvas.draw_text(&with_unit(*v), chart.x + chart.w, ty, size, true, theme.text, TextAlign::Right);
         }
-        targets.push(InteractiveTarget { rect, action: UiAction::Refresh });
+        targets.push(InteractiveTarget {
+            rect,
+            action: UiAction::Refresh,
+        });
         return;
     }
 
     // The largest value, in the corner the title leaves free.
     let extreme = if hi.abs() >= lo.abs() { hi } else { lo };
-    canvas.draw_text_fit(&with_unit(extreme), rect.x + rect.w - PAD, rect.y + PAD + 4.0, type_scale::LABEL, false, theme.text_muted, TextAlign::Right, inner_w / 2.0);
+    canvas.draw_text_fit(
+        &with_unit(extreme),
+        rect.x + rect.w - PAD,
+        rect.y + PAD + 4.0,
+        type_scale::LABEL,
+        false,
+        theme.text_muted,
+        TextAlign::Right,
+        inner_w / 2.0,
+    );
 
     let zero_y = chart.y + chart.h * (hi / span) as f32;
     if chart_kind == ChartKind::Line {
@@ -177,10 +215,29 @@ pub fn render_statistics_card(
 
     // Only the ends are labelled: the title says what the range is.
     let label_y = chart.y + chart.h + 8.0;
-    canvas.draw_text(&period_label(points[0].0, offset, period), chart.x, label_y, 20.0, false, theme.text_muted, TextAlign::Left);
-    canvas.draw_text(&period_label(points[n - 1].0, offset, period), chart.x + chart.w, label_y, 20.0, false, theme.text_muted, TextAlign::Right);
+    canvas.draw_text(
+        &period_label(points[0].0, offset, period),
+        chart.x,
+        label_y,
+        20.0,
+        false,
+        theme.text_muted,
+        TextAlign::Left,
+    );
+    canvas.draw_text(
+        &period_label(points[n - 1].0, offset, period),
+        chart.x + chart.w,
+        label_y,
+        20.0,
+        false,
+        theme.text_muted,
+        TextAlign::Right,
+    );
 
-    targets.push(InteractiveTarget { rect, action: UiAction::Refresh });
+    targets.push(InteractiveTarget {
+        rect,
+        action: UiAction::Refresh,
+    });
 }
 
 #[cfg(test)]
@@ -248,19 +305,32 @@ mod tests {
         let mut targets = Vec::new();
         let many: Vec<(f64, f64)> = (0..400).map(|i| (i as f64 * 86_400_000.0, (i % 9) as f64)).collect();
         let kinds = [ChartKind::Bar, ChartKind::Hbar, ChartKind::Line];
-        for (points, kind) in [many.clone(), many.iter().map(|(t, v)| (*t, -v)).collect()].into_iter().flat_map(|p| kinds.map(|k| (p.clone(), k))) {
+        for (points, kind) in [many.clone(), many.iter().map(|(t, v)| (*t, -v)).collect()]
+            .into_iter()
+            .flat_map(|p| kinds.map(|k| (p.clone(), k)))
+        {
             let state = state_with(&points);
             let mut canvas = Canvas::new(w, h);
-            render_statistics_card(&mut canvas, &theme, rect, "sensor.gas", Some(&state), Some("Gas"), "day", 400 * 24, "change", Some("m³"), kind, &mut targets);
+            render_statistics_card(
+                &mut canvas,
+                &theme,
+                rect,
+                "sensor.gas",
+                Some(&state),
+                Some("Gas"),
+                "day",
+                400 * 24,
+                "change",
+                Some("m³"),
+                kind,
+                &mut targets,
+            );
             assert!(canvas.raw_rgba_data().iter().any(|b| *b != 0));
             let data = canvas.raw_rgba_data();
             let mut outside = 0;
             for y in 0..h {
                 for x in 0..w {
-                    let inside = (x as f32) >= rect.x
-                        && (y as f32) >= rect.y
-                        && (x as f32) < rect.x + rect.w
-                        && (y as f32) < rect.y + rect.h;
+                    let inside = (x as f32) >= rect.x && (y as f32) >= rect.y && (x as f32) < rect.x + rect.w && (y as f32) < rect.y + rect.h;
                     if inside {
                         continue;
                     }
@@ -284,12 +354,38 @@ mod tests {
         for points in [vec![], vec![(0.0, 0.0)], vec![(0.0, 0.0), (86_400_000.0, 0.0)]] {
             let state = state_with(&points);
             for kind in [ChartKind::Bar, ChartKind::Hbar, ChartKind::Line] {
-                render_statistics_card(&mut canvas, &theme, rect, "sensor.gas", Some(&state), Some("Gas"), "day", 14 * 24, "change", None, kind, &mut targets);
+                render_statistics_card(
+                    &mut canvas,
+                    &theme,
+                    rect,
+                    "sensor.gas",
+                    Some(&state),
+                    Some("Gas"),
+                    "day",
+                    14 * 24,
+                    "change",
+                    None,
+                    kind,
+                    &mut targets,
+                );
             }
         }
         let many: Vec<(f64, f64)> = (0..365).map(|i| (i as f64 * 86_400_000.0, (i % 7) as f64)).collect();
         let state = state_with(&many);
-        render_statistics_card(&mut canvas, &theme, rect, "sensor.gas", Some(&state), None, "day", 365 * 24, "change", Some("m³"), ChartKind::Bar, &mut targets);
+        render_statistics_card(
+            &mut canvas,
+            &theme,
+            rect,
+            "sensor.gas",
+            Some(&state),
+            None,
+            "day",
+            365 * 24,
+            "change",
+            Some("m³"),
+            ChartKind::Bar,
+            &mut targets,
+        );
         // Nothing tappable but the refresh target, and the canvas is not blank
         assert_eq!(targets.len(), 10);
         assert!(canvas.raw_rgba_data().iter().any(|b| *b != 0));

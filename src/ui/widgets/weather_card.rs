@@ -1,6 +1,6 @@
 use crate::display::{Canvas, TextAlign};
-use crate::i18n;
 use crate::ha::models::{EntityState, ForecastItem};
+use crate::i18n;
 use crate::ui::layout::{InteractiveTarget, Rect, UiAction};
 use crate::ui::theme::Theme;
 use crate::ui::widgets::{draw_card, type_scale, PAD};
@@ -86,7 +86,10 @@ pub fn render_weather_card(
 
     // Humidity and wind go in a column on the right wherever the temperature
     // and the condition leave room for it, else on a line below.
-    let metric_w = metrics.iter().map(|(_, t)| canvas.measure_text(t, type_scale::BODY, true).0 + 38.0).fold(0.0f32, f32::max);
+    let metric_w = metrics
+        .iter()
+        .map(|(_, t)| canvas.measure_text(t, type_scale::BODY, true).0 + 38.0)
+        .fold(0.0f32, f32::max);
     let temp_w = canvas.measure_text(&temp_str, temp_size, true).0 + unit_w;
     let cond_w = canvas.measure_text(cond_text, cond_size, true).0.min(220.0);
     let column_h = 44.0 * metrics.len() as f32 - 14.0;
@@ -113,10 +116,23 @@ pub fn render_weather_card(
 
     if side {
         if lines >= 1 {
-            canvas.draw_text_fit(cond_text, tx, text_top + 4.0, cond_size, true, theme.text, TextAlign::Left, max_w - metric_w - 24.0);
+            canvas.draw_text_fit(
+                cond_text,
+                tx,
+                text_top + 4.0,
+                cond_size,
+                true,
+                theme.text,
+                TextAlign::Left,
+                max_w - metric_w - 24.0,
+            );
         }
         // Metrics column, right aligned, as far as it fits
-        let mut my = if with_strip { rect.y + PAD + 6.0 } else { rect.y + (rect.h - column_h) / 2.0 - 2.0 };
+        let mut my = if with_strip {
+            rect.y + PAD + 6.0
+        } else {
+            rect.y + (rect.h - column_h) / 2.0 - 2.0
+        };
         for (icon, text) in &metrics {
             if my + 30.0 > bottom {
                 break;

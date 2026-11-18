@@ -60,7 +60,16 @@ pub fn render_glance_card(
     draw_card(canvas, theme, rect, None);
     let mut y = rect.y + PAD;
     if let Some(title) = custom_title {
-        canvas.draw_text_fit(title, rect.x + PAD, y - 2.0, type_scale::BODY, true, theme.text_muted, TextAlign::Left, rect.w - 2.0 * PAD);
+        canvas.draw_text_fit(
+            title,
+            rect.x + PAD,
+            y - 2.0,
+            type_scale::BODY,
+            true,
+            theme.text_muted,
+            TextAlign::Left,
+            rect.w - 2.0 * PAD,
+        );
         y += GLANCE_TITLE_H;
     }
     if !items.is_empty() {
@@ -88,11 +97,23 @@ pub fn render_glance_card(
             canvas.draw_icon(icon, cx - icon_size / 2.0, top, icon_size, color, 2.2);
             let mut ty = top + icon_size + 8.0;
             if with_name {
-                canvas.draw_text_fit(&item.title, cx, ty, type_scale::LABEL, false, theme.text_muted, TextAlign::Center, cell_w - 12.0);
+                canvas.draw_text_fit(
+                    &item.title,
+                    cx,
+                    ty,
+                    type_scale::LABEL,
+                    false,
+                    theme.text_muted,
+                    TextAlign::Center,
+                    cell_w - 12.0,
+                );
                 ty += type_scale::LABEL + 6.0;
             }
             canvas.draw_text_fit(&value, cx, ty, type_scale::BODY, true, theme.text, TextAlign::Center, cell_w - 12.0);
         }
     }
-    targets.push(InteractiveTarget { rect, action: UiAction::Refresh });
+    targets.push(InteractiveTarget {
+        rect,
+        action: UiAction::Refresh,
+    });
 }
