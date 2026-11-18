@@ -22,6 +22,17 @@ jobs:
       # round-trips, Kobo install/NickelMenu/backup logic.
       - run: cargo test --locked
 
+  fmt:
+    name: Formatting
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      # rustfmt.toml sets the line width; run `cargo fmt` before committing.
+      - run: cargo fmt --check
+
   editor:
     name: Setup tool script
     runs-on: ubuntu-latest
