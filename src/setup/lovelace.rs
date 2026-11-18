@@ -321,6 +321,7 @@ fn flatten(cards: &[Value], out: &mut Vec<CardConfig>, skipped: &mut BTreeMap<St
                 Some(entity) => out.push(CardConfig::Image {
                     entity_id: entity.to_string(),
                     title: name_of(card).map(str::to_string),
+                    frameless: false,
                 }),
                 None => skip(skipped, kind),
             },
@@ -380,7 +381,7 @@ fn entity_card(
         }),
         "sensor" | "binary_sensor" | "number" | "input_number" | "counter" | "input_text" | "input_select" | "select"
         | "text" => Some(CardConfig::Sensor { entity_id, title, unit: None, icon, show_graph: graph, large_value: false }),
-        "image" => Some(CardConfig::Image { entity_id, title }),
+        "image" => Some(CardConfig::Image { entity_id, title, frameless: false }),
         other => {
             skip(skipped, other);
             None

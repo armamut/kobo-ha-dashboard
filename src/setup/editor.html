@@ -109,8 +109,17 @@ input[type=color] { width: 48px; height: 38px; padding: 2px; border: 1px solid v
 .subitem { display: grid; grid-template-columns: 2fr 1.4fr 1fr .7fr auto; gap: 8px; align-items: end; padding: 10px; border: 1px dashed var(--border-strong); border-radius: 8px; }
 @media (max-width: 760px) { .subitem { grid-template-columns: 1fr 1fr; } }
 .entity-meta { font-size: 12px; color: var(--faint); font-weight: 400; min-height: 16px; }
-.iconpick { display: flex; gap: 6px; align-items: center; }
-.iconpick img { width: 26px; height: 26px; flex: none; }
+.iconpick { display: flex; gap: 8px; align-items: center; width: 100%; padding: 6px 38px 6px 9px; border: 1px solid var(--border-strong); border-radius: 8px; background: var(--surface) var(--chevron) no-repeat right 12px center / 15px; cursor: pointer; font-weight: 400; text-align: left; color: var(--text); }
+.iconpick:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.iconpick img { width: 24px; height: 24px; flex: none; }
+.iconpop { position: fixed; z-index: 60; max-height: 340px; display: flex; flex-direction: column; gap: 8px; padding: 10px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 12px 36px rgba(0,0,0,.22); }
+.icongrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(40px, 1fr)); gap: 4px; overflow-y: auto; }
+.icongrid button { display: grid; place-items: center; aspect-ratio: 1; border: 1px solid transparent; background: transparent; border-radius: 8px; cursor: pointer; padding: 0; }
+.icongrid button:hover, .icongrid button:focus-visible { background: var(--surface-2); border-color: var(--border-strong); outline: none; }
+.icongrid button.active { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
+.icongrid button.auto { grid-column: 1 / -1; aspect-ratio: auto; padding: 6px; font-size: 13px; font-weight: 600; }
+.icongrid img { width: 26px; height: 26px; }
+@media (prefers-color-scheme: dark) { .icongrid img { filter: invert(1); } }
 
 /* Preview */
 aside.preview { position: sticky; top: 76px; align-self: start; }
@@ -179,12 +188,31 @@ body.ws-on aside.preview { display: none; }
 .menu { position: absolute; z-index: 20; top: calc(100% + 4px); left: 0; min-width: 220px; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; box-shadow: 0 8px 28px rgba(0,0,0,.16); padding: 4px; display: flex; flex-direction: column; }
 .menu button { text-align: left; border: 0; background: transparent; padding: 8px 12px; border-radius: 6px; cursor: pointer; white-space: nowrap; }
 .menu button:hover, .menu button:focus-visible { background: var(--surface-2); outline: none; }
+.menu button.danger { color: var(--err); }
+.menu button .kbd { float: right; margin-left: 24px; color: var(--faint); font-size: 12px; }
+.menu hr { border: 0; border-top: 1px solid var(--border); margin: 4px 6px; }
+.menu .has-sub { position: relative; }
+.menu .has-sub > button::after { content: "›"; float: right; margin-left: 24px; color: var(--faint); }
+.menu .has-sub > .menu { display: none; top: -5px; left: 100%; }
+.menu .has-sub:hover > .menu, .menu .has-sub:focus-within > .menu { display: flex; }
+.menu.flip .has-sub > .menu { left: auto; right: 100%; }
+#ctxMenu { position: fixed; top: 0; left: 0; }
+.ws-pages .tab.drop-before { box-shadow: -3px 0 0 var(--accent); }
+.ws-pages .tab.drop-after { box-shadow: 3px 0 0 var(--accent); }
+.ws-right input[type=text], .ws-right input[type=number], .ws-right select { width: 100%; }
 
 /* Add panel */
 .palette { display: flex; flex-direction: column; gap: 4px; }
-.palette button { display: flex; align-items: center; gap: 10px; border: 1px solid var(--border); background: var(--surface); border-radius: 8px; padding: 7px 10px; cursor: pointer; text-align: left; font-weight: 600; font-size: 14px; }
-.palette button:hover { border-color: var(--accent); background: var(--surface-2); }
-.palette img { width: 22px; height: 22px; flex: none; }
+.palette-item { display: flex; align-items: center; gap: 10px; border: 1px solid var(--border); background: var(--surface); border-radius: 8px; padding: 7px 10px; cursor: grab; text-align: left; font-weight: 600; font-size: 14px; user-select: none; overflow: hidden; }
+.palette-item:hover, .palette-item:focus-visible { border-color: var(--accent); background: var(--surface-2); outline: none; }
+.palette-item img { width: 22px; height: 22px; flex: none; }
+.palette-item span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tray-item { border-style: dashed; }
+/* The card being dragged in: the size it will have on the page */
+body > .palette-item { z-index: 50; cursor: grabbing; padding: 10px 12px; border: 2px solid var(--accent); background: rgba(217, 119, 6, .14); color: #111827; border-radius: 10px; align-items: flex-start; box-shadow: 0 8px 24px rgba(0,0,0,.2); }
+body > .palette-item img { filter: none !important; }
+body > .drag-ghost { width: var(--gw, auto) !important; height: var(--gh, auto) !important; }
+.layout-box .grid-stack > .palette-item { visibility: hidden; }
 
 /* Properties panel */
 .insp-head { display: flex; align-items: center; gap: 10px; margin: 0 0 14px; }
@@ -196,6 +224,7 @@ body.ws-on aside.preview { display: none; }
 .ws-right .cardform { border: 0; margin: 0; padding: 0; }
 .ws-right .subitem { grid-template-columns: 1fr 1fr; }
 .ws-right .subitem > label:first-child { grid-column: 1 / -1; }
+.ws-right .subitem > button { justify-self: end; align-self: end; width: auto; }
 .ws-right .cardrow { grid-template-columns: 26px 1fr; padding: 7px 9px; cursor: pointer; margin-bottom: 6px; }
 .ws-right .cardrow:hover { border-color: var(--accent); }
 .ws-right .cardrow .ticon { width: 24px; height: 24px; }
@@ -474,6 +503,11 @@ a.btn.primary { color: var(--accent-ink); }
         <h3 class="ws-head" data-i18n="ws.add_title"></h3>
         <p class="hint" data-i18n="ws.add_hint"></p>
         <div class="palette" id="palette"></div>
+        <div id="traySection" class="hidden">
+          <h3 class="ws-head" style="margin-top:20px" data-i18n="ws.tray_title"></h3>
+          <p class="hint" data-i18n="ws.tray_hint"></p>
+          <div class="palette" id="tray"></div>
+        </div>
         <p class="hint" style="margin-top:16px" data-i18n="layout.hint"></p>
       </aside>
 
@@ -653,7 +687,7 @@ const CARD_TYPES = {
     fields: [["title", "text", "design.title_optional"], ["scenes", "list", "design.buttons", { max: 6, domains: ACTION_DOMAINS, item: "scene" }]] },
   scene: { icon: "play", domains: ACTION_DOMAINS, defaults: { title: "" },
     fields: [["entity_id"], ["title", "text", "design.label"], ["icon"]] },
-  image: { icon: "progress", domains: ["image"], fields: [["entity_id"], ["title", "text", "design.title_optional"]] },
+  image: { icon: "progress", domains: ["image"], fields: [["entity_id"], ["title", "text", "design.title_optional"], ["frameless", "bool", "design.frameless"]] },
   heading: { icon: "layers", fields: [["title", "text", "design.heading_title"], ["icon"]] },
   statistics: { icon: "progress", domains: ["sensor", "counter", "input_number", "number"],
     defaults: { period: "day", days: 14, stat: "mean" },
@@ -1092,10 +1126,82 @@ async function generate() {
 }
 
 // ---------- Step 2 ----------
-/// The add panel: one button per card type, adding it to the page
+/// The add panel: one item per card type. Dragged onto the page it lands
+/// where it is dropped, at the size a new card of that type has; a click
+/// puts it in the first free spot.
 function renderCardTypes() {
-  $("palette").replaceChildren(...Object.keys(CARD_TYPES).map((k) =>
-    el("button", { type: "button", onclick: () => addCard(k) }, el("img", { src: iconUrl(CARD_TYPES[k].icon), alt: "" }), typeLabel(k))));
+  const items = Object.keys(CARD_TYPES).map((k) =>
+    el("div", { class: "palette-item", role: "button", tabindex: "0", "data-type": k, title: T("ws.add_item_title"),
+        onclick: () => addCard(k), onkeydown: (ev) => { if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); addCard(k); } } },
+      el("img", { src: iconUrl(CARD_TYPES[k].icon), alt: "" }), el("span", {}, typeLabel(k))));
+  $("palette").replaceChildren(...items);
+  makeDraggable(items);
+}
+
+/// Let `items` be dragged onto the page; their gs-w/gs-h set the size.
+function makeDraggable(items) {
+  if (!items.length || typeof GridStack === "undefined") return;
+  updateDragSizes();
+  GridStack.setupDragIn(items, { appendTo: "body", helper: dragGhost });
+  for (const n of items) {
+    // While dragging, the page isn't rebuilt under the pointer
+    n.addEventListener("dragstart", () => { updateDragSizes(); $("layoutStage").classList.add("moving"); });
+    n.addEventListener("dragstop", () => { $("layoutStage").classList.remove("moving"); setTimeout(() => renderLayout(), 0); });
+  }
+}
+
+/// What follows the pointer: a box the size the card will have on the page.
+function dragGhost(src) {
+  updateDragSizes();
+  const ghost = src.cloneNode(true);
+  ghost.removeAttribute("id");
+  ghost.classList.add("drag-ghost");
+  if (gs) {
+    const L = layouts[page], m = L.gap / 2 * (parseFloat($("layoutStage").style.width) / L.screen[0]);
+    const w = +src.getAttribute("gs-w"), h = +src.getAttribute("gs-h");
+    // Gridstack sizes the helper like its source; these win over that
+    ghost.style.setProperty("--gw", w * gs.cellWidth() - 2 * m + "px");
+    ghost.style.setProperty("--gh", h * gs.getCellHeight() - 2 * m + "px");
+  }
+  return ghost;
+}
+
+/// Size each draggable item takes on this page's grid: a new card's for a
+/// type, the smallest size for a card that has no room.
+function updateDragSizes() {
+  const L = layouts[page];
+  if (!L) return;
+  document.querySelectorAll("#palette .palette-item").forEach((n) => {
+    const [w, h, mw, mh] = L.new_sizes[n.dataset.type] || [2, 2, 1, 1];
+    // The new card's own size where that still fits, else its smallest
+    const fits = !gs || gs.engine.willItFit({ w, h });
+    n.setAttribute("gs-w", fits ? w : mw); n.setAttribute("gs-h", fits ? h : mh);
+  });
+}
+
+/// Cards that have no room on the page, listed in the add panel. The server
+/// places them as soon as there is room, so they are not dragged.
+/// Whether the server's layout of this page predates cards added or removed
+function layoutStale() {
+  const L = layouts[page], p = cfg.pages[page];
+  return !!(L && p && L.places.length !== p.cards.length);
+}
+
+function renderTray() {
+  const p = cfg.pages[page];
+  if (layoutStale()) return;
+  const off = p ? p.cards.map((c, i) => [c, i]).filter(([, i]) => isOffscreen(i)) : [];
+  $("traySection").classList.toggle("hidden", !off.length);
+  const key = JSON.stringify([page, off.map(([c, i]) => [i, cardSummary(c).title])]);
+  if ($("tray").dataset.key === key) return;
+  $("tray").dataset.key = key;
+  const items = off.map(([c, i]) => {
+    const { t, title } = cardSummary(c);
+    return el("div", { class: "palette-item tray-item", style: "cursor:pointer", role: "button", tabindex: "0", "data-card": i, title: T("ws.tray_item_title"),
+        onclick: () => selectCard(i), onkeydown: (ev) => { if (ev.key === "Enter") selectCard(i); } },
+      el("img", { src: iconUrl(c.icon || t.icon), alt: "" }), el("span", {}, title));
+  });
+  $("tray").replaceChildren(...items);
 }
 
 /// The workspace fills the window below the header.
@@ -1186,8 +1292,42 @@ function renderPageChips() {
   const chip = (cls) => (p, i) => el("button", { type: "button", class: cls + (i === page ? " active" : ""), onclick: () => showPage(i) },
     el("img", { src: iconUrl(p.icon), alt: "" }), p.title || T("design.untitled"),
     hidden[i] ? el("span", { class: "badge", title: T("design.overflow_badge") }, String(hidden[i])) : null);
-  $("pageTabs").replaceChildren(...cfg.pages.map(chip("tab")));
+  const tabs = cfg.pages.map(chip("tab"));
+  tabs.forEach((t, i) => dragTab(t, i));
+  $("pageTabs").replaceChildren(...tabs);
   $("previewPages").replaceChildren(...cfg.pages.map(chip("chip")));
+}
+
+/// Page tabs are reordered by dragging them.
+let draggedTab = null;
+function dragTab(tab, i) {
+  tab.draggable = true;
+  const clear = () => $("pageTabs").querySelectorAll(".tab").forEach((t) => t.classList.remove("drop-before", "drop-after"));
+  const after = (ev) => { const r = tab.getBoundingClientRect(); return ev.clientX > r.left + r.width / 2; };
+  tab.addEventListener("dragstart", (ev) => { draggedTab = i; ev.dataTransfer.effectAllowed = "move"; ev.dataTransfer.setData("text/plain", String(i)); });
+  tab.addEventListener("dragend", () => { draggedTab = null; clear(); });
+  tab.addEventListener("dragover", (ev) => {
+    if (draggedTab == null) return;
+    ev.preventDefault();
+    clear();
+    if (draggedTab !== i) tab.classList.add(after(ev) ? "drop-after" : "drop-before");
+  });
+  tab.addEventListener("drop", (ev) => {
+    if (draggedTab == null) return;
+    ev.preventDefault();
+    let to = i + (after(ev) ? 1 : 0);
+    const from = draggedTab;
+    draggedTab = null;
+    clear();
+    if (to > from) to -= 1;
+    if (to === from) return;
+    const current = cfg.pages[page];
+    const [moved] = cfg.pages.splice(from, 1);
+    cfg.pages.splice(to, 0, moved);
+    page = cfg.pages.indexOf(current);
+    renderDesign();
+    sync();
+  });
 }
 
 function showPage(i) {
@@ -1203,12 +1343,56 @@ function addPage() {
   sync();
 }
 
+/// A button showing the icon; it opens a searchable grid of all icons.
 function iconSelect(value, onchange, allowEmpty = true) {
   const img = el("img", { src: iconUrl(value || "home"), alt: "" });
-  const sel = el("select", { onchange: () => { img.src = iconUrl(sel.value || "home"); onchange(sel.value || null); } },
-    allowEmpty ? el("option", { value: "" }, T("design.icon_auto")) : null,
-    icons.map((n) => el("option", { value: n, selected: n === value }, n)));
-  return el("div", { class: "iconpick" }, img, sel);
+  const name = el("span", {}, value || T("design.icon_auto"));
+  const btn = el("button", { type: "button", class: "iconpick", "aria-haspopup": "dialog" }, img, name);
+  btn.onclick = (ev) => {
+    ev.stopPropagation();
+    if (iconPop) { closeIconPicker(); return; }
+    openIconPicker(btn, value, allowEmpty, (v) => {
+      value = v;
+      img.src = iconUrl(v || "home");
+      name.textContent = v || T("design.icon_auto");
+      onchange(v);
+      btn.focus();
+    });
+  };
+  return btn;
+}
+
+let iconPop = null;
+function closeIconPicker() { iconPop?.remove(); iconPop = null; }
+
+function openIconPicker(anchor, value, allowEmpty, pick) {
+  closeIconPicker();
+  const search = el("input", { type: "text", placeholder: T("ws.icon_search"), spellcheck: "false" });
+  const grid = el("div", { class: "icongrid", role: "listbox" });
+  const choose = (v) => { closeIconPicker(); pick(v); };
+  const fill = () => {
+    const q = search.value.trim().toLowerCase();
+    const found = icons.filter((n) => !q || n.includes(q));
+    if (!found.length) { grid.replaceChildren(el("p", { class: "hint", style: "grid-column:1/-1;margin:6px" }, T("ws.no_icons"))); return; }
+    grid.replaceChildren(
+      ...(allowEmpty && !q ? [el("button", { type: "button", class: "auto" + (value ? "" : " active"), onclick: () => choose(null) }, T("design.icon_auto"))] : []),
+      ...found.map((n) => el("button", { type: "button", title: n, "aria-label": n, class: n === value ? "active" : "", onclick: () => choose(n) },
+        el("img", { src: iconUrl(n), alt: "", loading: "lazy" }))));
+  };
+  search.oninput = fill;
+  search.onkeydown = (ev) => {
+    if (ev.key === "Escape") { ev.stopPropagation(); closeIconPicker(); anchor.focus(); }
+    if (ev.key === "Enter") { ev.preventDefault(); grid.querySelector("button:not(.auto)")?.click(); }
+  };
+  fill();
+  iconPop = el("div", { class: "iconpop", onclick: (ev) => ev.stopPropagation() }, search, grid);
+  const r = anchor.getBoundingClientRect();
+  iconPop.style.width = Math.max(260, r.width) + "px";
+  document.body.append(iconPop);
+  const h = iconPop.offsetHeight;
+  iconPop.style.left = Math.max(8, Math.min(r.left, innerWidth - iconPop.offsetWidth - 8)) + "px";
+  iconPop.style.top = (r.bottom + 4 + h > innerHeight ? Math.max(8, r.top - 4 - h) : r.bottom + 4) + "px";
+  search.focus();
 }
 
 // ---------- Properties panel ----------
@@ -1224,15 +1408,6 @@ function renderInspector() {
 function pageInspector(p) {
   const title = el("input", { type: "text", value: p.title });
   title.oninput = () => { p.title = title.value; p.id = slug(title.value) || "page" + page; renderPageChipsSoon(); sync(); };
-  const rows = p.cards.map((c, i) => {
-    const { t, title, sub, tags } = cardSummary(c);
-    const off = isOffscreen(i);
-    return el("div", { class: "cardrow" + (off ? " offscreen" : ""), "data-card": i, onclick: () => selectCard(i) },
-      el("img", { class: "ticon", src: iconUrl(c.icon || t.icon), alt: "" }),
-      el("div", { style: "min-width:0" },
-        el("div", { class: "title" }, title),
-        el("div", { class: "sub" }, ...tags, off ? el("span", { class: "tag warn" }, T("design.doesnt_fit")) : null, sub)));
-  });
   return [
     el("h3", { class: "ws-head" }, T("ws.page")),
     el("div", { class: "grid2" },
@@ -1243,11 +1418,8 @@ function pageInspector(p) {
       el("button", { class: "btn small", disabled: page === cfg.pages.length - 1, onclick: () => movePage(1) }, T("design.move_right")),
       el("span", { class: "spacer" }),
       el("button", { class: "btn small danger", onclick: deletePage }, T("design.delete_page"))),
-    el("div", { class: "insp-section" },
-      el("h3", { class: "ws-head" }, T("design.cards")),
-      rows.length ? el("div", { id: "cardList" }, rows) : el("p", { class: "hint" }, T("ws.no_cards")),
-      rows.length ? el("p", { class: "hint", style: "margin-top:8px" }, T("ws.cards_hint")) : null),
-  ];
+    p.cards.length ? null : el("p", { class: "hint insp-section" }, T("ws.no_cards")),
+  ].filter(Boolean);
 }
 
 function cardInspector(c, i) {
@@ -1334,11 +1506,7 @@ function moveToSelect(i) {
     cfg.pages.map((p, j) => j === page ? null : el("option", { value: j }, p.title)));
   sel.onchange = () => {
     if (sel.value === "") return;
-    const [c] = cfg.pages[page].cards.splice(i, 1);
-    // Its place was on the old page; it takes the first free one on the new.
-    delete c.pos;
-    cfg.pages[+sel.value].cards.push(c);
-    openCard = null; renderDesign(); sync();
+    moveCard(i, +sel.value);
   };
   return sel;
 }
@@ -1440,10 +1608,16 @@ function renderCardsSoon() {
   }, 300);
 }
 
-function addCard(type) {
-  if (!cfg.pages.length) cfg.pages.push({ id: "home", title: T("design.new_page"), icon: "home", cards: [] });
+function newCard(type) {
   const card = { type, ...(JSON.parse(JSON.stringify(CARD_TYPES[type].defaults || {}))) };
   if (CARD_TYPES[type].domains) card.entity_id = "";
+  return card;
+}
+
+function addCard(type, pos) {
+  if (!cfg.pages.length) cfg.pages.push({ id: "home", title: T("design.new_page"), icon: "home", cards: [] });
+  const card = newCard(type);
+  if (pos) card.pos = pos;
   cfg.pages[page].cards.push(card);
   openCard = cfg.pages[page].cards.length - 1;
   renderDesign();
@@ -1453,18 +1627,20 @@ function addCard(type) {
 
 function renderOverflow() {
   const n = hidden[page] || 0;
-  const msg = n === 1 ? T("design.overflow_one") : n > 1 ? T("design.overflow_many", { n }) : "";
+  const msg = n === 1 ? T("ws.overflow_one") : n > 1 ? T("ws.overflow_many", { n }) : "";
+  renderTray();
   for (const id of ["overflowWarn", "previewHidden"]) {
     $(id).textContent = msg;
     $(id).classList.toggle("hidden", !n);
   }
-  document.querySelectorAll("#cardList .cardrow").forEach((row) => row.classList.toggle("offscreen", isOffscreen(+row.dataset.card)));
   if (openCard != null) $("inspHidden")?.classList.toggle("hidden", !isOffscreen(openCard));
 }
 
 /// Whether card `i` of the current page has no room and isn't shown
 function isOffscreen(i) {
   const L = layouts[page];
+  // Until the server has laid out a card just added or removed, say nothing
+  if (layoutStale()) return false;
   if (L) return !L.places[i];
   return i >= (cfg.pages[page]?.cards.length || 0) - (hidden[page] || 0);
 }
@@ -1510,6 +1686,8 @@ function renderLayout(force = false) {
   if (!p || !L || !$("canvasWrap").offsetParent) return;
   // Not under the pointer: rebuilt when the drag or resize ends
   if (stage.classList.contains("moving")) return;
+  // Cards added or removed since this layout: wait for the server's
+  if (layoutStale()) return;
   const s = fitStage(L);
   const labels = p.cards.map((c) => cardSummary(c).title);
   const key = JSON.stringify([page, L, s, labels, previewing]);
@@ -1518,6 +1696,7 @@ function renderLayout(force = false) {
   const hadFocus = document.activeElement?.closest?.("#layoutBox .grid-stack-item")?.getAttribute("gs-id");
 
   fillGridSelects(L.grid);
+  updateDragSizes();
   const img = $("layoutImg");
   if (img.dataset.page !== String(page)) { img.dataset.page = page; img.src = previewUrl(); }
   const half = L.gap / 2;
@@ -1550,6 +1729,7 @@ function renderLayout(force = false) {
     // Gridstack blurs on pointer down; the arrow keys need the focus
     item.addEventListener("pointerup", () => item.focus({ preventScroll: true }));
     item.addEventListener("keydown", (ev) => onLayoutKey(ev, item));
+    item.addEventListener("contextmenu", (ev) => { ev.preventDefault(); selectCard(i); openCardMenu(i, ev.clientX, ev.clientY); });
     host.append(item);
   });
   try {
@@ -1557,6 +1737,8 @@ function renderLayout(force = false) {
       column: L.grid.columns, maxRow: L.grid.rows, minRow: L.grid.rows,
       cellHeight: ch, margin: m, mode: "float", animate: false,
       resizable: { handles: "e,se,s,sw,w" },
+      // Card types, dragged in from the add panel
+      acceptWidgets: (n) => n.classList.contains("palette-item"),
     }, host);
   } catch (e) {
     // Shown, not editable: better than a frozen page
@@ -1565,6 +1747,12 @@ function renderLayout(force = false) {
     return;
   }
   gs.on("change", writePlaces);
+  gs.on("dropped", (ev, prev, node) => {
+    const n = node.el;
+    const pos = { x: node.x, y: node.y, w: node.w, h: node.h };
+    gs.removeWidget(n, true, false);
+    if (n.dataset.type) addCard(n.dataset.type, pos);
+  });
   gs.on("dragstart resizestart", () => stage.classList.add("moving"));
   gs.on("dragstop resizestop", () => { stage.classList.remove("moving"); setTimeout(() => renderLayout(), 0); });
   if (hadFocus != null) host.querySelector(`[gs-id="${hadFocus}"]`)?.focus();
@@ -1596,6 +1784,7 @@ function deselectCard() {
 }
 
 function markSelected() {
+  if (layoutStale()) return;
   document.querySelectorAll("#layoutBox .grid-stack-item").forEach((n) => n.classList.toggle("selected", +n.getAttribute("gs-id") === openCard));
 }
 
@@ -1604,11 +1793,96 @@ function onLayoutKey(ev, item) {
   const d = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }[ev.key];
   const n = item.gridstackNode;
   if (ev.key === "Enter") { selectCard(+item.getAttribute("gs-id")); return; }
-  if (ev.key === "Delete" || ev.key === "Backspace") { ev.preventDefault(); deleteCard(+item.getAttribute("gs-id")); return; }
   if (!d || !n || !gs) return;
   ev.preventDefault();
   if (ev.shiftKey) gs.update(item, { w: Math.max(n.minW || 1, n.w + d[0]), h: Math.max(n.minH || 1, n.h + d[1]) });
   else gs.update(item, { x: Math.max(0, n.x + d[0]), y: Math.max(0, n.y + d[1]) });
+}
+
+// ---------- Card menu (right click) ----------
+let clipboard = null;
+
+function closeCardMenu() { $("ctxMenu")?.remove(); }
+
+function menuItem(label, action, opts = {}) {
+  return el("button", { type: "button", role: "menuitem", class: opts.danger ? "danger" : "", disabled: !!opts.disabled,
+      onclick: () => { closeCardMenu(); action(); } },
+    label, opts.kbd ? el("span", { class: "kbd" }, opts.kbd) : null);
+}
+
+function subMenu(label, items) {
+  if (!items.length) return null;
+  return el("div", { class: "has-sub" }, el("button", { type: "button", role: "menuitem", "aria-haspopup": "menu" }, label),
+    el("div", { class: "menu", role: "menu" }, items));
+}
+
+const MOD = /Mac|iPhone|iPad/.test(navigator.platform) ? "⌘" : "Ctrl+";
+
+function openCardMenu(i, x, y) {
+  closeCardMenu();
+  const p = cfg.pages[page], c = p.cards[i], L = layouts[page];
+  const node = $("layoutBox").querySelector(`[gs-id="${i}"]`);
+  const resize = ([w, h]) => node && gs && gs.update(node, { w, h });
+  const menu = el("div", { id: "ctxMenu", class: "menu", role: "menu", onclick: (ev) => ev.stopPropagation(), oncontextmenu: (ev) => ev.preventDefault() },
+    menuItem(T("ws.duplicate"), () => duplicateCard(i), { kbd: MOD + "D" }),
+    menuItem(T("ws.copy"), () => { clipboard = JSON.stringify(c); }, { kbd: MOD + "C" }),
+    subMenu(T("ws.change_type"), compatibleTypes(c).map((t) => menuItem(typeLabel(t), () => changeType(i, t)))),
+    subMenu(T("ws.move_to_page"), cfg.pages.map((q, j) => j === page ? null : menuItem(q.title || T("design.untitled"), () => moveCard(i, j))).filter(Boolean)),
+    el("hr"),
+    menuItem(T("ws.natural_size"), () => resize(L.naturals[i]), { disabled: !node }),
+    menuItem(T("ws.smallest_size"), () => resize(L.mins[i]), { disabled: !node }),
+    el("hr"),
+    menuItem(T("design.delete_card"), () => deleteCard(i), { danger: true, kbd: "Del" }));
+  document.body.append(menu);
+  const r = menu.getBoundingClientRect();
+  menu.style.left = Math.min(x, innerWidth - r.width - 8) + "px";
+  menu.style.top = Math.min(y, innerHeight - r.height - 8) + "px";
+  // Submenus open to the left near the right edge
+  if (x + r.width + 240 > innerWidth) menu.classList.add("flip");
+  menu.querySelector("button")?.focus();
+}
+
+/// Types a card can become without losing its entity
+function compatibleTypes(c) {
+  if (!c.entity_id) return [];
+  const domain = c.entity_id.split(".")[0];
+  return Object.keys(CARD_TYPES).filter((t) => t !== c.type && CARD_TYPES[t].domains?.includes(domain));
+}
+
+/// Make card `i` a `type` card: the entity, title and icon stay where the new
+/// type has them, the place stays, the rest starts from the defaults.
+function changeType(i, type) {
+  const cards = cfg.pages[page].cards, old = cards[i];
+  const card = newCard(type);
+  card.entity_id = old.entity_id;
+  const keys = CARD_TYPES[type].fields.map(([k]) => k);
+  for (const k of ["title", "subtitle", "icon", "unit"]) if (keys.includes(k) && old[k] != null) card[k] = old[k];
+  if (type === "scene" && !card.title) card.title = shortName(entityById(old.entity_id)) || "";
+  if (old.pos) card.pos = old.pos;
+  cards[i] = card;
+  openCard = i;
+  renderDesign();
+  sync();
+}
+
+function moveCard(i, to) {
+  const [c] = cfg.pages[page].cards.splice(i, 1);
+  // Its place was on the old page; it takes the first free one on the new.
+  delete c.pos;
+  cfg.pages[to].cards.push(c);
+  openCard = null;
+  renderDesign();
+  sync();
+}
+
+function pasteCard() {
+  if (!clipboard || !cfg.pages[page]) return;
+  const c = JSON.parse(clipboard);
+  delete c.pos;
+  cfg.pages[page].cards.push(c);
+  openCard = cfg.pages[page].cards.length - 1;
+  renderDesign();
+  sync();
 }
 
 function fillGridSelects(grid) {
@@ -1828,7 +2102,10 @@ async function boot() {
   const menu = $("addPageMenu");
   const closeMenu = () => menu.classList.add("hidden");
   $("addPageBtn").onclick = (ev) => { ev.stopPropagation(); menu.classList.toggle("hidden"); menu.querySelector("button")?.focus(); };
-  document.addEventListener("click", (ev) => { if (!ev.target.closest(".menu-wrap")) closeMenu(); });
+  document.addEventListener("click", (ev) => { if (!ev.target.closest(".menu-wrap")) closeMenu(); closeCardMenu(); closeIconPicker(); });
+  document.addEventListener("contextmenu", (ev) => { if (!ev.target.closest(".grid-stack-item")) closeCardMenu(); });
+  window.addEventListener("blur", closeCardMenu);
+  $("inspector").addEventListener("scroll", closeIconPicker);
   $("addBlankPage").onclick = () => { closeMenu(); addPage(); };
   $("openLovelace").onclick = () => {
     closeMenu();
@@ -1869,8 +2146,19 @@ async function boot() {
     const mod = ev.metaKey || ev.ctrlKey;
     const typing = ev.target.closest("textarea, select, input:not([type=checkbox]):not([type=radio]):not([type=color])");
     if (!mod && !typing && document.body.classList.contains("ws-on") && !document.querySelector("dialog[open]")) {
-      if (ev.key === "Escape") { closeMenu(); if (previewing) setPreviewing(false); else deselectCard(); return; }
+      if (ev.key === "Escape") {
+        if ($("ctxMenu") || iconPop || !menu.classList.contains("hidden")) { closeCardMenu(); closeIconPicker(); closeMenu(); return; }
+        if (previewing) setPreviewing(false); else deselectCard();
+        return;
+      }
       if (ev.key.toLowerCase() === "p" && !ev.altKey) { setPreviewing(!previewing); return; }
+      if ((ev.key === "Delete" || ev.key === "Backspace") && openCard != null && !previewing) { ev.preventDefault(); deleteCard(openCard); return; }
+    }
+    if (mod && !typing && document.body.classList.contains("ws-on") && !previewing) {
+      const k = ev.key.toLowerCase();
+      if (k === "d" && openCard != null) { ev.preventDefault(); duplicateCard(openCard); return; }
+      if (k === "c" && openCard != null && !getSelection().toString()) { clipboard = JSON.stringify(cfg.pages[page].cards[openCard]); return; }
+      if (k === "v" && clipboard) { ev.preventDefault(); pasteCard(); return; }
     }
     if (!mod) return;
     const key = ev.key.toLowerCase();

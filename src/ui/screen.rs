@@ -389,6 +389,45 @@ pub struct GridLayout {
     pub places: Vec<Option<GridPos>>,
     /// Smallest size of each card, (columns, rows)
     pub mins: Vec<(u8, u8)>,
+    /// Size each card has when nothing squeezes it, (columns, rows)
+    pub naturals: Vec<(u8, u8)>,
+    /// Size of a new card of each type, as the editor makes it, and its
+    /// smallest size: (columns, rows, smallest columns, smallest rows)
+    pub new_sizes: std::collections::BTreeMap<String, (u8, u8, u8, u8)>,
+}
+
+/// A card of each type with the settings the layout editor gives a new one.
+fn new_cards() -> Vec<CardConfig> {
+    let e = "";
+    vec![
+        CardConfig::Weather { entity_id: e.into(), title: None, forecast_days: 5 },
+        CardConfig::Light { entity_id: e.into(), title: None, subtitle: None, icon: None, show_brightness: false },
+        CardConfig::Switch { entity_id: e.into(), title: None, subtitle: None, icon: None },
+        CardConfig::Climate { entity_id: e.into(), title: None, step: 0.5 },
+        CardConfig::Sensor { entity_id: e.into(), title: None, unit: None, icon: None, show_graph: false, large_value: false },
+        CardConfig::SensorGrid { title: None, sensors: Vec::new(), large_value: false },
+        CardConfig::MediaPlayer { entity_id: e.into(), title: None },
+        CardConfig::ScenesRow { title: None, scenes: Vec::new() },
+        CardConfig::Scene { entity_id: e.into(), title: String::new(), icon: None },
+        CardConfig::Image { entity_id: e.into(), title: None, frameless: false },
+        CardConfig::Heading { title: String::new(), icon: None },
+        CardConfig::Statistics {
+            entity_id: e.into(),
+            title: None,
+            period: "day".into(),
+            days: 14,
+            stat: "mean".into(),
+            unit: None,
+        },
+    ]
+}
+
+/// The `type` a card is written with in the config.
+fn type_name(card: &CardConfig) -> String {
+    serde_json::to_value(card)
+        .ok()
+        .and_then(|v| v.get("type").and_then(|t| t.as_str()).map(str::to_string))
+        .unwrap_or_default()
 }
 
 /// The layout editor's view of a grid page on a `w`x`h` screen; `None` for a
@@ -404,7 +443,16 @@ pub fn grid_layout(page: &PageConfig, w: u32, h: u32, with_tabs: bool) -> Option
         .zip(&places)
         .map(|(c, p)| min_cells(c, grid, area, p.map_or(1, |p| p.w)))
         .collect();
-    Some(GridLayout { screen: (w, h), area, gap: GAP, grid, places, mins })
+    let naturals = page.cards.iter().map(|c| natural_cells(c, grid, area)).collect();
+    let new_sizes = new_cards()
+        .iter()
+        .map(|c| {
+            let (w, h) = natural_cells(c, grid, area);
+            let (mw, mh) = min_cells(c, grid, area, 1);
+            (type_name(c), (w, h, mw.min(w), mh.min(h)))
+        })
+        .collect();
+    Some(GridLayout { screen: (w, h), area, gap: GAP, grid, places, mins, naturals, new_sizes })
 }
 
 /// Where each card of `page` goes on a `cw`x`ch` screen whose header ends at
@@ -581,9 +629,8 @@ impl ScreenRenderer {
 
     /// Decoded picture for one card, scaled to its box, or why it can't be
     /// shown. `None` while it has not been fetched.
-    fn image_pixmap(&mut self, entity_id: &str, rect: Rect, titled: bool, scale: f32) -> Option<Result<Arc<tiny_skia::Pixmap>, ImageIssue>> {
+    fn image_pixmap(&mut self, entity_id: &str, area: Rect, scale: f32) -> Option<Result<Arc<tiny_skia::Pixmap>, ImageIssue>> {
         let bytes = self.images.get(entity_id)?.clone();
-        let area = image_card::picture_box(rect, titled);
         let bw = ((area.w * scale).round() as i32).clamp(1, 4096) as u32;
         let bh = ((area.h * scale).round() as i32).clamp(1, 4096) as u32;
         let key = format!("{}@{}x{}", entity_id, bw, bh);
@@ -656,7 +703,9 @@ impl ScreenRenderer {
         let prepared: Vec<Option<Result<Arc<tiny_skia::Pixmap>, ImageIssue>>> = placements
             .iter()
             .map(|(card, rect)| match card {
-                CardConfig::Image { entity_id, title } => self.image_pixmap(entity_id, *rect, title.is_some(), scale),
+                CardConfig::Image { entity_id, title, frameless } => {
+                    self.image_pixmap(entity_id, image_card::picture_box(*rect, title.is_some(), *frameless), scale)
+                }
                 _ => None,
             })
             .collect();
@@ -802,8 +851,8 @@ impl ScreenRenderer {
                 unit.as_deref(),
                 targets,
             ),
-            CardConfig::Image { entity_id, title } => {
-                render_image_card(canvas, theme, rect, entity_id, title.as_deref(), image, targets)
+            CardConfig::Image { entity_id, title, frameless } => {
+                render_image_card(canvas, theme, rect, entity_id, title.as_deref(), *frameless, image, targets)
             }
         }
     }
@@ -886,7 +935,7 @@ mod tests {
     fn renders_an_image_card_from_fetched_bytes() {
         let mut config = AppConfig::default();
         let page = &mut config.pages[0];
-        page.cards = vec![CardConfig::Image { entity_id: "image.chart".into(), title: Some("Prices".into()) }.into()];
+        page.cards = vec![CardConfig::Image { entity_id: "image.chart".into(), title: Some("Prices".into()), frameless: false }.into()];
 
         // A red PNG, as Home Assistant would serve it from /api/image_proxy
         let mut img = image::RgbaImage::new(400, 200);
@@ -1246,6 +1295,19 @@ mod tests {
                 }
             }
         }
+    }
+
+    #[test]
+    fn every_card_type_has_a_size_for_new_cards() {
+        let mut config = AppConfig::default();
+        grid_pages(&mut config.pages, 1072, 1448, true);
+        let layout = grid_layout(&config.pages[0], 1072, 1448, true).unwrap();
+        assert_eq!(layout.new_sizes.len(), 12, "{:?}", layout.new_sizes);
+        for (kind, (w, h, mw, mh)) in &layout.new_sizes {
+            assert!(*w >= 1 && *h >= 1 && *w <= layout.grid.columns && *h <= layout.grid.rows, "{kind}: {w}x{h}");
+            assert!(mw <= w && mh <= h && *mw >= 1 && *mh >= 1, "{kind}: smallest {mw}x{mh} of {w}x{h}");
+        }
+        assert_eq!(layout.naturals.len(), config.pages[0].cards.len());
     }
 
     #[test]

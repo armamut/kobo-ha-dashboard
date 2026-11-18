@@ -514,6 +514,9 @@ pub enum CardConfig {
         entity_id: String,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         title: Option<String>,
+        /// The picture alone, without the card around it
+        #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+        frameless: bool,
     },
 }
 

@@ -193,6 +193,7 @@ pages:
       - type: "image"
         entity_id: "image.energy_prices_today"
         title: "Electricity price today"
+        # frameless: true   # just the picture, without the card around it
 
 # Available icons: lightbulb, lightbulb_on, power, plug, fan, thermometer, flame,
 # snowflake, droplet, wind, zap, sun, moon, cloud, home, sofa, bed, door, lock,

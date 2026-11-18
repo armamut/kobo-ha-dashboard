@@ -14,10 +14,12 @@ use tiny_skia::Pixmap;
 /// Height of the title row, when the card has one.
 pub const TITLE_H: f32 = 44.0;
 
-/// The part of the card the picture gets, in UI units.
-pub fn picture_box(rect: Rect, titled: bool) -> Rect {
-    let top = rect.y + PAD + if titled { TITLE_H } else { 0.0 };
-    Rect::new(rect.x + PAD, top, rect.w - 2.0 * PAD, (rect.y + rect.h - PAD - top).max(1.0))
+/// The part of the card the picture gets, in UI units. Without a frame the
+/// picture takes the whole card, below the title if there is one.
+pub fn picture_box(rect: Rect, titled: bool, frameless: bool) -> Rect {
+    let pad = if frameless { 0.0 } else { PAD };
+    let top = rect.y + pad + if titled { TITLE_H } else { 0.0 };
+    Rect::new(rect.x + pad, top, rect.w - 2.0 * pad, (rect.y + rect.h - pad - top).max(1.0))
 }
 
 /// Draw the card and the picture, centred and as large as fits.
@@ -27,13 +29,16 @@ pub fn render_image_card(
     rect: Rect,
     entity_id: &str,
     title: Option<&str>,
+    frameless: bool,
     image: Option<Result<&Pixmap, ImageIssue>>,
     targets: &mut Vec<InteractiveTarget>,
 ) {
-    draw_card(canvas, theme, rect, None);
-    let area = picture_box(rect, title.is_some());
+    if !frameless {
+        draw_card(canvas, theme, rect, None);
+    }
+    let area = picture_box(rect, title.is_some(), frameless);
     if let Some(title) = title {
-        canvas.draw_text_fit(title, rect.x + PAD, rect.y + PAD, type_scale::BODY, true, theme.text_muted, TextAlign::Left, area.w);
+        canvas.draw_text_fit(title, area.x, area.y - TITLE_H, type_scale::BODY, true, theme.text_muted, TextAlign::Left, area.w);
     }
     match image {
         Some(Ok(pixmap)) => {
@@ -148,12 +153,12 @@ mod tests {
         let mut canvas = Canvas::new(800, 400);
         let rect = Rect::new(20.0, 20.0, 760.0, 340.0);
         let mut targets = Vec::new();
-        render_image_card(&mut canvas, &theme, rect, "image.price", None, None, &mut targets);
+        render_image_card(&mut canvas, &theme, rect, "image.price", None, false, None, &mut targets);
         assert_eq!(targets.len(), 1);
 
         let pixmap = crate::display::canvas::fit_image(&png(400, 200, [10, 120, 30]), 712, 292).unwrap();
         let mut canvas = Canvas::new(800, 400);
-        render_image_card(&mut canvas, &theme, rect, "image.price", Some("Stroomprijs"), Some(Ok(&pixmap)), &mut targets);
+        render_image_card(&mut canvas, &theme, rect, "image.price", Some("Stroomprijs"), false, Some(Ok(&pixmap)), &mut targets);
         // The picture is drawn inside the card, and the title does not overlap it
         let data = canvas.raw_rgba_data();
         let green = (0..400 * 800)
@@ -163,5 +168,27 @@ mod tests {
             })
             .count();
         assert!(green > 1000, "{} green pixels", green);
+    }
+
+    #[test]
+    fn a_frameless_picture_fills_the_card() {
+        let rect = Rect::new(20.0, 20.0, 760.0, 340.0);
+        let framed = picture_box(rect, false, false);
+        let bare = picture_box(rect, false, true);
+        assert_eq!((bare.x, bare.y, bare.w, bare.h), (rect.x, rect.y, rect.w, rect.h));
+        assert!(framed.w < bare.w && framed.h < bare.h);
+        // A title still sits above the picture
+        let titled = picture_box(rect, true, true);
+        assert_eq!(titled.y, rect.y + TITLE_H);
+
+        // No card surface: the corner keeps the background
+        let theme = Theme::from_config(&ThemeConfig::default());
+        let pixmap = crate::display::canvas::fit_image(&png(400, 200, [10, 120, 30]), 760, 340).unwrap();
+        let mut canvas = Canvas::new(800, 400);
+        let mut targets = Vec::new();
+        render_image_card(&mut canvas, &theme, rect, "image.price", None, true, Some(Ok(&pixmap)), &mut targets);
+        let data = canvas.raw_rgba_data();
+        let p = (25 * 800 + 25) * 4;
+        assert_eq!(data[p + 3], 0, "the frame was drawn");
     }
 }
