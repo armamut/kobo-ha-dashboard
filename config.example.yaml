@@ -50,6 +50,10 @@ device:
   sleep_after_secs: 0
   # While asleep, wake up this often (seconds) to refresh the screen
   sleep_wake_secs: 900
+  # The eye button in the top bar keeps the Kobo awake until you tap it again
+  # (no sleep, no light auto-off). "auto" shows it where the top bar has room
+  # (not on 6" Kobos held upright); "show" or "hide" to choose.
+  keep_awake_button: "auto"
   # At or below this battery level (without a charger) show "Battery empty" and
   # sleep until the Kobo is charged. Works without sleep mode too. 0 = never
   battery_critical_percent: 3

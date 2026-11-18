@@ -528,6 +528,16 @@ a.btn.primary { color: var(--accent-ink); }
         </label>
       </div>
       <p class="hint" style="margin-top:12px" data-i18n="connect.sleep_hint"></p>
+      <div class="grid2" style="margin-top:14px">
+        <label class="field"><span data-i18n="connect.keep_awake"></span>
+          <select id="keepAwake">
+            <option value="auto" data-i18n="connect.keep_awake_auto"></option>
+            <option value="show" data-i18n="connect.keep_awake_show"></option>
+            <option value="hide" data-i18n="connect.keep_awake_hide"></option>
+          </select>
+        </label>
+      </div>
+      <p class="hint" style="margin-top:12px" data-i18n="connect.keep_awake_hint"></p>
       <div id="fontNote" class="notice warn hidden"></div>
       <p class="hint" style="margin-top:14px" data-i18n="connect.utc_hint"></p>
     </div>
@@ -1141,6 +1151,7 @@ function bindConnect() {
   bind("lightTimeout", () => String(cfg.device.frontlight_timeout_secs || 0), (v) => (cfg.device.frontlight_timeout_secs = parseInt(v) || 0), "change");
   bind("sleepAfter", () => String(cfg.device.sleep_after_secs || 0), (v) => (cfg.device.sleep_after_secs = parseInt(v) || 0), "change");
   bind("sleepWake", () => String(cfg.device.sleep_wake_secs || 900), (v) => (cfg.device.sleep_wake_secs = parseInt(v) || 900), "change");
+  bind("keepAwake", () => cfg.device.keep_awake_button || "auto", (v) => (cfg.device.keep_awake_button = v), "change");
   bind("language", () => cfg.theme.language, (v) => { cfg.theme.language = v; ensureFont(); }, "change");
   $("model").addEventListener("change", () => { $("modelNote").classList.add("hidden"); setModel($("model").value); });
   $("checkUpdates").checked = cfg.updates?.check !== false;
@@ -2624,6 +2635,7 @@ function bindAllFields() {
     ["model", cfg.device.model || "auto"], ["lightTimeout", lightTimeoutValue()],
     ["sleepAfter", selectValue("sleepAfter", cfg.device.sleep_after_secs || 0)],
     ["sleepWake", selectValue("sleepWake", cfg.device.sleep_wake_secs || 900)],
+    ["keepAwake", ["auto", "show", "hide"].includes(cfg.device.keep_awake_button) ? cfg.device.keep_awake_button : "auto"],
     ["batteryEntity", cfg.home_assistant.battery_entity || "sensor.kobo_battery"]]) {
     $(id).value = v ?? "";
   }

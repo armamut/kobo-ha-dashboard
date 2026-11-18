@@ -66,6 +66,7 @@ struct Inner {
 #[derive(Default)]
 struct PreviewState {
     light_off: bool,
+    keep_awake: bool,
     states: std::collections::HashMap<String, crate::ha::models::EntityState>,
 }
 
@@ -539,9 +540,9 @@ async fn draw_preview(s: &Shared, page: usize, sleep: bool) -> (Canvas, ScreenRe
         spawn_refresh(ha.clone());
     }
     let mut states = ha.get_all_states().await;
-    let (light_off, tapped) = {
+    let (light_off, keep_awake, tapped) = {
         let p = s.preview.lock().await;
-        (p.light_off, p.states.clone())
+        (p.light_off, p.keep_awake, p.states.clone())
     };
     states.extend(tapped);
     let live = ha.is_connected().await;
@@ -562,6 +563,9 @@ async fn draw_preview(s: &Shared, page: usize, sleep: bool) -> (Canvas, ScreenRe
     renderer.set_images(ha.images().await);
     // Most Kobos have a frontlight; show its button as on the device.
     renderer.frontlight = Some(!light_off);
+    // The eye button, where the Kobo would have it: something to keep awake from
+    let has_timers = config.device.sleep_after_secs > 0 || config.device.frontlight_timeout_secs > 0;
+    renderer.keep_awake = has_timers.then_some(keep_awake);
     renderer.device_status = Some((Some(battery), false, Some(true)));
     if sleep {
         let next = crate::ui::widgets::header::now_local(&config.theme) + chrono::Duration::seconds(config.device.sleep_wake_secs.max(120) as i64);
@@ -618,6 +622,10 @@ async fn preview_tap(State(s): State<Shared>, Json(t): Json<TapRequest>) -> Json
         crate::ui::layout::UiAction::ToggleFrontlight => {
             p.light_off = !p.light_off;
             return Json(serde_json::json!({ "light_off": p.light_off }));
+        }
+        crate::ui::layout::UiAction::ToggleKeepAwake => {
+            p.keep_awake = !p.keep_awake;
+            return Json(serde_json::json!({ "redraw": true }));
         }
         crate::ui::layout::UiAction::ToggleEntity(id) => current(&id).map(|mut e| {
             e.state = if e.is_on() { "off" } else { "on" }.into();

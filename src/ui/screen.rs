@@ -674,6 +674,10 @@ pub struct ScreenRenderer {
     pub last_update: Option<DateTime<Utc>>,
     /// Frontlight state for the header button (None hides the button)
     pub frontlight: Option<bool>,
+    /// Keep-awake state for the header's eye button (None: nothing to keep
+    /// awake from, no button). The config and the screen width may still
+    /// leave the button out.
+    pub keep_awake: Option<bool>,
     /// While in sleep mode: the time of the next timed refresh, shown in a
     /// note at the bottom of the screen
     pub sleep_until: Option<String>,
@@ -723,6 +727,7 @@ impl ScreenRenderer {
             hidden_cards: 0,
             last_update: None,
             frontlight: None,
+            keep_awake: None,
             sleep_until: None,
             battery_empty: false,
             device_status: None,
@@ -812,6 +817,9 @@ impl ScreenRenderer {
             wifi_up,
             asleep: self.sleep_until.is_some(),
             frontlight: self.frontlight,
+            keep_awake: self
+                .keep_awake
+                .filter(|_| crate::ui::widgets::header::keep_awake_button_shown(&config.device.keep_awake_button, canvas.ui_size().0)),
             update: self.update_offer.is_some(),
         };
 

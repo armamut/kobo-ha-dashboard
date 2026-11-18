@@ -44,6 +44,8 @@ pub enum UiAction {
     SkipUpdate(String),
     Refresh,
     ToggleFrontlight,
+    /// The header's eye button: keep the Kobo awake (no sleep, no light auto-off)
+    ToggleKeepAwake,
     ExitToReader,
 }
 

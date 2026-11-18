@@ -48,6 +48,7 @@ pub async fn start_simulator_server(
     let mut renderer = ScreenRenderer::new(&config);
     // Show the light button like on a real Kobo.
     renderer.frontlight = Some(true);
+    renderer.keep_awake = Some(false);
     let is_landscape = config.device.is_landscape();
 
     let state = SimulatorState {
@@ -161,6 +162,10 @@ async fn handle_touch(
             UiAction::ToggleFrontlight => {
                 let mut r = state.renderer.write().await;
                 r.frontlight = Some(!r.frontlight.unwrap_or(true));
+            }
+            UiAction::ToggleKeepAwake => {
+                let mut r = state.renderer.write().await;
+                r.keep_awake = r.keep_awake.map(|on| !on);
             }
             UiAction::ExitToReader => {
                 tracing::info!("Simulator received ExitToReader action");

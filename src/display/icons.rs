@@ -92,6 +92,33 @@ fn icon_shapes(name: &str) -> Vec<(Mode, Option<Path>)> {
                 pb.line_to(14.0, 21.5);
             })),
         ],
+        // Keep awake: an open eye while on, a closed one (lashes down) while off
+        "eye" => vec![
+            (Stroke, build(|pb| {
+                pb.move_to(2.0, 12.0);
+                pb.cubic_to(5.0, 6.5, 8.5, 5.0, 12.0, 5.0);
+                pb.cubic_to(15.5, 5.0, 19.0, 6.5, 22.0, 12.0);
+                pb.cubic_to(19.0, 17.5, 15.5, 19.0, 12.0, 19.0);
+                pb.cubic_to(8.5, 19.0, 5.0, 17.5, 2.0, 12.0);
+                pb.close();
+            })),
+            (Fill, build(|pb| {
+                pb.push_circle(12.0, 12.0, 3.6);
+            })),
+        ],
+        "eye_closed" => vec![(Stroke, build(|pb| {
+            pb.move_to(2.5, 10.0);
+            pb.cubic_to(5.5, 14.0, 8.5, 15.5, 12.0, 15.5);
+            pb.cubic_to(15.5, 15.5, 18.5, 14.0, 21.5, 10.0);
+            pb.move_to(5.6, 13.2);
+            pb.line_to(3.8, 15.6);
+            pb.move_to(9.6, 15.1);
+            pb.line_to(8.9, 18.0);
+            pb.move_to(14.4, 15.1);
+            pb.line_to(15.1, 18.0);
+            pb.move_to(18.4, 13.2);
+            pb.line_to(20.2, 15.6);
+        }))],
         "thermometer" | "temperature" => vec![(Stroke, build(|pb| {
             pb.move_to(14.0, 14.8);
             pb.line_to(14.0, 4.5);

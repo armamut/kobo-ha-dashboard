@@ -20,8 +20,24 @@ pub struct HeaderStatus {
     pub asleep: bool,
     /// Frontlight state, when the device has one we can control
     pub frontlight: Option<bool>,
+    /// Keep-awake state, when its button is shown
+    pub keep_awake: Option<bool>,
     /// A newer version is out: a button for its release notes
     pub update: bool,
+}
+
+/// Narrowest top bar (in UI units) where "auto" shows the keep-awake button:
+/// every Kobo but the 6" ones held upright (758 wide, the Glo's) has room.
+const KEEP_AWAKE_AUTO_MIN_WIDTH: f32 = 900.0;
+
+/// Whether the keep-awake button goes in a top bar this wide. Decided by the
+/// width alone, so it doesn't come and go with the date's length.
+pub fn keep_awake_button_shown(setting: &str, ui_width: f32) -> bool {
+    match setting.trim() {
+        "show" => true,
+        "hide" => false,
+        _ => ui_width >= KEEP_AWAKE_AUTO_MIN_WIDTH,
+    }
 }
 
 /// Current time in the configured timezone.
@@ -126,6 +142,14 @@ fn draw_header_button(canvas: &mut Canvas, theme: &Theme, rect: Rect, icon: &str
     canvas.draw_icon(icon, rect.x + (rect.w - s) / 2.0, rect.y + (rect.h - s) / 2.0, s, theme.text, 2.2);
 }
 
+/// A header button that is switched on: filled dark, the icon light, so a
+/// lasting state is seen from across the room.
+fn draw_header_button_active(canvas: &mut Canvas, theme: &Theme, rect: Rect, icon: &str) {
+    canvas.fill_rounded_rect(rect.x, rect.y, rect.w, rect.h, 20.0, theme.text);
+    let s = 34.0;
+    canvas.draw_icon(icon, rect.x + (rect.w - s) / 2.0, rect.y + (rect.h - s) / 2.0, s, theme.bg, 2.2);
+}
+
 /// Sizes and optional parts of the header row.
 #[derive(Debug, Clone, Copy, PartialEq)]
 struct HeaderFit {
@@ -217,7 +241,10 @@ pub fn render_header(
         (theme.heat.solid, i18n::t("header.offline"), None)
     };
     let battery_label = status.battery.map(|pct| i18n::tf("meta.percent", &[("value", &pct.to_string())]));
-    let n_buttons = 2.0 + if status.frontlight.is_some() { 1.0 } else { 0.0 } + if status.update { 1.0 } else { 0.0 };
+    let n_buttons = 2.0
+        + if status.frontlight.is_some() { 1.0 } else { 0.0 }
+        + if status.keep_awake.is_some() { 1.0 } else { 0.0 }
+        + if status.update { 1.0 } else { 0.0 };
 
     let texts = HeaderTexts {
         time: &time_str,
@@ -250,6 +277,16 @@ pub fn render_header(
         draw_header_button(canvas, theme, light_rect, if on { "lightbulb_on" } else { "lightbulb" });
         targets.push(InteractiveTarget { rect: light_rect.inset(-8.0), action: UiAction::ToggleFrontlight });
         leftmost = light_rect.x;
+    }
+    if let Some(awake) = status.keep_awake {
+        let r = Rect::new(leftmost - gap - btn, by, btn, btn);
+        if awake {
+            draw_header_button_active(canvas, theme, r, "eye");
+        } else {
+            draw_header_button(canvas, theme, r, "eye_closed");
+        }
+        targets.push(InteractiveTarget { rect: r.inset(-8.0), action: UiAction::ToggleKeepAwake });
+        leftmost = r.x;
     }
     if status.update {
         let r = Rect::new(leftmost - gap - btn, by, btn, btn);

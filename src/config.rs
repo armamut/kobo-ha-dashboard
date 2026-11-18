@@ -100,6 +100,11 @@ pub struct DeviceConfig {
     #[serde(default)]
     pub sleep_after_secs: u32,
 
+    /// The header's keep-awake (eye) button: "auto" shows it where the top
+    /// bar has room (not on 6" screens held upright), "show" or "hide".
+    #[serde(default = "default_auto")]
+    pub keep_awake_button: String,
+
     /// While asleep, wake up this often to refresh the screen.
     #[serde(default = "default_sleep_wake_secs")]
     pub sleep_wake_secs: u32,
@@ -154,6 +159,7 @@ impl Default for DeviceConfig {
             color_panel: true,
             frontlight_timeout_secs: 0,
             sleep_after_secs: 0,
+            keep_awake_button: default_auto(),
             sleep_wake_secs: default_sleep_wake_secs(),
             battery_critical_percent: default_battery_critical_percent(),
         }

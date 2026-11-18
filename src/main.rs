@@ -352,6 +352,10 @@ async fn run_device(
     let mut sleep_requested = false;
     let mut last_power_press = Instant::now() - Duration::from_secs(10);
     let battery_critical = config.device.battery_critical_percent;
+    // The header's eye button: no sleep and no light auto-off until tapped
+    // again or the power button asks for sleep. Not kept across runs, so it
+    // can't be forgotten on and empty the battery.
+    let mut keep_awake = false;
 
     {
         redraw(&mut renderer, &mut canvas, &config, active_page, &ha_client).await;
@@ -370,14 +374,18 @@ async fn run_device(
     clock.tick().await;
 
     loop {
+        let light_auto_off = light.is_some() && !light_timeout.is_zero();
+        // Only offered while there is something to keep awake from (sleep
+        // mode can switch itself off during a run).
+        renderer.keep_awake = (sleep_enabled || light_auto_off).then_some(keep_awake);
         let light_deadline = match &light {
-            Some(l) if l.is_on() && !light_timeout.is_zero() => Some(tokio::time::Instant::from_std(last_activity + light_timeout)),
+            Some(l) if l.is_on() && light_auto_off && !keep_awake => Some(tokio::time::Instant::from_std(last_activity + light_timeout)),
             _ => None,
         };
         let sleep_deadline = if sleep_requested {
             Some(tokio::time::Instant::now())
         } else {
-            sleep_enabled.then(|| tokio::time::Instant::from_std(last_activity + sleep_after))
+            (sleep_enabled && !keep_awake).then(|| tokio::time::Instant::from_std(last_activity + sleep_after))
         };
         tokio::select! {
             _ = async {
@@ -673,6 +681,11 @@ async fn run_device(
                         if sleep_enabled && !power::is_plugged() && !power::bluetooth_on() {
                             tracing::info!("Power button pressed: going to sleep");
                             sleep_requested = true;
+                            if keep_awake {
+                                tracing::info!("Keep awake: off (the power button asked for sleep)");
+                                keep_awake = false;
+                                renderer.keep_awake = Some(false);
+                            }
                             continue;
                         }
                         // No suspend while plugged in, with Bluetooth on or sleep mode off:
@@ -718,6 +731,7 @@ async fn run_device(
                     light_dimmed = false;
                     if let Some(l) = light.as_mut() {
                         l.set_on(true);
+                        tracing::info!("Tap after the auto-off: light on");
                         renderer.frontlight = Some(true);
                         redraw(&mut renderer, &mut canvas, &config, active_page, &ha_client).await;
                         flush(&mut fb, &canvas, false);
@@ -771,7 +785,14 @@ async fn run_device(
                         if let Some(l) = light.as_mut() {
                             l.set_on(!l.is_on());
                             renderer.frontlight = Some(l.is_on());
+                            tracing::info!("Light button: light {}", if l.is_on() { "on" } else { "off" });
                         }
+                        None
+                    }
+                    UiAction::ToggleKeepAwake => {
+                        keep_awake = !keep_awake;
+                        renderer.keep_awake = Some(keep_awake);
+                        tracing::info!("Keep awake: {}", if keep_awake { "on (no sleep, no light auto-off)" } else { "off" });
                         None
                     }
                     UiAction::ToggleEntity(id) => Some(ha_client.toggle_request(&id)),

@@ -48,6 +48,7 @@ Kobo e-okuyucular için dokunmatik bir [Home Assistant](https://www.home-assista
 
 - Bir karta dokunmak onu açıp kapatır; termostatlarda **−** / **+**, medya oynatıcıda oynatma butonları vardır.
 - Üst çubuktaki **ışık** butonu Kobo'nun ön ışığını açıp kapatır. Kurulum aracında ışığın, belirli bir süre dokunulmayınca (30 saniye – 10 dakika) otomatik kapanmasını da seçebilirsiniz; masaüstünde pilden çok tasarruf sağlar. Bir dokunuş ışığı geri açar. Panelden çıkınca ışık eski parlaklığına döner.
+- **Göz** butonu Kobo'yu uyanık tutar: açıkken (koyu dolu, açık göz) ışık açık da olsa kapalı da olsa uyku modu devreye girmez ve ışık kendiliğinden sönmez. Tekrar dokununca normale döner. Güç tuşu yine uyutur ve göz kapanır; paneli bir sonraki açışta da kapalı başlar, yani açık unutulup pili bitiremez. Yalnızca uyku modu ya da ışığın otomatik kapanması seçiliyse görünür; varsayılan olarak üst çubuğu dolu olan, dik tutulan 6" Kobo'larda (Glo, Aura, Nia...) gösterilmez. Kurulum aracından her yerde gösterilmesini ya da gizlenmesini seçebilirsiniz.
 - **Çıkış** butonu (sağ üst) okuma ekranına geri döndürür. **Güç tuşu**, uyku modu açıksa paneli uyutur; şarjdayken, Bluetooth açıkken ya da uyku modu kapalıyken ışığı kapatıp açar.
 - Yeni bir sürüm çıktığında üst çubukta noktalı bir düğme belirir: sürüm notlarını gösterir ve o sürümü atlamanızı sağlar.
 
