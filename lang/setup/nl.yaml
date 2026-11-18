@@ -251,6 +251,10 @@ design:
   show_graph: "Grafiek van 24 uur tonen"
   large_value: "Grote waarden (kleiner pictogram)"
   frameless: "Zonder kader (alleen de afbeelding)"
+  picture_file: "Afbeeldingsbestand"
+  choose_file: "Bestand kiezen…"
+  no_file: "Nog geen bestand"
+  uploading: "Afbeelding toevoegen…"
   show_climate_graph: "Grafiek van kamer- en doeltemperatuur tonen"
   graph_hours: "Uren in de grafiek (leeg: 24)"
   secondary_entity: "Resterende tijd of eindtijd (optioneel)"
@@ -287,6 +291,7 @@ design:
   image_memory_hint: "Oudere Kobo's hebben maar 256–512 MB geheugen. Houd deze afbeelding klein, bijvoorbeeld 1920×1080 of kleiner; een grote camera-snapshot kan het geheugen van het dashboard opmaken. Afbeeldingen groter dan 4K worden niet getoond."
 
 card_types:
+  picture: "Afbeelding (bestand)"
   breakdown: "Verdeling (ring)"
   progress: "Voortgangsbalk"
   cover: "Rolluik / zonwering"
@@ -384,10 +389,13 @@ install:
     backup: "Vorige configuratie bewaard als config.yaml.bak"
     config: "config.yaml geschreven"
     font: "Lettertype {name} gekopieerd"
+    pictures: "{n} afbeeldingen gekopieerd"
     menu: "'{name}' aan NickelMenu toegevoegd"
     done: "Klaar. Werp de Kobo veilig uit en start hem opnieuw."
 
 errors:
+  not_a_picture: "Dit bestand is geen afbeelding."
+  picture_too_large: "Deze afbeelding is {size}, groter dan 4K: maak hem eerst kleiner."
   lovelace_no_token: "Verbind eerst Home Assistant: het dashboard wordt daar gelezen."
   lovelace_strategy: "Dit dashboard wordt door een strategy gemaakt (zoals het standaard Overzicht), dus de kaarten bestaan alleen in de browser. Kies een dashboard met eigen weergaven."
   lovelace_empty: "Dit dashboard heeft geen kaarten die de Kobo kan tonen."

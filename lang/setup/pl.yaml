@@ -251,6 +251,10 @@ design:
   show_graph: "Pokaż wykres z 24 godzin"
   large_value: "Duże wartości (mniejsza ikona)"
   frameless: "Bez ramki (sam obraz)"
+  picture_file: "Plik obrazu"
+  choose_file: "Wybierz plik…"
+  no_file: "Brak pliku"
+  uploading: "Dodawanie obrazu…"
   show_climate_graph: "Pokaż wykres temperatury pokojowej i docelowej"
   graph_hours: "Godziny wykresu (puste: 24)"
   secondary_entity: "Pozostały czas lub godzina końca (opcjonalnie)"
@@ -287,6 +291,7 @@ design:
   image_memory_hint: "Starsze Kobo mają tylko 256–512 MB pamięci. Używaj małego obrazu, na przykład 1920×1080 lub mniejszego; duży zrzut z kamery może wyczerpać pamięć panelu. Obrazy większe niż 4K nie są wyświetlane."
 
 card_types:
+  picture: "Obraz (plik)"
   breakdown: "Podział (pierścień)"
   progress: "Pasek postępu"
   cover: "Roleta / żaluzja"
@@ -384,10 +389,13 @@ install:
     backup: "Poprzednią konfigurację zapisano jako config.yaml.bak"
     config: "Zapisano config.yaml"
     font: "Skopiowano czcionkę {name}"
+    pictures: "Skopiowano obrazy: {n}"
     menu: "Dodano „{name}” do NickelMenu"
     done: "Gotowe. Bezpiecznie wysuń Kobo i uruchom je ponownie."
 
 errors:
+  not_a_picture: "Ten plik nie jest obrazem."
+  picture_too_large: "Ten obraz ma {size}, więcej niż 4K: najpierw go zmniejsz."
   lovelace_no_token: "Najpierw połącz Home Assistant: pulpit jest z niego odczytywany."
   lovelace_strategy: "Ten pulpit jest tworzony przez strategię (jak domyślny Przegląd), więc jego karty istnieją tylko w przeglądarce. Wybierz pulpit z własnymi widokami."
   lovelace_empty: "Ten pulpit nie ma kart, które Kobo może pokazać."

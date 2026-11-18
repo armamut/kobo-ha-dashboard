@@ -251,6 +251,10 @@ design:
   show_graph: "Mostrar gráfico de 24 horas"
   large_value: "Valores grandes (icono más pequeño)"
   frameless: "Sin marco (solo la imagen)"
+  picture_file: "Archivo de imagen"
+  choose_file: "Elegir un archivo…"
+  no_file: "Aún no hay archivo"
+  uploading: "Añadiendo la imagen…"
   show_climate_graph: "Mostrar gráfico de temperatura ambiente y objetivo"
   graph_hours: "Horas del gráfico (24 si está vacío)"
   secondary_entity: "Tiempo restante u hora de fin (opcional)"
@@ -287,6 +291,7 @@ design:
   image_memory_hint: "Los Kobo antiguos solo tienen 256–512 MB de memoria. Mantén esta imagen pequeña, por ejemplo 1920×1080 o menos; una captura de cámara grande puede agotar la memoria del panel. Las imágenes mayores de 4K no se muestran."
 
 card_types:
+  picture: "Imagen (archivo)"
   breakdown: "Reparto (anillo)"
   progress: "Barra de progreso"
   cover: "Persiana / toldo"
@@ -384,10 +389,13 @@ install:
     backup: "Configuración anterior guardada como config.yaml.bak"
     config: "config.yaml escrito"
     font: "Fuente {name} copiada"
+    pictures: "{n} imágenes copiadas"
     menu: "«{name}» añadido a NickelMenu"
     done: "Listo. Expulsa el Kobo de forma segura y reinícialo."
 
 errors:
+  not_a_picture: "Este archivo no es una imagen."
+  picture_too_large: "Esta imagen mide {size}, más que 4K: redúcela primero."
   lovelace_no_token: "Conecta Home Assistant primero: el panel se lee desde allí."
   lovelace_strategy: "Este panel lo genera una estrategia (como el panel Resumen predeterminado), así que sus tarjetas solo existen en el navegador. Elige un panel con sus propias vistas."
   lovelace_empty: "Este panel no tiene tarjetas que el Kobo pueda mostrar."

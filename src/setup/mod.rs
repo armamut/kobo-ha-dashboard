@@ -88,6 +88,7 @@ pub async fn start_setup_server(
     // The file keeps its old layout until the user saves.
     let saved = serde_yaml::to_string(&config).unwrap_or_default();
     let mut config = config;
+    crate::ui::screen::set_pictures_dir(Some(pictures_dir(&config_path)));
     with_grid(&mut config);
 
     let state: Shared = Arc::new(Inner {
@@ -122,6 +123,7 @@ pub async fn start_setup_server(
         .route("/api/preview.png", get(preview))
         .route("/api/preview/tap", post(preview_tap))
         .route("/api/preview/reset", post(preview_reset))
+        .route("/api/pictures", post(upload_picture).layer(axum::extract::DefaultBodyLimit::max(MAX_PICTURE_BYTES)))
         .route("/api/icon.png", get(icon_png))
         .route("/api/kobo", get(list_kobos))
         .route("/api/kobo/install", post(install_kobo))
@@ -694,14 +696,113 @@ async fn install_kobo(State(s): State<Shared>, Json(req): Json<InstallRequest>) 
         }
     }
 
+    // The picture files the cards show go along
+    let dir = pictures_dir(&s.config_path);
+    let pictures: Vec<PathBuf> = picture_files(&config).iter().map(|f| dir.join(f)).filter(|p| p.is_file()).collect();
+
     *s.menu_name.write().await = req.menu_name.clone();
-    match kobo::install(Path::new(&req.path), &config, &req.menu_name, &binary, &fonts) {
+    match kobo::install(Path::new(&req.path), &config, &req.menu_name, &binary, &fonts, &pictures) {
         Ok(mut steps) => {
             log.append(&mut steps);
             Json(serde_json::json!({ "log": log })).into_response()
         }
         Err(e) => bad_request_key("install_failed", &e, serde_json::json!({ "error": e })),
     }
+}
+
+/// Largest picture file that can be added
+const MAX_PICTURE_BYTES: usize = 10_000_000;
+
+/// Picture files of the cards: `pictures` next to the config
+fn pictures_dir(config_path: &Path) -> PathBuf {
+    config_path.parent().map(Path::to_path_buf).unwrap_or_default().join("pictures")
+}
+
+/// File names of the pictures the cards show
+fn picture_files(config: &AppConfig) -> Vec<String> {
+    let mut out: Vec<String> = config
+        .pages
+        .iter()
+        .flat_map(|p| p.cards.iter())
+        .filter_map(|c| match &c.kind {
+            crate::config::CardConfig::Image { file: Some(f), .. } => crate::ui::screen::safe_file_name(f).map(str::to_string),
+            _ => None,
+        })
+        .collect();
+    out.sort();
+    out.dedup();
+    out
+}
+
+#[derive(Deserialize)]
+struct UploadQuery {
+    /// The name the file had on this computer
+    name: String,
+}
+
+/// The plain letter for a common accented one, for file names: "fotoğraf"
+/// becomes "fotograf", not "foto-raf"
+fn plain_letter(c: char) -> char {
+    match c {
+        'ç' | 'č' | 'ć' => 'c',
+        'ğ' => 'g',
+        'ı' | 'í' | 'ì' | 'î' | 'ï' => 'i',
+        'ö' | 'ó' | 'ò' | 'ô' | 'õ' | 'ø' => 'o',
+        'ş' | 'š' | 'ś' | 'ß' => 's',
+        'ü' | 'ú' | 'ù' | 'û' => 'u',
+        'á' | 'à' | 'â' | 'ä' | 'ã' | 'å' | 'ą' => 'a',
+        'é' | 'è' | 'ê' | 'ë' | 'ę' => 'e',
+        'ñ' | 'ń' => 'n',
+        'ł' => 'l',
+        'ž' | 'ź' | 'ż' => 'z',
+        other => other,
+    }
+}
+
+/// A picture of your own for a picture card: checked to be a picture the
+/// Kobo can show, then kept in the pictures folder under a plain name. The
+/// same file added twice is kept once.
+async fn upload_picture(State(s): State<Shared>, Query(q): Query<UploadQuery>, body: axum::body::Bytes) -> Response {
+    let reader = image::ImageReader::new(std::io::Cursor::new(&body)).with_guessed_format();
+    let Some((format, (w, h))) = reader.ok().and_then(|r| Some((r.format()?, r.into_dimensions().ok()?))) else {
+        return bad_request_key("not_a_picture", "This file is not a picture", serde_json::json!({}));
+    };
+    if w as u64 * h as u64 > crate::display::canvas::MAX_IMAGE_PIXELS {
+        return bad_request_key("picture_too_large", "This picture is larger than 4K", serde_json::json!({ "size": format!("{}×{}", w, h) }));
+    }
+    let ext = format.extensions_str().first().copied().unwrap_or("png");
+    let stem: String = Path::new(&q.name)
+        .file_stem()
+        .map(|s| s.to_string_lossy().to_lowercase())
+        .unwrap_or_default()
+        .chars()
+        .map(plain_letter)
+        .map(|c| if c.is_ascii_alphanumeric() { c } else { '-' })
+        .collect::<String>()
+        .trim_matches('-')
+        .chars()
+        .take(60)
+        .collect();
+    let stem = if stem.is_empty() { "picture".to_string() } else { stem };
+    let dir = pictures_dir(&s.config_path);
+    if let Err(e) = std::fs::create_dir_all(&dir) {
+        return bad_request(e.to_string());
+    }
+    let mut n = 1;
+    let name = loop {
+        let name = if n == 1 { format!("{}.{}", stem, ext) } else { format!("{}-{}.{}", stem, n, ext) };
+        match std::fs::read(dir.join(&name)) {
+            Ok(existing) if existing == body.as_ref() => break name,
+            Ok(_) => n += 1,
+            Err(_) => {
+                if let Err(e) = std::fs::write(dir.join(&name), &body) {
+                    return bad_request(e.to_string());
+                }
+                break name;
+            }
+        }
+    };
+    Json(serde_json::json!({ "file": name, "width": w, "height": h })).into_response()
 }
 
 #[derive(Deserialize)]
@@ -833,6 +934,12 @@ mod tests {
         ] {
             assert!(strings.contains_key(&format!("card_types.{}", t)), "card_types.{} missing", t);
         }
+    }
+
+    #[test]
+    fn picture_names_keep_their_letters() {
+        let name: String = "aile fotoğrafı çiçek".chars().map(plain_letter).map(|c| if c.is_ascii_alphanumeric() { c } else { '-' }).collect();
+        assert_eq!(name, "aile-fotografi-cicek");
     }
 
     #[test]

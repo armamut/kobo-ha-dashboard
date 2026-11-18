@@ -251,6 +251,10 @@ design:
   show_graph: "Mostra grafico 24 ore"
   large_value: "Valori grandi (icona più piccola)"
   frameless: "Senza cornice (solo l'immagine)"
+  picture_file: "File immagine"
+  choose_file: "Scegli un file…"
+  no_file: "Ancora nessun file"
+  uploading: "Aggiunta dell'immagine…"
   show_climate_graph: "Mostra un grafico di temperatura ambiente e obiettivo"
   graph_hours: "Ore del grafico (24 se vuoto)"
   secondary_entity: "Tempo rimanente o ora di fine (facoltativo)"
@@ -287,6 +291,7 @@ design:
   image_memory_hint: "I Kobo più vecchi hanno solo 256–512 MB di memoria. Mantieni piccola questa immagine, ad esempio 1920×1080 o meno; un'istantanea di una telecamera molto grande può esaurire la memoria della dashboard. Le immagini più grandi di 4K non vengono mostrate."
 
 card_types:
+  picture: "Immagine (file)"
   breakdown: "Ripartizione (anello)"
   progress: "Barra di avanzamento"
   cover: "Tapparella / tenda"
@@ -384,10 +389,13 @@ install:
     backup: "Configurazione precedente salvata come config.yaml.bak"
     config: "config.yaml scritto"
     font: "Font {name} copiato"
+    pictures: "{n} immagini copiate"
     menu: "«{name}» aggiunto a NickelMenu"
     done: "Fatto. Espelli il Kobo in sicurezza e riavvialo."
 
 errors:
+  not_a_picture: "Questo file non è un'immagine."
+  picture_too_large: "Questa immagine è {size}, più grande di 4K: rimpiccioliscila prima."
   lovelace_no_token: "Collega prima Home Assistant: la dashboard viene letta da lì."
   lovelace_strategy: "Questa dashboard è generata da una strategia (come la Panoramica predefinita), quindi le sue schede esistono solo nel browser. Scegli una dashboard con viste proprie."
   lovelace_empty: "Questa dashboard non ha schede che il Kobo possa mostrare."

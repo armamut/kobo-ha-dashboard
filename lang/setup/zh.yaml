@@ -251,6 +251,10 @@ design:
   show_graph: "显示 24 小时图表"
   large_value: "大号数值（较小图标）"
   frameless: "无边框（仅图片）"
+  picture_file: "图片文件"
+  choose_file: "选择文件…"
+  no_file: "尚无文件"
+  uploading: "正在添加图片…"
   show_climate_graph: "显示室温和目标温度图表"
   graph_hours: "图表时长（小时，留空为 24）"
   secondary_entity: "剩余时间或结束时间（可选）"
@@ -287,6 +291,7 @@ design:
   image_memory_hint: "较旧的 Kobo 只有 256–512 MB 内存。请让这张图片保持较小，例如 1920×1080 或更小；过大的摄像头快照可能耗尽仪表板的内存。大于 4K 的图片不会显示。"
 
 card_types:
+  picture: "图片（文件）"
   breakdown: "占比（环形）"
   progress: "进度条"
   cover: "窗帘 / 卷帘"
@@ -384,10 +389,13 @@ install:
     backup: "已将之前的配置备份为 config.yaml.bak"
     config: "已写入 config.yaml"
     font: "已复制字体 {name}"
+    pictures: "已复制 {n} 张图片"
     menu: "已将“{name}”添加到 NickelMenu"
     done: "完成。请安全弹出 Kobo 并重启。"
 
 errors:
+  not_a_picture: "此文件不是图片。"
+  picture_too_large: "此图片为 {size}，大于 4K：请先缩小。"
   lovelace_no_token: "请先连接 Home Assistant：面板从那里读取。"
   lovelace_strategy: "此面板由策略生成（例如默认的概览），卡片只存在于浏览器中。请选择带有自己视图的面板。"
   lovelace_empty: "此面板没有 Kobo 可以显示的卡片。"

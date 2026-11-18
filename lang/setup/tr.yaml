@@ -251,6 +251,10 @@ design:
   show_graph: "24 saatlik grafiği göster"
   large_value: "Büyük değerler (küçük ikon)"
   frameless: "Çerçevesiz (yalnızca resim)"
+  picture_file: "Resim dosyası"
+  choose_file: "Dosya seç…"
+  no_file: "Henüz dosya yok"
+  uploading: "Resim ekleniyor…"
   show_climate_graph: "Oda ve hedef sıcaklık grafiğini göster"
   graph_hours: "Grafik süresi, saat (boşsa 24)"
   secondary_entity: "Kalan süre ya da bitiş saati (isteğe bağlı)"
@@ -287,6 +291,7 @@ design:
   image_memory_hint: "Eski Kobo'ların yalnızca 256–512 MB belleği var. Bu resmi küçük tutun, örneğin 1920×1080 ya da daha küçük; büyük bir kamera görüntüsü panelin belleğini tüketebilir. 4K'dan büyük resimler gösterilmez."
 
 card_types:
+  picture: "Resim (dosya)"
   breakdown: "Dağılım (halka)"
   progress: "İlerleme çubuğu"
   cover: "Panjur / perde"
@@ -384,10 +389,13 @@ install:
     backup: "Önceki config, config.yaml.bak olarak yedeklendi"
     config: "config.yaml yazıldı"
     font: "{name} fontu kopyalandı"
+    pictures: "{n} resim kopyalandı"
     menu: "NickelMenu'ye \"{name}\" eklendi"
     done: "Tamamlandı. Kobo'yu güvenle çıkarıp yeniden başlatın."
 
 errors:
+  not_a_picture: "Bu dosya bir resim değil."
+  picture_too_large: "Bu resim {size}, 4K'dan büyük: önce küçültün."
   lovelace_no_token: "Önce Home Assistant'a bağlan: pano oradan okunur."
   lovelace_strategy: "Bu pano bir strateji tarafından oluşturuluyor (varsayılan Genel Bakış gibi), bu yüzden kartları yalnızca tarayıcıda var. Kendi görünümleri olan bir pano seç."
   lovelace_empty: "Bu panoda Kobo'nun gösterebileceği kart yok."

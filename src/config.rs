@@ -578,6 +578,10 @@ pub enum CardConfig {
         /// How the picture fills its box
         #[serde(default, skip_serializing_if = "ImageFit::is_contain")]
         fit: ImageFit,
+        /// A picture of your own instead of an entity's: a file in the
+        /// `pictures` folder next to the config
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        file: Option<String>,
     },
 }
 

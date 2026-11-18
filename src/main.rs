@@ -158,6 +158,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         .unwrap_or_else(|| PathBuf::from("."));
     i18n::set_override_dir(Some(&config_dir.join("lang")));
     i18n::set_language(&config.theme.language);
+    // Picture files of the cards live in `pictures` next to the config
+    crate::ui::screen::set_pictures_dir(Some(config_dir.join("pictures")));
     display::canvas::load_fallback_font(&paths::font_dirs(&config_dir), i18n::font_for(&config.theme.language).as_deref());
 
     let ha_client = HaClient::for_app(&config);

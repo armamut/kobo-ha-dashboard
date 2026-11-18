@@ -211,6 +211,9 @@ pages:
       #   hours: 24            # a range in hours instead of days
       # - type: "image"
       #   entity_id: "camera.garden"   # a camera snapshot, every 10 minutes
+      # - type: "image"
+      #   entity_id: ""
+      #   file: "family.png"   # a picture of your own, in pictures/ next to this file
       # - type: "breakdown"    # how a total splits, as a ring
       #   entities:
       #     - { entity_id: "sensor.washer_power", title: "Washer" }

@@ -251,6 +251,10 @@ design:
   show_graph: "Afficher le graphique sur 24 h"
   large_value: "Grandes valeurs (icône plus petite)"
   frameless: "Sans cadre (l'image seule)"
+  picture_file: "Fichier image"
+  choose_file: "Choisir un fichier…"
+  no_file: "Pas encore de fichier"
+  uploading: "Ajout de l'image…"
   show_climate_graph: "Afficher un graphique des températures ambiante et cible"
   graph_hours: "Heures du graphique (24 si vide)"
   secondary_entity: "Temps restant ou heure de fin (facultatif)"
@@ -287,6 +291,7 @@ design:
   image_memory_hint: "Les anciennes Kobo n'ont que 256 à 512 Mo de mémoire. Gardez cette image petite, par exemple 1920×1080 ou moins : une grande capture de caméra peut épuiser la mémoire du tableau de bord. Les images de plus de 4K ne sont pas affichées."
 
 card_types:
+  picture: "Image (fichier)"
   breakdown: "Répartition (anneau)"
   progress: "Barre de progression"
   cover: "Volet / store"
@@ -384,10 +389,13 @@ install:
     backup: "Ancienne configuration sauvegardée dans config.yaml.bak"
     config: "config.yaml écrit"
     font: "Police {name} copiée"
+    pictures: "{n} images copiées"
     menu: "« {name} » ajouté à NickelMenu"
     done: "Terminé. Éjectez la Kobo en toute sécurité et redémarrez-la."
 
 errors:
+  not_a_picture: "Ce fichier n'est pas une image."
+  picture_too_large: "Cette image fait {size}, plus que la 4K : réduisez-la d'abord."
   lovelace_no_token: "Connectez d'abord Home Assistant : le tableau de bord est lu là-bas."
   lovelace_strategy: "Ce tableau de bord est généré par une stratégie (comme la Vue d'ensemble par défaut) : ses cartes n'existent que dans le navigateur. Choisissez un tableau de bord avec ses propres vues."
   lovelace_empty: "Ce tableau de bord n'a aucune carte que le Kobo peut afficher."

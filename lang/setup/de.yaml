@@ -251,6 +251,10 @@ design:
   show_graph: "24-Stunden-Diagramm anzeigen"
   large_value: "Große Werte (kleineres Symbol)"
   frameless: "Rahmenlos (nur das Bild)"
+  picture_file: "Bilddatei"
+  choose_file: "Datei wählen…"
+  no_file: "Noch keine Datei"
+  uploading: "Bild wird hinzugefügt…"
   show_climate_graph: "Verlauf von Raum- und Zieltemperatur zeigen"
   graph_hours: "Stunden im Verlauf (leer: 24)"
   secondary_entity: "Restzeit oder Endzeit (optional)"
@@ -287,6 +291,7 @@ design:
   image_memory_hint: "Ältere Kobos haben nur 256–512 MB Arbeitsspeicher. Halten Sie dieses Bild klein, zum Beispiel 1920×1080 oder kleiner; ein großer Kamera-Schnappschuss kann den Speicher des Dashboards erschöpfen. Bilder über 4K werden nicht angezeigt."
 
 card_types:
+  picture: "Bild (Datei)"
   breakdown: "Aufteilung (Ring)"
   progress: "Fortschrittsbalken"
   cover: "Rollladen / Jalousie"
@@ -384,10 +389,13 @@ install:
     backup: "Vorherige Konfiguration als config.yaml.bak gesichert"
     config: "config.yaml geschrieben"
     font: "Schriftart {name} kopiert"
+    pictures: "{n} Bilder kopiert"
     menu: "„{name}“ zu NickelMenu hinzugefügt"
     done: "Fertig. Wirf den Kobo sicher aus und starte ihn neu."
 
 errors:
+  not_a_picture: "Diese Datei ist kein Bild."
+  picture_too_large: "Dieses Bild ist {size}, größer als 4K: bitte zuerst verkleinern."
   lovelace_no_token: "Zuerst Home Assistant verbinden: das Dashboard wird dort gelesen."
   lovelace_strategy: "Dieses Dashboard wird von einer Strategie erzeugt (wie die Standard-Übersicht); die Karten gibt es nur im Browser. Wähle ein Dashboard mit eigenen Ansichten."
   lovelace_empty: "Dieses Dashboard hat keine Karten, die der Kobo anzeigen kann."

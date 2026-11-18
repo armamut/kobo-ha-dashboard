@@ -251,6 +251,10 @@ design:
   show_graph: "24 時間のグラフを表示"
   large_value: "値を大きく表示（アイコンは小さく）"
   frameless: "枠なし（画像のみ）"
+  picture_file: "画像ファイル"
+  choose_file: "ファイルを選択…"
+  no_file: "まだファイルがありません"
+  uploading: "画像を追加しています…"
   show_climate_graph: "室温と目標温度のグラフを表示"
   graph_hours: "グラフの時間（空欄なら 24）"
   secondary_entity: "残り時間または終了時刻（任意）"
@@ -287,6 +291,7 @@ design:
   image_memory_hint: "古いKoboのメモリは256〜512 MBしかありません。この画像は1920×1080以下など小さめにしてください。大きなカメラのスナップショットはメモリ不足の原因になります。4Kを超える画像は表示されません。"
 
 card_types:
+  picture: "画像（ファイル）"
   breakdown: "内訳（リング）"
   progress: "進捗バー"
   cover: "ブラインド / シャッター"
@@ -384,10 +389,13 @@ install:
     backup: "以前の設定を config.yaml.bak にバックアップしました"
     config: "config.yaml を書き込みました"
     font: "フォント {name} をコピーしました"
+    pictures: "{n} 枚の画像をコピーしました"
     menu: "NickelMenu に「{name}」を追加しました"
     done: "完了しました。Kobo を安全に取り外して再起動してください。"
 
 errors:
+  not_a_picture: "このファイルは画像ではありません。"
+  picture_too_large: "この画像は {size} で 4K より大きいため、先に縮小してください。"
   lovelace_no_token: "先に Home Assistant に接続してください。ダッシュボードはそこから読み込みます。"
   lovelace_strategy: "このダッシュボードはストラテジー（既定の概要など）で生成されるため、カードはブラウザー内にしかありません。独自のビューを持つダッシュボードを選んでください。"
   lovelace_empty: "このダッシュボードには Kobo で表示できるカードがありません。"

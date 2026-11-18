@@ -236,6 +236,7 @@ pub fn install(
     menu_name: &str,
     kobo_binary: &Path,
     fonts: &[PathBuf],
+    pictures: &[PathBuf],
 ) -> Result<Vec<Msg>, String> {
     let mut log = Vec::new();
     let err = |what: &str, e: std::io::Error| format!("{}: {}", what, e);
@@ -283,6 +284,17 @@ pub fn install(
                 log.push(Msg::new("font").arg("name", name.to_string_lossy()));
             }
         }
+    }
+
+    if !pictures.is_empty() {
+        let dir = app.join("pictures");
+        std::fs::create_dir_all(&dir).map_err(|e| err("Creating pictures folder", e))?;
+        for p in pictures {
+            if let Some(name) = p.file_name() {
+                std::fs::copy(p, dir.join(name)).map_err(|e| err("Copying picture", e))?;
+            }
+        }
+        log.push(Msg::new("pictures").arg("n", pictures.len().to_string()));
     }
 
     let nm = root.join(".adds/nm");
@@ -343,8 +355,11 @@ mod tests {
         let bin = root.join("fake-bin");
         std::fs::write(&bin, "ELF").unwrap();
 
-        let log = install(&root, &AppConfig::default(), "My: Home", &bin, &[]).unwrap();
+        let picture = root.join("chart.png");
+        std::fs::write(&picture, "PNG").unwrap();
+        let log = install(&root, &AppConfig::default(), "My: Home", &bin, &[], &[picture]).unwrap();
         assert_eq!(log.last().unwrap().key, "done");
+        assert_eq!(std::fs::read_to_string(root.join(".kobo-ha/pictures/chart.png")).unwrap(), "PNG");
         assert_eq!(std::fs::read_to_string(root.join(".kobo-ha/config.yaml.bak")).unwrap(), "old");
         assert!(root.join(".kobo-ha/kobo-ha-dashboard").is_file());
         assert!(root.join(".kobo-ha/wifi.sh").is_file());

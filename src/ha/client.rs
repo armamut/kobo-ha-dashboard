@@ -165,7 +165,8 @@ impl HaClient {
             match card {
                 CardConfig::Weather { entity_id, .. } => weather.push(entity_id.clone()),
                 CardConfig::Sensor { entity_id, show_graph: true, .. } => history.push(entity_id.clone()),
-                CardConfig::Image { entity_id, .. } => images.push(entity_id.clone()),
+                // A picture file is the card's own, not fetched
+                CardConfig::Image { entity_id, file: None, .. } if !entity_id.is_empty() => images.push(entity_id.clone()),
                 CardConfig::Climate { entity_id, show_graph: true, graph_hours, .. } => {
                     climate.push((entity_id.clone(), graph_hours.unwrap_or(24).clamp(1, 24 * 14)))
                 }

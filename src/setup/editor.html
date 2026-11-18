@@ -888,7 +888,7 @@ function watchPictures() {
   pictureTimers.forEach(clearTimeout);
   const p = cfg.pages[page];
   // Pictures and the data of graphs arrive after the edit that asked for them
-  const later = (c) => (c.type === "image" && c.entity_id) || (c.type === "climate" && c.show_graph) || c.type === "statistics";
+  const later = (c) => (c.type === "image" && (c.entity_id || c.file)) || (c.type === "climate" && c.show_graph) || c.type === "statistics";
   if (!p || !p.cards.some(later)) return;
   pictureTimers = [2500, 7000, 15000].map((ms) => setTimeout(refreshPreview, ms));
 }
@@ -1258,19 +1258,24 @@ const PALETTE = [
   ["ws.group_controls", ["light", "switch", "climate", "cover", "media_player", "scene", "scenes_row"]],
   ["ws.group_values", ["sensor", "sensor_grid", "glance", "progress"]],
   ["ws.group_charts", ["statistics", "breakdown"]],
-  ["ws.group_pictures", ["image", "camera"]],
+  ["ws.group_pictures", ["image", "camera", "picture"]],
 ];
+
+/// Kinds of picture card in the add panel, with their icons
+const VARIANTS = { camera: "camera", picture: "picture" };
 
 function renderCardTypes() {
   const items = [];
   const groups = PALETTE.map(([label, names]) => {
-    const row = names.filter((n) => n === "camera" || CARD_TYPES[n]).map((name) => {
-      const k = name === "camera" ? "image" : name;
-      const icon = name === "camera" ? "camera" : CARD_TYPES[k].icon;
-      const add = () => addCard(k, null, name === "camera");
-      const item = el("div", { class: "palette-item", role: "button", tabindex: "0", "data-type": k, "data-camera": name === "camera" ? "1" : null, title: T("ws.add_item_title"),
+    // A camera and a picture of your own are picture cards too
+    const row = names.filter((n) => VARIANTS[n] || CARD_TYPES[n]).map((name) => {
+      const k = VARIANTS[name] ? "image" : name;
+      const variant = VARIANTS[name] ? name : null;
+      const icon = VARIANTS[name] || CARD_TYPES[k].icon;
+      const add = () => addCard(k, null, variant);
+      const item = el("div", { class: "palette-item", role: "button", tabindex: "0", "data-type": k, "data-variant": variant, title: T("ws.add_item_title"),
           onclick: add, onkeydown: (ev) => { if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); add(); } },
-          oncontextmenu: (ev) => { ev.preventDefault(); paletteMenu(k, name === "camera", ev.clientX, ev.clientY); } },
+          oncontextmenu: (ev) => { ev.preventDefault(); paletteMenu(k, variant, ev.clientX, ev.clientY); } },
         el("img", { src: iconUrl(icon), alt: "" }), el("span", {}, typeLabel(name)));
       items.push(item);
       return item;
@@ -1282,12 +1287,12 @@ function renderCardTypes() {
 }
 
 /// Right-click on a card type: add it here or to another page
-function paletteMenu(type, camera, x, y) {
+function paletteMenu(type, variant, x, y) {
   showMenu(x, y, [
-    menuItem(T("ws.add_here"), () => addCard(type, null, camera)),
+    menuItem(T("ws.add_here"), () => addCard(type, null, variant)),
     subMenu(T("ws.add_to_page"), cfg.pages.map((q, j) => j === page ? null : menuItem(q.title || T("design.untitled"), () => {
       showPage(j);
-      addCard(type, null, camera);
+      addCard(type, null, variant);
     })).filter(Boolean)),
   ]);
 }
@@ -1628,6 +1633,7 @@ function addPage() {
 /// A button showing the icon; it opens a searchable grid of all icons.
 /// What the card is to the user: a picture card showing a camera is a camera
 function cardKind(c) {
+  if (c.type === "image" && c.file != null) return "picture";
   if (c.type === "image" && (c._camera || (c.entity_id || "").startsWith("camera."))) return "camera";
   return c.type;
 }
@@ -1637,7 +1643,7 @@ function autoIcon(c) {
   if (c.type === "switch") return { fan: "fan", lock: "lock", cover: "door" }[(c.entity_id || "").split(".")[0]] || "power";
   if (c.type === "light") return "lightbulb";
   if (c.type === "scene") return "play";
-  return cardKind(c) === "camera" ? "camera" : CARD_TYPES[c.type]?.icon || "home";
+  return VARIANTS[cardKind(c)] || CARD_TYPES[c.type]?.icon || "home";
 }
 
 function iconSelect(value, onchange, allowEmpty = true, auto = "home") {
@@ -1823,7 +1829,9 @@ function cardForm(c) {
   const schema = CARD_TYPES[c.type];
   const form = el("div", { class: "cardform grid2" });
   for (const [key, kind = key === "entity_id" ? "entity" : key === "icon" ? "icon" : "text", label, opts = {}] of schema.fields) {
-    if (kind === "entity") {
+    if (kind === "entity" && cardKind(c) === "picture") {
+      form.append(el("label", { class: "field full" }, T("design.picture_file"), pictureUpload(c)));
+    } else if (kind === "entity") {
       const [input, meta] = entityInput(c.entity_id, cardKind(c) === "camera" ? ["camera"] : schema.domains, (v, e) => {
         c.entity_id = v;
         if (e && c.type === "scene" && !c.title) c.title = shortName(e);
@@ -1869,6 +1877,36 @@ function cardForm(c) {
     form.append(el("p", { class: "hint", style: "grid-column: 1 / -1; margin: 4px 0 0" }, T("design.image_memory_hint")));
   }
   return form;
+}
+
+/// The file of a picture card: its name and a button to choose another.
+/// The file is checked and kept by the setup tool, then goes to the Kobo
+/// with the next install.
+function pictureUpload(c) {
+  const name = el("span", { class: "hint", style: "margin:0;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" }, c.file || T("design.no_file"));
+  const note = el("div", { class: "entity-meta" });
+  const input = el("input", { type: "file", accept: "image/*", class: "hidden" });
+  input.onchange = async () => {
+    const f = input.files[0];
+    if (!f) return;
+    note.textContent = T("design.uploading");
+    try {
+      const r = await fetch(`/api/pictures?name=${encodeURIComponent(f.name)}`, { method: "POST", body: f });
+      const data = await r.json();
+      if (!r.ok) throw new Error(data.key ? T("errors." + data.key, data.args || {}) : data.error);
+      c.file = data.file;
+      name.textContent = data.file;
+      note.textContent = `${data.width}×${data.height}`;
+      renderCardsSoon();
+      sync();
+    } catch (e) {
+      note.textContent = e.message;
+    }
+  };
+  return el("div", {},
+    el("div", { class: "row", style: "flex-wrap:nowrap" }, name,
+      el("button", { type: "button", class: "btn small", onclick: () => input.click() }, T("design.choose_file")), input),
+    note);
 }
 
 /// How far back a statistics chart goes: hours or days. A short range
@@ -1943,12 +1981,14 @@ function newCard(type) {
   return card;
 }
 
-function addCard(type, pos, camera = false) {
+function addCard(type, pos, variant = null) {
   if (!cfg.pages.length) cfg.pages.push({ id: "home", title: T("design.new_page"), icon: "home", cards: [] });
   const card = newCard(type);
   if (pos) card.pos = pos;
   // Only the editor reads it, until a camera entity says the same
-  if (camera) card._camera = true;
+  if (variant === "camera") card._camera = true;
+  // A picture of your own: a file instead of an entity
+  if (variant === "picture") card.file = "";
   cfg.pages[page].cards.push(card);
   addedCheck = { page, index: cfg.pages[page].cards.length - 1, type };
   openCard = cfg.pages[page].cards.length - 1;
@@ -2116,7 +2156,7 @@ function renderLayout(force = false) {
     const n = node.el;
     const pos = { x: node.x, y: node.y, w: node.w, h: node.h };
     gs.removeWidget(n, true, false);
-    if (n.dataset.type) addCard(n.dataset.type, pos, !!n.dataset.camera);
+    if (n.dataset.type) addCard(n.dataset.type, pos, n.dataset.variant || null);
     else if (n.dataset.card != null) unparkCard(+n.dataset.card, pos);
   });
   gs.on("removed", (ev, items) => {

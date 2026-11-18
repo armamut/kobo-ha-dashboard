@@ -477,7 +477,7 @@ fn new_cards() -> Vec<CardConfig> {
         CardConfig::MediaPlayer { entity_id: e.into(), title: None },
         CardConfig::ScenesRow { title: None, scenes: Vec::new() },
         CardConfig::Scene { entity_id: e.into(), title: String::new(), icon: None },
-        CardConfig::Image { entity_id: e.into(), title: None, frameless: false, fit: ImageFit::Contain },
+        CardConfig::Image { entity_id: e.into(), title: None, frameless: false, fit: ImageFit::Contain, file: None },
         CardConfig::Progress { entity_id: e.into(), title: None, icon: None, secondary_entity: None, max: None },
         CardConfig::Cover { entity_id: e.into(), title: None, icon: None },
         CardConfig::Glance { title: None, entities: Vec::new() },
@@ -689,6 +689,26 @@ pub struct ScreenRenderer {
     /// Decoded and scaled copies, so a redraw does not decode again. Keyed by
     /// entity and box size; the `Arc` identity says whether the bytes changed.
     image_cache: HashMap<String, (Arc<Vec<u8>>, Result<Arc<tiny_skia::Pixmap>, ImageIssue>)>,
+    /// Picture files of the cards, by name, as read from the pictures folder
+    pictures: HashMap<String, Option<Arc<Vec<u8>>>>,
+}
+
+/// Folder of the picture files cards show: `pictures` next to the config
+static PICTURES_DIR: std::sync::Mutex<Option<std::path::PathBuf>> = std::sync::Mutex::new(None);
+
+pub fn set_pictures_dir(dir: Option<std::path::PathBuf>) {
+    if let Ok(mut d) = PICTURES_DIR.lock() {
+        *d = dir;
+    }
+}
+
+/// A picture's file name as it may be stored: no folders, no hidden files
+pub fn safe_file_name(name: &str) -> Option<&str> {
+    let ok = !name.is_empty()
+        && !name.starts_with('.')
+        && name.len() <= 100
+        && name.chars().all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '-' | '_'));
+    ok.then_some(name)
 }
 
 impl ScreenRenderer {
@@ -705,6 +725,7 @@ impl ScreenRenderer {
             scale: 1.0,
             images: HashMap::new(),
             image_cache: HashMap::new(),
+            pictures: HashMap::new(),
         }
     }
 
@@ -713,10 +734,32 @@ impl ScreenRenderer {
         self.images = images;
     }
 
+    /// The bytes of a picture file of a card, read once from the pictures
+    /// folder (see [`set_pictures_dir`]); a missing file stays missing.
+    fn picture_file(&mut self, name: &str) -> Option<Arc<Vec<u8>>> {
+        if let Some(b) = self.pictures.get(name) {
+            return b.clone();
+        }
+        let dir = PICTURES_DIR.lock().ok().and_then(|d| d.clone());
+        let bytes = dir.and_then(|d| {
+            let path = d.join(safe_file_name(name)?);
+            let len = std::fs::metadata(&path).ok()?.len();
+            // As large as a picture from Home Assistant may be
+            (len <= 10_000_000).then(|| std::fs::read(path).ok()).flatten()
+        });
+        let bytes = bytes.map(Arc::new);
+        self.pictures.insert(name.to_string(), bytes.clone());
+        bytes
+    }
+
     /// Decoded picture for one card, scaled to its box, or why it can't be
     /// shown. `None` while it has not been fetched.
-    fn image_pixmap(&mut self, entity_id: &str, area: Rect, fit: ImageFit, scale: f32) -> Option<Result<Arc<tiny_skia::Pixmap>, ImageIssue>> {
-        let bytes = self.images.get(entity_id)?.clone();
+    fn image_pixmap(&mut self, entity_id: &str, file: Option<&str>, area: Rect, fit: ImageFit, scale: f32) -> Option<Result<Arc<tiny_skia::Pixmap>, ImageIssue>> {
+        let bytes = match file {
+            Some(f) => self.picture_file(f)?,
+            None => self.images.get(entity_id)?.clone(),
+        };
+        let entity_id = file.unwrap_or(entity_id);
         let bw = ((area.w * scale).round() as i32).clamp(1, 4096) as u32;
         let bh = ((area.h * scale).round() as i32).clamp(1, 4096) as u32;
         let key = format!("{}@{}x{}:{:?}", entity_id, bw, bh, fit);
@@ -789,9 +832,13 @@ impl ScreenRenderer {
         let prepared: Vec<Option<Result<Arc<tiny_skia::Pixmap>, ImageIssue>>> = placements
             .iter()
             .map(|(card, rect)| match card {
-                CardConfig::Image { entity_id, title, frameless, fit } => {
-                    self.image_pixmap(entity_id, image_card::picture_box(*rect, title.is_some(), *frameless), *fit, scale)
-                }
+                CardConfig::Image { entity_id, title, frameless, fit, file } => self.image_pixmap(
+                    entity_id,
+                    file.as_deref().filter(|f| !f.is_empty()),
+                    image_card::picture_box(*rect, title.is_some(), *frameless),
+                    *fit,
+                    scale,
+                ),
                 _ => None,
             })
             .collect();
@@ -1050,7 +1097,7 @@ mod tests {
     fn renders_an_image_card_from_fetched_bytes() {
         let mut config = AppConfig::default();
         let page = &mut config.pages[0];
-        page.cards = vec![CardConfig::Image { entity_id: "image.chart".into(), title: Some("Prices".into()), frameless: false, fit: ImageFit::Contain }.into()];
+        page.cards = vec![CardConfig::Image { entity_id: "image.chart".into(), title: Some("Prices".into()), frameless: false, fit: ImageFit::Contain, file: None }.into()];
 
         // A red PNG, as Home Assistant would serve it from /api/image_proxy
         let mut img = image::RgbaImage::new(400, 200);
