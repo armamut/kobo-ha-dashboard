@@ -194,6 +194,7 @@ async fn run_device(
     once: bool,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     tracing::info!("Starting on Kobo e-reader device");
+    spawn_log_trim();
     let probed = display::framebuffer::probe_resolution(&config.device.fb_device);
     let (width, height) = config.device.resolve_dimensions(probed);
     tracing::info!("Canvas {}x{} (framebuffer {:?}, model '{}')", width, height, probed, config.device.model);
@@ -965,6 +966,37 @@ fn wants_awake(event: &InputEvent, last_power_press: Instant, ignore_power_until
     }
 }
 
+/// Largest the log may grow during one run; it is kept as `.old` and
+/// emptied beyond that, so the two take 2 MB at most. A dashboard that runs
+/// for weeks in sleep mode would otherwise fill the Kobo bit by bit.
+const LOG_LIMIT: u64 = 1_000_000;
+
+/// Every half hour: a log larger than [`LOG_LIMIT`] becomes `.old` (as at
+/// the next start) and starts again empty. The launcher opens it for
+/// appending (`KOBO_HA_LOG` says where it is), so emptying it is safe.
+fn spawn_log_trim() {
+    let Some(path) = std::env::var_os("KOBO_HA_LOG").map(PathBuf::from) else { return };
+    tokio::spawn(async move {
+        let mut tick = tokio::time::interval(Duration::from_secs(1800));
+        loop {
+            tick.tick().await;
+            if trim_log(&path, LOG_LIMIT) {
+                tracing::info!("Log reached {} bytes: the earlier part is in {}.old", LOG_LIMIT, path.display());
+            }
+        }
+    });
+}
+
+/// Keep a log larger than `limit` as `<log>.old` and empty it. True when it did.
+fn trim_log(path: &Path, limit: u64) -> bool {
+    let Ok(meta) = std::fs::metadata(path) else { return false };
+    if meta.len() <= limit {
+        return false;
+    }
+    let old = path.with_extension("log.old");
+    std::fs::copy(path, &old).is_ok() && std::fs::OpenOptions::new().write(true).open(path).and_then(|f| f.set_len(0)).is_ok()
+}
+
 async fn redraw(renderer: &mut ScreenRenderer, canvas: &mut Canvas, config: &AppConfig, page: usize, ha: &HaClient) {
     let states = ha.get_all_states().await;
     let is_live = ha.is_connected().await;
@@ -999,6 +1031,20 @@ async fn recv_signal(sig: &mut Option<tokio::signal::unix::Signal>) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_large_log_is_kept_as_old_and_emptied() {
+        let dir = std::env::temp_dir().join(format!("kobo-ha-log-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let log = dir.join("dashboard.log");
+        std::fs::write(&log, "x".repeat(50)).unwrap();
+        assert!(!trim_log(&log, 100));
+        std::fs::write(&log, "y".repeat(150)).unwrap();
+        assert!(trim_log(&log, 100));
+        assert_eq!(std::fs::metadata(&log).unwrap().len(), 0);
+        assert_eq!(std::fs::read_to_string(dir.join("dashboard.log.old")).unwrap().len(), 150);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
     use chrono::TimeZone;
 
     #[test]

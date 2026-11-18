@@ -35,7 +35,10 @@ if ! mkdir "$LOCK" 2>/dev/null; then
 fi
 
 [ -f "$LOG" ] && mv -f "$LOG" "$LOG.old"
-exec >"$LOG" 2>&1
+# Appending: the dashboard empties the log when it grows large, and writes
+# must then go to the start of the file again, not past a hole of zeros
+exec >>"$LOG" 2>&1
+export KOBO_HA_LOG="$LOG"
 echo "=== $(date) launching dashboard ==="
 rm -f "$WIFI_MARKER" "$WIFI_USED"
 
