@@ -554,6 +554,14 @@ pub enum CardConfig {
         title: Option<String>,
         entities: Vec<SensorItemConfig>,
     },
+    /// How a total splits between entities (devices' power, rooms' energy),
+    /// as a ring with a legend
+    #[serde(rename = "breakdown")]
+    Breakdown {
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        title: Option<String>,
+        entities: Vec<SensorItemConfig>,
+    },
     /// Picture from a Home Assistant `image` entity, as a Lovelace `picture`
     /// card with `image_entity` (or an `image` card).
     #[serde(rename = "image")]

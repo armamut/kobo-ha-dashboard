@@ -713,6 +713,8 @@ const CARD_TYPES = {
     fields: [["entity_id"], ["title"], ["icon"], ["secondary_entity", "entity2", "design.secondary_entity", { domains: ["sensor"] }],
       ["max", "number", "design.progress_max", { min: 1, step: 1 }]] },
   cover: { icon: "blinds", domains: ["cover"], fields: [["entity_id"], ["title"], ["icon"]] },
+  breakdown: { icon: "chart", defaults: { entities: [] },
+    fields: [["title", "text", "design.title_optional"], ["entities", "list", "design.entities", { max: 8, domains: SENSOR_DOMAINS, item: "sensor" }]] },
   glance: { icon: "layers", defaults: { entities: [] },
     fields: [["title", "text", "design.title_optional"], ["entities", "list", "design.entities", { max: 8, domains: [...new Set([...SENSOR_DOMAINS, ...TOGGLE_DOMAINS, "person", "device_tracker", "alarm_control_panel"])], item: "sensor" }]] },
   image: { icon: "picture", domains: ["image", "camera"], defaults: { fit: "contain" },

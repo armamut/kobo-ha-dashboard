@@ -193,7 +193,9 @@ impl HaClient {
                     all.extend(secondary_entity.clone());
                 }
                 CardConfig::SensorGrid { sensors, .. } => all.extend(sensors.iter().map(|s| s.entity_id.clone())),
-                CardConfig::Glance { entities, .. } => all.extend(entities.iter().map(|s| s.entity_id.clone())),
+                CardConfig::Glance { entities, .. } | CardConfig::Breakdown { entities, .. } => {
+                    all.extend(entities.iter().map(|s| s.entity_id.clone()))
+                }
                 CardConfig::ScenesRow { scenes, .. } => all.extend(scenes.iter().map(|s| s.entity_id.clone())),
                 CardConfig::Heading { .. } => {}
             }

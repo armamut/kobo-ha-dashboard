@@ -271,12 +271,13 @@ design:
   image_memory_hint: "I Kobo più vecchi hanno solo 256–512 MB di memoria. Mantieni piccola questa immagine, ad esempio 1920×1080 o meno; un'istantanea di una telecamera molto grande può esaurire la memoria della dashboard. Le immagini più grandi di 4K non vengono mostrate."
 
 card_types:
+  breakdown: "Ripartizione (anello)"
   progress: "Barra di avanzamento"
   cover: "Tapparella / tenda"
   glance: "Striscia di stato"
   camera: "Telecamera"
   heading: "Titolo di sezione"
-  statistics: "Grafico statistiche"
+  statistics: "Grafico storico"
   weather: "Meteo"
   light: "Luce"
   switch: "Interruttore"

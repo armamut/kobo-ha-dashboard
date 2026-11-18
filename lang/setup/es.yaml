@@ -271,12 +271,13 @@ design:
   image_memory_hint: "Los Kobo antiguos solo tienen 256–512 MB de memoria. Mantén esta imagen pequeña, por ejemplo 1920×1080 o menos; una captura de cámara grande puede agotar la memoria del panel. Las imágenes mayores de 4K no se muestran."
 
 card_types:
+  breakdown: "Reparto (anillo)"
   progress: "Barra de progreso"
   cover: "Persiana / toldo"
   glance: "Franja de estado"
   camera: "Cámara"
   heading: "Título de sección"
-  statistics: "Gráfico de estadísticas"
+  statistics: "Gráfico histórico"
   weather: "Tiempo"
   light: "Luz"
   switch: "Interruptor"

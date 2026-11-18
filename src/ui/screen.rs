@@ -5,6 +5,7 @@ use crate::ha::models::EntityState;
 use crate::ui::layout::{InteractiveTarget, Rect, UiAction};
 use crate::ui::theme::Theme;
 use crate::ui::widgets::climate_card::{self, CLIMATE_WIDE};
+use crate::ui::widgets::breakdown_card;
 use crate::ui::widgets::cover_card::COVER_WIDE;
 use crate::ui::widgets::glance_card::{self, glance_height};
 use crate::ui::widgets::header::{read_device_status, HeaderStatus, SIDE_PAD};
@@ -99,6 +100,7 @@ fn heights(card: &CardConfig, w: f32) -> (f32, f32) {
         CardConfig::Heading { .. } => (heading_card::HEADING_H, heading_card::HEADING_H - 12.0),
         CardConfig::Statistics { .. } => (380.0, 300.0),
         CardConfig::Progress { .. } => (190.0, 110.0),
+        CardConfig::Breakdown { title, entities } => breakdown_card::breakdown_heights(w, entities.len(), title.is_some()),
         CardConfig::Cover { .. } => {
             if w >= COVER_WIDE {
                 (150.0, 110.0)
@@ -303,6 +305,7 @@ fn grid_min(card: &CardConfig, w: f32) -> (f32, f32) {
         CardConfig::Heading { .. } => (160.0, heading_card::HEADING_H - 12.0),
         CardConfig::Statistics { .. } => (240.0, 170.0),
         CardConfig::Progress { .. } => (180.0, 72.0),
+        CardConfig::Breakdown { title, entities } => (200.0, breakdown_card::breakdown_heights(w, entities.len(), title.is_some()).1),
         CardConfig::Cover { .. } => (200.0, 80.0),
         CardConfig::Glance { title, entities } => (150.0, glance_height(w, entities.len(), title.is_some(), glance_card::CELL_MIN_H)),
         CardConfig::Image { title, .. } => {
@@ -445,6 +448,7 @@ fn new_cards() -> Vec<CardConfig> {
         CardConfig::Progress { entity_id: e.into(), title: None, icon: None, secondary_entity: None, max: None },
         CardConfig::Cover { entity_id: e.into(), title: None, icon: None },
         CardConfig::Glance { title: None, entities: Vec::new() },
+        CardConfig::Breakdown { title: None, entities: Vec::new() },
         CardConfig::Heading { title: String::new(), icon: None },
         CardConfig::Statistics {
             entity_id: e.into(),
@@ -924,6 +928,9 @@ impl ScreenRenderer {
             CardConfig::Glance { title, entities } => {
                 render_glance_card(canvas, theme, rect, title.as_deref(), entities, states, targets)
             }
+            CardConfig::Breakdown { title, entities } => {
+                render_breakdown_card(canvas, theme, rect, title.as_deref(), entities, states, targets)
+            }
             CardConfig::Image { entity_id, title, frameless, .. } => {
                 render_image_card(canvas, theme, rect, entity_id, title.as_deref(), *frameless, image, targets)
             }
@@ -1375,7 +1382,7 @@ mod tests {
         let mut config = AppConfig::default();
         grid_pages(&mut config.pages, 1072, 1448, true);
         let layout = grid_layout(&config.pages[0], 1072, 1448, true).unwrap();
-        assert_eq!(layout.new_sizes.len(), 15, "{:?}", layout.new_sizes);
+        assert_eq!(layout.new_sizes.len(), 16, "{:?}", layout.new_sizes);
         for (kind, (w, h, mw, mh)) in &layout.new_sizes {
             assert!(*w >= 1 && *h >= 1 && *w <= layout.grid.columns && *h <= layout.grid.rows, "{kind}: {w}x{h}");
             assert!(mw <= w && mh <= h && *mw >= 1 && *mh >= 1, "{kind}: smallest {mw}x{mh} of {w}x{h}");
@@ -1468,6 +1475,12 @@ mod tests {
 - {type: progress, entity_id: sensor.print_progress, title: Print, icon: printer, secondary_entity: sensor.print_end}
 - {type: cover, entity_id: cover.living_room, title: Living room blinds}
 - {type: climate, entity_id: climate.living_room, title: Living room, show_graph: true}
+- type: breakdown
+  title: Power now
+  entities:
+    - {entity_id: sensor.power, title: Kitchen}
+    - {entity_id: sensor.co2, title: Office}
+    - {entity_id: sensor.humidity, title: Bedroom}
 - type: glance
   title: House
   entities:

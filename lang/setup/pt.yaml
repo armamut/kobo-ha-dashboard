@@ -271,12 +271,13 @@ design:
   image_memory_hint: "Kobos mais antigos têm apenas 256–512 MB de memória. Mantenha esta imagem pequena, por exemplo 1920×1080 ou menos; uma captura de câmera grande pode esgotar a memória do painel. Imagens maiores que 4K não são exibidas."
 
 card_types:
+  breakdown: "Repartição (anel)"
   progress: "Barra de progresso"
   cover: "Estore / persiana"
   glance: "Faixa de estado"
   camera: "Câmara"
   heading: "Título de secção"
-  statistics: "Gráfico de estatísticas"
+  statistics: "Gráfico histórico"
   weather: "Clima"
   light: "Luz"
   switch: "Interruptor"

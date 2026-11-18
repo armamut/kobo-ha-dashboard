@@ -271,12 +271,13 @@ design:
   image_memory_hint: "Oudere Kobo's hebben maar 256–512 MB geheugen. Houd deze afbeelding klein, bijvoorbeeld 1920×1080 of kleiner; een grote camera-snapshot kan het geheugen van het dashboard opmaken. Afbeeldingen groter dan 4K worden niet getoond."
 
 card_types:
+  breakdown: "Verdeling (ring)"
   progress: "Voortgangsbalk"
   cover: "Rolluik / zonwering"
   glance: "Statusbalk"
   camera: "Camera"
   heading: "Kop"
-  statistics: "Statistiekgrafiek"
+  statistics: "Geschiedenisgrafiek"
   weather: "Weer"
   light: "Lamp"
   switch: "Schakelaar"

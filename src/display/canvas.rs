@@ -429,6 +429,36 @@ impl Canvas {
         }
     }
 
+    /// A slice of a ring from angle `a0` to `a1` (radians, clockwise from 12
+    /// o'clock) between radii `r_in` and `r_out`; `r_in` 0 makes a pie slice.
+    #[allow(clippy::too_many_arguments)]
+    pub fn fill_ring_segment(&mut self, cx: f32, cy: f32, r_out: f32, r_in: f32, a0: f32, a1: f32, color: Color) {
+        let steps = (((a1 - a0).abs() / 0.05).ceil() as usize).max(2);
+        let at = |r: f32, a: f32| (cx + r * a.sin(), cy - r * a.cos());
+        let mut pb = PathBuilder::new();
+        let (x, y) = at(r_out, a0);
+        pb.move_to(x, y);
+        for k in 1..=steps {
+            let (x, y) = at(r_out, a0 + (a1 - a0) * k as f32 / steps as f32);
+            pb.line_to(x, y);
+        }
+        if r_in > 0.0 {
+            for k in (0..=steps).rev() {
+                let (x, y) = at(r_in, a0 + (a1 - a0) * k as f32 / steps as f32);
+                pb.line_to(x, y);
+            }
+        } else {
+            pb.line_to(cx, cy);
+        }
+        pb.close();
+        if let Some(path) = pb.finish() {
+            let mut paint = Paint::default();
+            paint.set_color(color.to_skia());
+            paint.anti_alias = true;
+            self.pixmap.fill_path(&path, &paint, FillRule::Winding, self.transform(), None);
+        }
+    }
+
     pub fn stroke_circle(&mut self, cx: f32, cy: f32, r: f32, stroke_width: f32, color: Color) {
         let mut pb = PathBuilder::new();
         pb.push_circle(cx, cy, r);

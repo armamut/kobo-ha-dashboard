@@ -271,12 +271,13 @@ design:
   image_memory_hint: "Eski Kobo'ların yalnızca 256–512 MB belleği var. Bu resmi küçük tutun, örneğin 1920×1080 ya da daha küçük; büyük bir kamera görüntüsü panelin belleğini tüketebilir. 4K'dan büyük resimler gösterilmez."
 
 card_types:
+  breakdown: "Dağılım (halka)"
   progress: "İlerleme çubuğu"
   cover: "Panjur / perde"
   glance: "Toplu durum şeridi"
   camera: "Kamera"
   heading: "Başlık"
-  statistics: "İstatistik grafiği"
+  statistics: "Geçmiş grafiği"
   weather: "Hava durumu"
   light: "Işık"
   switch: "Anahtar / aç-kapa"

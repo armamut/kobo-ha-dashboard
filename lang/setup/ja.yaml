@@ -271,12 +271,13 @@ design:
   image_memory_hint: "古いKoboのメモリは256〜512 MBしかありません。この画像は1920×1080以下など小さめにしてください。大きなカメラのスナップショットはメモリ不足の原因になります。4Kを超える画像は表示されません。"
 
 card_types:
+  breakdown: "内訳（リング）"
   progress: "進捗バー"
   cover: "ブラインド / シャッター"
   glance: "ステータス一覧"
   camera: "カメラ"
   heading: "見出し"
-  statistics: "統計グラフ"
+  statistics: "履歴グラフ"
   weather: "天気"
   light: "照明"
   switch: "スイッチ"
