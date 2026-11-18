@@ -1199,8 +1199,8 @@ function renderCardTypes() {
   // A camera is a picture card with a camera entity
   const entries = Object.keys(CARD_TYPES).flatMap((k) => k === "image" ? [[k, k, CARD_TYPES[k].icon], [k, "camera", "camera"]] : [[k, k, CARD_TYPES[k].icon]]);
   const items = entries.map(([k, name, icon]) =>
-    el("div", { class: "palette-item", role: "button", tabindex: "0", "data-type": k, title: T("ws.add_item_title"),
-        onclick: () => addCard(k), onkeydown: (ev) => { if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); addCard(k); } } },
+    el("div", { class: "palette-item", role: "button", tabindex: "0", "data-type": k, "data-camera": name === "camera" ? "1" : null, title: T("ws.add_item_title"),
+        onclick: () => addCard(k, null, name === "camera"), onkeydown: (ev) => { if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); addCard(k, null, name === "camera"); } } },
       el("img", { src: iconUrl(icon), alt: "" }), el("span", {}, typeLabel(name))));
   $("palette").replaceChildren(...items);
   makeDraggable(items);
@@ -1267,7 +1267,7 @@ function renderTray() {
       return el("div", { class: "shelf-item" + (openCard === i ? " selected" : ""), role: "button", tabindex: "0", "data-card": i, title: T("ws.tray_item_title"),
           onclick: () => selectCard(i), onkeydown: (ev) => { if (ev.key === "Enter") selectCard(i); },
           oncontextmenu: (ev) => { ev.preventDefault(); selectCard(i); openCardMenu(i, ev.clientX, ev.clientY); } },
-        el("img", { src: iconUrl(c.icon || t.icon), alt: "" }), el("span", {}, title),
+        el("img", { src: iconUrl(c.icon || autoIcon(c)), alt: "" }), el("span", {}, title),
         el("span", { class: "size" }, T("ws.needs_cells", { w, h })));
     }));
   }
@@ -1474,12 +1474,18 @@ function addPage() {
 }
 
 /// A button showing the icon; it opens a searchable grid of all icons.
+/// What the card is to the user: a picture card showing a camera is a camera
+function cardKind(c) {
+  if (c.type === "image" && (c._camera || (c.entity_id || "").startsWith("camera."))) return "camera";
+  return c.type;
+}
+
 /// The icon a card draws when none is chosen, as the dashboard picks it
 function autoIcon(c) {
   if (c.type === "switch") return { fan: "fan", lock: "lock", cover: "door" }[(c.entity_id || "").split(".")[0]] || "power";
   if (c.type === "light") return "lightbulb";
   if (c.type === "scene") return "play";
-  return CARD_TYPES[c.type]?.icon || "home";
+  return cardKind(c) === "camera" ? "camera" : CARD_TYPES[c.type]?.icon || "home";
 }
 
 function iconSelect(value, onchange, allowEmpty = true, auto = "home") {
@@ -1566,8 +1572,8 @@ function cardInspector(c, i) {
   return [
     el("div", { class: "insp-head" },
       el("button", { class: "btn small icon", type: "button", title: T("ws.back_to_page"), "aria-label": T("ws.back_to_page"), onclick: deselectCard }, "←"),
-      el("img", { id: "inspIcon", src: iconUrl(c.icon || t.icon), alt: "" }),
-      el("div", { style: "min-width:0" }, el("div", { class: "title", id: "inspTitle" }, title), el("div", { class: "sub" }, typeLabel(c.type)))),
+      el("img", { id: "inspIcon", src: iconUrl(c.icon || autoIcon(c)), alt: "" }),
+      el("div", { style: "min-width:0" }, el("div", { class: "title", id: "inspTitle" }, title), el("div", { class: "sub" }, typeLabel(cardKind(c))))),
     el("div", { id: "inspHidden", class: "notice warn" + (isOffscreen(i) ? "" : " hidden"), style: "margin:0 0 12px" }, T("ws.card_hidden")),
     cardForm(c),
     el("div", { class: "insp-section insp-actions" },
@@ -1628,11 +1634,11 @@ function deletePage() {
 function cardSummary(c) {
   const t = CARD_TYPES[c.type] || { icon: "home" };
   const e = c.entity_id ? entityById(c.entity_id) : null;
-  const title = c.title || (e ? shortName(e) : "") || typeLabel(c.type);
+  const title = c.title || (e ? shortName(e) : "") || typeLabel(cardKind(c));
   let sub = c.entity_id || "";
   if (c.type === "sensor_grid") sub = T("design.sensors_count", { n: (c.sensors || []).length });
   if (c.type === "scenes_row") sub = T("design.buttons_count", { n: (c.scenes || []).length });
-  const tags = [el("span", { class: "tag" }, typeLabel(c.type))];
+  const tags = [el("span", { class: "tag" }, typeLabel(cardKind(c)))];
   if (entities.length && c.entity_id && !e) tags.push(el("span", { class: "tag err", title: T("design.not_found_title") }, T("design.not_found")));
   return { t, title, sub, tags };
 }
@@ -1666,7 +1672,7 @@ function cardForm(c) {
   const form = el("div", { class: "cardform grid2" });
   for (const [key, kind = key === "entity_id" ? "entity" : key === "icon" ? "icon" : "text", label, opts = {}] of schema.fields) {
     if (kind === "entity") {
-      const [input, meta] = entityInput(c.entity_id, schema.domains, (v, e) => {
+      const [input, meta] = entityInput(c.entity_id, cardKind(c) === "camera" ? ["camera"] : schema.domains, (v, e) => {
         c.entity_id = v;
         if (e && c.type === "scene" && !c.title) c.title = shortName(e);
         renderCardsSoon(); sync();
@@ -1775,7 +1781,7 @@ function renderCardsSoon() {
     if (!c || !$("inspTitle")) return;
     const { t, title } = cardSummary(c);
     $("inspTitle").textContent = title;
-    $("inspIcon").src = iconUrl(c.icon || t.icon);
+    $("inspIcon").src = iconUrl(c.icon || autoIcon(c));
   }, 300);
 }
 
@@ -1785,10 +1791,12 @@ function newCard(type) {
   return card;
 }
 
-function addCard(type, pos) {
+function addCard(type, pos, camera = false) {
   if (!cfg.pages.length) cfg.pages.push({ id: "home", title: T("design.new_page"), icon: "home", cards: [] });
   const card = newCard(type);
   if (pos) card.pos = pos;
+  // Only the editor reads it, until a camera entity says the same
+  if (camera) card._camera = true;
   cfg.pages[page].cards.push(card);
   addedCheck = { page, index: cfg.pages[page].cards.length - 1, type };
   openCard = cfg.pages[page].cards.length - 1;
@@ -1936,7 +1944,7 @@ function renderLayout(force = false) {
     const n = node.el;
     const pos = { x: node.x, y: node.y, w: node.w, h: node.h };
     gs.removeWidget(n, true, false);
-    if (n.dataset.type) addCard(n.dataset.type, pos);
+    if (n.dataset.type) addCard(n.dataset.type, pos, !!n.dataset.camera);
   });
   gs.on("dragstart resizestart", () => stage.classList.add("moving"));
   gs.on("dragstop resizestop", () => { stage.classList.remove("moving"); setTimeout(() => renderLayout(), 0); });

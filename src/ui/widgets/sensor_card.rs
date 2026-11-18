@@ -228,8 +228,10 @@ pub fn render_sensor_grid(
 
     let cols = sensor_grid_columns(rect.w, sensors.len());
     let col_w = (rect.w - 2.0 * PAD - (cols - 1) as f32 * TILE_GAP) / cols as f32;
-    let tile_h = TILE_H.min((rect.y + rect.h - PAD - y - TILE_GAP * (sensors.len().div_ceil(cols) as f32 - 1.0))
-        / sensors.len().div_ceil(cols).max(1) as f32);
+    // The tiles share the card's height: a card the grid made taller than
+    // the tiles need leaves no empty band at the bottom
+    let tile_h = (rect.y + rect.h - PAD - y - TILE_GAP * (sensors.len().div_ceil(cols) as f32 - 1.0))
+        / sensors.len().div_ceil(cols).max(1) as f32;
 
     for (idx, item) in sensors.iter().enumerate() {
         let (r, c) = (idx / cols, idx % cols);
@@ -274,8 +276,9 @@ pub fn render_sensor_grid(
             cell.w - 2.0 * ip - badge - 12.0,
         );
 
-        let value_size = if large_value {
-            fit_value_size(canvas, &value, &unit, 60.0, cell.w - 2.0 * ip)
+        // A tall tile gets a larger value
+        let value_size = if large_value || tile_h >= 170.0 {
+            fit_value_size(canvas, &value, &unit, if large_value { 60.0 } else { 56.0 }, cell.w - 2.0 * ip)
         } else {
             type_scale::VALUE
         };

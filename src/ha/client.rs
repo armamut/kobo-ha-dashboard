@@ -580,11 +580,11 @@ impl HaClient {
                 "period": period.clone(),
                 "types": [stat.clone()],
             }));
-            plan.push((period, hours, stat));
+            plan.push((period, hours, stat, ids));
         }
 
         let results = crate::ha::ws::requests(&self.config.url, &self.config.token, payloads).await?;
-        for ((period, hours, stat), result) in plan.into_iter().zip(results) {
+        for ((period, hours, stat, _), result) in plan.iter().cloned().zip(results) {
             let Some(by_entity) = result.as_object() else { continue };
             for (entity_id, rows) in by_entity {
                 let series: Vec<(f64, f64)> = rows
@@ -608,7 +608,82 @@ impl HaClient {
                 );
             }
         }
+        // Entities without long-term statistics (a `number`, a sensor without
+        // a state_class) are charted from their recorded history instead
+        let missing: Vec<(String, String, u32, String)> = plan
+            .iter()
+            .flat_map(|(period, hours, stat, ids)| {
+                let key = crate::ui::widgets::statistics_card::stat_key(period, *hours, stat);
+                let out = &out;
+                ids.iter()
+                    .filter(move |id| !out.get(*id).is_some_and(|c| c.contains_key(&key)))
+                    .map(move |id| (id.clone(), period.clone(), *hours, stat.clone()))
+            })
+            .collect();
+        if !missing.is_empty() {
+            match self.fetch_history_series(&missing).await {
+                Ok(series) => {
+                    for (entity, period, hours, stat) in &missing {
+                        let Some(points) = series.get(entity) else { continue };
+                        let start = (end - chrono::Duration::hours(*hours as i64)).timestamp_millis() as f64;
+                        let buckets = bucket_history(points, start, end.timestamp_millis() as f64, period, stat);
+                        if !buckets.is_empty() {
+                            out.entry(entity.clone()).or_default().insert(
+                                crate::ui::widgets::statistics_card::stat_key(period, *hours, stat),
+                                serde_json::json!(buckets),
+                            );
+                        }
+                    }
+                }
+                Err(e) => tracing::warn!("History for charts failed: {}", e),
+            }
+        }
         Ok(out.into_iter().map(|(entity, charts)| (entity, Value::Object(charts))).collect())
+    }
+
+    /// Recorded numeric states of some entities over the longest range they
+    /// need (at most a month: the history API returns every change), as
+    /// (milliseconds, value), oldest first.
+    async fn fetch_history_series(
+        &self,
+        wanted: &[(String, String, u32, String)],
+    ) -> Result<HashMap<String, Vec<(f64, f64)>>, Box<dyn std::error::Error + Send + Sync>> {
+        let hours = wanted.iter().map(|w| w.2).max().unwrap_or(24).min(31 * 24);
+        let mut ids: Vec<&str> = wanted.iter().map(|w| w.0.as_str()).collect();
+        ids.sort_unstable();
+        ids.dedup();
+        let start = chrono::Utc::now() - chrono::Duration::hours(hours as i64);
+        let resp = self
+            .client
+            .get(self.url(&format!("/api/history/period/{}", start.format("%Y-%m-%dT%H:%M:%SZ"))))
+            .query(&[("filter_entity_id", ids.join(",")), ("minimal_response", String::new()), ("no_attributes", String::new())])
+            .send()
+            .await?;
+        if !resp.status().is_success() {
+            return Err(format!("HTTP {}", resp.status()).into());
+        }
+        let series: Vec<Vec<Value>> = crate::ha::read_json(resp).await?;
+        let mut out = HashMap::new();
+        for (idx, points) in series.into_iter().enumerate() {
+            let entity = points
+                .first()
+                .and_then(|p| p.get("entity_id"))
+                .and_then(|v| v.as_str())
+                .map(str::to_string)
+                .or_else(|| ids.get(idx).map(|s| s.to_string()));
+            let values: Vec<(f64, f64)> = points
+                .iter()
+                .filter_map(|p| {
+                    let t = p.get("last_changed")?.as_str()?;
+                    let t = chrono::DateTime::parse_from_rfc3339(t).ok()?.timestamp_millis() as f64;
+                    Some((t, p.get("state")?.as_str()?.parse::<f64>().ok()?))
+                })
+                .collect();
+            if let Some(entity) = entity {
+                out.insert(entity, values);
+            }
+        }
+        Ok(out)
     }
 
     async fn fetch_forecast(&self, entity_id: &str) -> Result<Option<Value>, Box<dyn std::error::Error + Send + Sync>> {
@@ -777,6 +852,75 @@ impl HaClient {
     }
 }
 
+/// Start of the period of `kind` that holds `t` (milliseconds), in local
+/// time as Home Assistant's statistics periods are.
+fn period_start(t: f64, kind: &str) -> f64 {
+    use chrono::{Datelike, Local, TimeZone, Timelike};
+    let Some(at) = Local.timestamp_millis_opt(t as i64).single() else { return t };
+    let day = |d: chrono::NaiveDate| Local.from_local_datetime(&d.and_hms_opt(0, 0, 0).unwrap_or_default()).earliest();
+    let start = match kind {
+        "5minute" => at.with_minute(at.minute() / 5 * 5).and_then(|a| a.with_second(0)).and_then(|a| a.with_nanosecond(0)),
+        "hour" => at.with_minute(0).and_then(|a| a.with_second(0)).and_then(|a| a.with_nanosecond(0)),
+        "week" => day(at.date_naive() - chrono::Duration::days(at.weekday().num_days_from_monday() as i64)),
+        "month" => at.date_naive().with_day(1).and_then(day),
+        _ => day(at.date_naive()),
+    };
+    start.map(|s| s.timestamp_millis() as f64).unwrap_or(t)
+}
+
+/// Start of the period after the one starting at `start`
+fn next_period(start: f64, kind: &str) -> f64 {
+    match kind {
+        "5minute" => start + 300_000.0,
+        "hour" => start + 3_600_000.0,
+        // Days, weeks and months: past daylight saving changes, so the next
+        // one is found from a point well inside it
+        "week" => period_start(start + 8.0 * 86_400_000.0, "week"),
+        "month" => period_start(start + 32.0 * 86_400_000.0, "month"),
+        _ => period_start(start + 1.5 * 86_400_000.0, "day"),
+    }
+}
+
+/// Recorded states turned into statistics like Home Assistant's: one value
+/// per period from `from` to `to` (milliseconds), the mean, min or max of
+/// the states during it (a state lasts until the next), or for `change`
+/// how much it rose. Periods before the first state are left out.
+pub fn bucket_history(points: &[(f64, f64)], from: f64, to: f64, kind: &str, stat: &str) -> Vec<(f64, f64)> {
+    let mut out = Vec::new();
+    if points.is_empty() {
+        return out;
+    }
+    let mut start = period_start(from, kind);
+    let mut k = 0;
+    // The state when a period starts: the last one recorded before it
+    let mut current: Option<f64> = None;
+    while start < to && out.len() < 2000 {
+        let end = next_period(start, kind);
+        while k < points.len() && points[k].0 < start {
+            current = Some(points[k].1);
+            k += 1;
+        }
+        let mut values: Vec<f64> = current.into_iter().collect();
+        let first = current;
+        let mut j = k;
+        while j < points.len() && points[j].0 < end {
+            values.push(points[j].1);
+            j += 1;
+        }
+        if !values.is_empty() {
+            let v = match stat {
+                "min" => values.iter().copied().fold(f64::INFINITY, f64::min),
+                "max" => values.iter().copied().fold(f64::NEG_INFINITY, f64::max),
+                "change" => values.last().copied().unwrap_or(0.0) - first.unwrap_or(values[0]),
+                _ => values.iter().sum::<f64>() / values.len() as f64,
+            };
+            out.push((start, v));
+        }
+        start = end;
+    }
+    out
+}
+
 fn downsample(values: &[f32], max_points: usize) -> Vec<f32> {
     if values.len() <= max_points {
         return values.to_vec();
@@ -789,4 +933,39 @@ fn downsample(values: &[f32], max_points: usize) -> Vec<f32> {
             values[a..b].iter().sum::<f32>() / (b - a) as f32
         })
         .collect()
+}
+
+#[cfg(test)]
+mod bucket_tests {
+    use super::*;
+
+    #[test]
+    fn history_becomes_one_value_per_period() {
+        let h = 3_600_000.0;
+        let t0 = period_start(1_763_000_000_000.0, "hour");
+        // 20 at the start, 22 half way through the first hour, 18 in the third
+        let points = [(t0 - h, 20.0), (t0 + h / 2.0, 22.0), (t0 + 2.5 * h, 18.0)];
+        let mean = bucket_history(&points, t0, t0 + 3.0 * h, "hour", "mean");
+        assert_eq!(mean.iter().map(|p| p.0).collect::<Vec<_>>(), vec![t0, t0 + h, t0 + 2.0 * h]);
+        assert_eq!(mean[0].1, 21.0);
+        // A state lasts: the second hour carries 22
+        assert_eq!(mean[1].1, 22.0);
+        assert_eq!(bucket_history(&points, t0, t0 + 3.0 * h, "hour", "min")[2].1, 18.0);
+        assert_eq!(bucket_history(&points, t0, t0 + 3.0 * h, "hour", "max")[0].1, 22.0);
+        assert_eq!(bucket_history(&points, t0, t0 + 3.0 * h, "hour", "change")[0].1, 2.0);
+        // Before the first state there is nothing to show
+        assert!(bucket_history(&[(t0 + 2.5 * h, 1.0)], t0, t0 + 3.0 * h, "hour", "mean").len() == 1);
+        assert!(bucket_history(&[], t0, t0 + h, "hour", "mean").is_empty());
+    }
+
+    #[test]
+    fn days_weeks_and_months_follow_the_calendar() {
+        let t = 1_763_000_000_000.0;
+        for kind in ["5minute", "hour", "day", "week", "month"] {
+            let s = period_start(t, kind);
+            let n = next_period(s, kind);
+            assert!(s <= t && t < n, "{kind}: {s} {t} {n}");
+            assert_eq!(period_start(n, kind), n, "{kind}");
+        }
+    }
 }
