@@ -72,9 +72,30 @@ pub fn render_weather_card(
     while temp_size > 40.0 && canvas.measure_text(&temp_str, temp_size, true).0 + unit_w > max_w {
         temp_size -= 4.0;
     }
+    let mut metrics: Vec<(&str, String)> = Vec::new();
+    if let Some(h) = humidity {
+        metrics.push(("droplet", i18n::tf("meta.percent", &[("value", &format!("{:.0}", h))])));
+    }
+    if let Some(w) = wind {
+        metrics.push(("wind", format!("{:.0} {}", w, wind_unit)));
+    }
+    let _ = custom_title;
+    let cond_text = condition_label(condition);
+    let cond_text = cond_text.as_str();
+    let cond_size = if wide { type_scale::TITLE } else { 24.0 };
+
+    // Humidity and wind go in a column on the right wherever the temperature
+    // and the condition leave room for it, else on a line below.
+    let metric_w = metrics.iter().map(|(_, t)| canvas.measure_text(t, type_scale::BODY, true).0 + 38.0).fold(0.0f32, f32::max);
+    let temp_w = canvas.measure_text(&temp_str, temp_size, true).0 + unit_w;
+    let cond_w = canvas.measure_text(cond_text, cond_size, true).0.min(220.0);
+    let column_h = 44.0 * metrics.len() as f32 - 14.0;
+    let room_h = if with_strip { head_h - PAD } else { rect.h - 24.0 };
+    let side = !metrics.is_empty() && temp_w.max(cond_w) + 24.0 + metric_w <= max_w && column_h <= room_h;
+
     // Lines below the temperature (condition, then humidity and wind), as
     // many as fit. Without the strip, the block is centred in the card.
-    let max_lines = if wide { 1 } else { 2 };
+    let max_lines = if side || metrics.is_empty() { 1 } else { 2 };
     let block = |lines: usize| temp_size * 0.92 + lines as f32 * 30.0;
     let (temp_y, lines) = if with_strip {
         (y0 - 6.0, max_lines)
@@ -85,30 +106,17 @@ pub fn render_weather_card(
     let bottom = if with_strip { rect.y + head_h } else { rect.y + rect.h - 12.0 };
     let text_top = temp_y + 6.0 + temp_size * 0.92;
     canvas.draw_text(&temp_str, tx, temp_y, temp_size, true, theme.text, TextAlign::Left);
-    let temp_w = canvas.measure_text(&temp_str, temp_size, true).0;
     if unit != "°C" {
-        canvas.draw_text(unit, tx + temp_w + 4.0, temp_y + 12.0, 26.0, false, theme.text_muted, TextAlign::Left);
+        let w = canvas.measure_text(&temp_str, temp_size, true).0;
+        canvas.draw_text(unit, tx + w + 4.0, temp_y + 12.0, 26.0, false, theme.text_muted, TextAlign::Left);
     }
 
-    let mut metrics: Vec<(&str, String)> = Vec::new();
-    if let Some(h) = humidity {
-        metrics.push(("droplet", i18n::tf("meta.percent", &[("value", &format!("{:.0}", h))])));
-    }
-    if let Some(w) = wind {
-        metrics.push(("wind", format!("{:.0} {}", w, wind_unit)));
-    }
-
-    let _ = custom_title;
-    let cond_text = condition_label(condition);
-    let cond_text = cond_text.as_str();
-
-    if wide {
-        let metrics_w = 200.0;
+    if side {
         if lines >= 1 {
-            canvas.draw_text_fit(cond_text, tx, text_top + 4.0, type_scale::TITLE, true, theme.text, TextAlign::Left, max_w - metrics_w);
+            canvas.draw_text_fit(cond_text, tx, text_top + 4.0, cond_size, true, theme.text, TextAlign::Left, max_w - metric_w - 24.0);
         }
         // Metrics column, right aligned, as far as it fits
-        let mut my = rect.y + (if with_strip { PAD } else { (rect.h - 44.0 * metrics.len() as f32) / 2.0 }) + 6.0;
+        let mut my = if with_strip { rect.y + PAD + 6.0 } else { rect.y + (rect.h - column_h) / 2.0 - 2.0 };
         for (icon, text) in &metrics {
             if my + 30.0 > bottom {
                 break;
@@ -121,7 +129,7 @@ pub fn render_weather_card(
         }
     } else {
         if lines >= 1 {
-            canvas.draw_text_fit(cond_text, tx, text_top, 24.0, true, theme.text, TextAlign::Left, max_w);
+            canvas.draw_text_fit(cond_text, tx, text_top, cond_size, true, theme.text, TextAlign::Left, max_w);
         }
         if lines >= 2 {
             let line = metrics.iter().map(|(_, t)| t.as_str()).collect::<Vec<_>>().join("  ·  ");

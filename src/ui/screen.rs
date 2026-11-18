@@ -339,8 +339,15 @@ pub fn grid_places(cards: &[Card], grid: GridSize, area: Rect) -> Vec<Option<Gri
     }
     for i in moved {
         let p = wanted[i].expect("only cards with a place move");
-        let below = (p.y + 1..=grid.rows - p.h).map(|y| GridPos { y, ..p }).find(|q| free(&taken, *q));
-        let spot = below.or_else(|| free_spot(&taken, p.w, p.h).map(|(x, y)| GridPos { x, y, ..p }));
+        // Its own size lower down in its columns, or anywhere; then the same
+        // at its smallest size, rather than not at all
+        let (mw, mh) = min_cells(&cards[i], grid, area, p.w);
+        let lower = GridPos { h: mh.min(p.h), ..p };
+        let small = GridPos { w: mw.min(p.w), h: mh.min(p.h), x: p.x.min(grid.columns - mw.min(p.w)), ..p };
+        let spot = [p, lower, small].into_iter().find_map(|p| {
+            let below = (p.y..=grid.rows.saturating_sub(p.h)).map(|y| GridPos { y, ..p }).find(|q| free(&taken, *q));
+            below.or_else(|| free_spot(&taken, p.w, p.h).map(|(x, y)| GridPos { x, y, ..p }))
+        });
         if let Some(q) = spot {
             take(&mut taken, q);
             placed[i] = Some(q);
@@ -353,7 +360,7 @@ pub fn grid_places(cards: &[Card], grid: GridSize, area: Rect) -> Vec<Option<Gri
         // Its natural size, or its smallest when that doesn't fit anywhere
         let (w, h) = natural_cells(card, grid, area);
         let (mw, mh) = min_cells(card, grid, area, w);
-        let spot = [(w, h), (w.min(grid.columns).max(mw), mh)]
+        let spot = [(w, h), (w.min(grid.columns).max(mw), mh), (mw, mh)]
             .into_iter()
             .find_map(|(w, h)| free_spot(&taken, w, h).map(|(x, y)| GridPos { x, y, w, h }));
         if let Some(p) = spot {
@@ -1315,6 +1322,27 @@ mod tests {
             assert!(mw <= w && mh <= h && *mw >= 1 && *mh >= 1, "{kind}: smallest {mw}x{mh} of {w}x{h}");
         }
         assert_eq!(layout.naturals.len(), config.pages[0].cards.len());
+    }
+
+    #[test]
+    fn a_moved_card_shrinks_to_its_smallest_size_rather_than_vanish() {
+        let grid = GridSize { columns: 6, rows: 12 };
+        let area = content_area(1072.0, 1448.0, HEADER_WITH_TABS);
+        // Two rows left at the top; the second card wants 6x4 on top of the first
+        let page = grid_page(
+            6,
+            12,
+            vec![
+                switch("switch.big", Some(GridPos { x: 0, y: 2, w: 6, h: 10 })),
+                switch("switch.late", Some(GridPos { x: 0, y: 4, w: 6, h: 4 })),
+            ],
+        );
+        let places = grid_places(&page.cards, grid, area);
+        let (_, mh) = min_cells(&page.cards[1], grid, area, 6);
+        let p = places[1].expect("it fits, lower");
+        // Its own width is kept; only the height comes down
+        assert_eq!((p.w, p.h), (6, mh.min(4)));
+        assert!(p.y + p.h <= 2, "{:?}", p);
     }
 
     #[test]
