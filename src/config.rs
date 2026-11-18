@@ -517,7 +517,28 @@ pub enum CardConfig {
         /// The picture alone, without the card around it
         #[serde(default, skip_serializing_if = "std::ops::Not::not")]
         frameless: bool,
+        /// How the picture fills its box
+        #[serde(default, skip_serializing_if = "ImageFit::is_contain")]
+        fit: ImageFit,
     },
+}
+
+/// How a picture fills the card: whole and as large as fits (`contain`),
+/// filling the card and cut at the edges (`cover`), or stretched to the
+/// card's shape (`stretch`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum ImageFit {
+    #[default]
+    Contain,
+    Cover,
+    Stretch,
+}
+
+impl ImageFit {
+    pub fn is_contain(&self) -> bool {
+        *self == ImageFit::Contain
+    }
 }
 
 fn default_stat_period() -> String {

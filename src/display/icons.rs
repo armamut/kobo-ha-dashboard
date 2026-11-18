@@ -523,9 +523,419 @@ fn icon_shapes(name: &str) -> Vec<(Mode, Option<Path>)> {
             pb.move_to(11.0, 5.5);
             pb.line_to(12.0, 5.5);
         }))],
+        "leaf" | "eco" => vec![(Stroke, build(|pb| {
+            pb.move_to(5.0, 19.0);
+            pb.cubic_to(5.0, 10.0, 10.0, 4.0, 20.0, 4.0);
+            pb.cubic_to(20.0, 14.0, 14.0, 19.0, 5.0, 19.0);
+            pb.close();
+            pb.move_to(3.0, 21.0);
+            pb.line_to(13.0, 11.0);
+        }))],
+        "plant" => vec![(Stroke, build(|pb| {
+            pb.move_to(7.0, 15.0);
+            pb.line_to(17.0, 15.0);
+            pb.line_to(15.5, 21.5);
+            pb.line_to(8.5, 21.5);
+            pb.close();
+            pb.move_to(12.0, 15.0);
+            pb.line_to(12.0, 9.0);
+            pb.move_to(12.0, 10.0);
+            pb.cubic_to(12.0, 6.0, 9.0, 4.0, 5.0, 4.0);
+            pb.cubic_to(5.0, 8.0, 8.0, 10.0, 12.0, 10.0);
+            pb.move_to(12.0, 9.0);
+            pb.cubic_to(12.0, 5.0, 15.0, 2.5, 19.0, 2.5);
+            pb.cubic_to(19.0, 6.5, 16.0, 9.0, 12.0, 9.0);
+        }))],
+        "camera" => vec![(Stroke, build(|pb| {
+            pb.move_to(3.0, 8.0);
+            pb.cubic_to(3.0, 6.9, 3.9, 6.0, 5.0, 6.0);
+            pb.line_to(7.5, 6.0);
+            pb.line_to(9.0, 3.5);
+            pb.line_to(15.0, 3.5);
+            pb.line_to(16.5, 6.0);
+            pb.line_to(19.0, 6.0);
+            pb.cubic_to(20.1, 6.0, 21.0, 6.9, 21.0, 8.0);
+            pb.line_to(21.0, 18.0);
+            pb.cubic_to(21.0, 19.1, 20.1, 20.0, 19.0, 20.0);
+            pb.line_to(5.0, 20.0);
+            pb.cubic_to(3.9, 20.0, 3.0, 19.1, 3.0, 18.0);
+            pb.close();
+            pb.push_circle(12.0, 12.8, 3.8);
+        }))],
+        "window" => vec![(Stroke, build(|pb| {
+            round_rect(pb, 4.0, 2.5, 16.0, 19.0, 1.5);
+            pb.move_to(12.0, 2.5);
+            pb.line_to(12.0, 21.5);
+            pb.move_to(4.0, 12.0);
+            pb.line_to(20.0, 12.0);
+        }))],
+        "blinds" | "cover" | "shutter" => vec![(Stroke, build(|pb| {
+            pb.move_to(3.0, 3.0);
+            pb.line_to(21.0, 3.0);
+            for y in [7.0, 11.0, 15.0] {
+                pb.move_to(4.5, y);
+                pb.line_to(19.5, y);
+            }
+            pb.move_to(4.5, 3.0);
+            pb.line_to(4.5, 15.0);
+            pb.move_to(19.5, 3.0);
+            pb.line_to(19.5, 15.0);
+            pb.move_to(12.0, 15.0);
+            pb.line_to(12.0, 19.0);
+            pb.push_circle(12.0, 20.0, 1.0);
+        }))],
+        "garage" => vec![(Stroke, build(|pb| {
+            pb.move_to(2.5, 21.0);
+            pb.line_to(2.5, 9.0);
+            pb.line_to(12.0, 3.0);
+            pb.line_to(21.5, 9.0);
+            pb.line_to(21.5, 21.0);
+            pb.move_to(6.5, 21.0);
+            pb.line_to(6.5, 12.0);
+            pb.line_to(17.5, 12.0);
+            pb.line_to(17.5, 21.0);
+            pb.move_to(6.5, 15.0);
+            pb.line_to(17.5, 15.0);
+            pb.move_to(6.5, 18.0);
+            pb.line_to(17.5, 18.0);
+        }))],
+        "car" => vec![(Stroke, build(|pb| {
+            pb.move_to(5.0, 17.0);
+            pb.line_to(3.5, 17.0);
+            pb.cubic_to(2.7, 17.0, 2.0, 16.3, 2.0, 15.5);
+            pb.line_to(2.0, 12.5);
+            pb.cubic_to(2.0, 11.6, 2.6, 10.8, 3.5, 10.6);
+            pb.line_to(5.5, 10.0);
+            pb.line_to(7.8, 6.3);
+            pb.cubic_to(8.2, 5.5, 9.0, 5.0, 9.9, 5.0);
+            pb.line_to(14.6, 5.0);
+            pb.cubic_to(15.5, 5.0, 16.3, 5.5, 16.7, 6.3);
+            pb.line_to(18.5, 10.0);
+            pb.line_to(20.6, 10.7);
+            pb.cubic_to(21.4, 11.0, 22.0, 11.7, 22.0, 12.6);
+            pb.line_to(22.0, 15.5);
+            pb.cubic_to(22.0, 16.3, 21.3, 17.0, 20.5, 17.0);
+            pb.line_to(19.0, 17.0);
+            pb.move_to(9.0, 17.0);
+            pb.line_to(15.0, 17.0);
+            pb.move_to(5.5, 10.0);
+            pb.line_to(18.5, 10.0);
+            pb.push_circle(7.0, 17.0, 2.0);
+            pb.push_circle(17.0, 17.0, 2.0);
+        }))],
+        "ev_charger" | "charger" => vec![(Stroke, build(|pb| {
+            round_rect(pb, 3.0, 3.0, 11.0, 18.0, 2.0);
+            pb.move_to(2.0, 21.0);
+            pb.line_to(15.0, 21.0);
+            pb.move_to(9.5, 7.0);
+            pb.line_to(7.0, 11.5);
+            pb.line_to(10.0, 11.5);
+            pb.line_to(7.5, 16.0);
+            pb.move_to(14.0, 9.0);
+            pb.line_to(17.5, 9.0);
+            pb.cubic_to(18.9, 9.0, 20.0, 10.1, 20.0, 11.5);
+            pb.line_to(20.0, 16.5);
+            pb.cubic_to(20.0, 17.3, 20.7, 18.0, 21.5, 18.0);
+        }))],
+        "shield" | "alarm" | "security" => vec![(Stroke, build(|pb| {
+            pb.move_to(12.0, 2.5);
+            pb.line_to(20.0, 5.5);
+            pb.line_to(20.0, 11.5);
+            pb.cubic_to(20.0, 16.5, 16.5, 20.0, 12.0, 21.5);
+            pb.cubic_to(7.5, 20.0, 4.0, 16.5, 4.0, 11.5);
+            pb.line_to(4.0, 5.5);
+            pb.close();
+            pb.move_to(8.5, 12.0);
+            pb.line_to(11.0, 14.5);
+            pb.line_to(15.5, 9.5);
+        }))],
+        "bell" | "doorbell" => vec![(Stroke, build(|pb| {
+            pb.move_to(6.0, 16.5);
+            pb.line_to(6.0, 10.0);
+            pb.cubic_to(6.0, 6.7, 8.7, 4.0, 12.0, 4.0);
+            pb.cubic_to(15.3, 4.0, 18.0, 6.7, 18.0, 10.0);
+            pb.line_to(18.0, 16.5);
+            pb.line_to(20.0, 18.0);
+            pb.line_to(4.0, 18.0);
+            pb.close();
+            pb.move_to(12.0, 2.0);
+            pb.line_to(12.0, 4.0);
+            pb.move_to(10.0, 21.0);
+            pb.cubic_to(10.4, 21.7, 11.1, 22.0, 12.0, 22.0);
+            pb.cubic_to(12.9, 22.0, 13.6, 21.7, 14.0, 21.0);
+        }))],
+        "person" | "user" | "presence" => vec![(Stroke, build(|pb| {
+            pb.push_circle(12.0, 7.5, 4.0);
+            pb.move_to(4.0, 21.0);
+            pb.cubic_to(4.0, 16.6, 7.6, 14.0, 12.0, 14.0);
+            pb.cubic_to(16.4, 14.0, 20.0, 16.6, 20.0, 21.0);
+        }))],
+        "motion" | "walk" => vec![(Stroke, build(|pb| {
+            pb.push_circle(13.5, 4.0, 2.0);
+            pb.move_to(9.0, 21.5);
+            pb.line_to(11.5, 15.5);
+            pb.line_to(14.5, 18.0);
+            pb.line_to(15.5, 22.0);
+            pb.move_to(11.5, 15.5);
+            pb.line_to(12.5, 9.0);
+            pb.line_to(8.0, 10.5);
+            pb.line_to(6.5, 14.0);
+            pb.move_to(12.5, 9.0);
+            pb.line_to(15.0, 12.5);
+            pb.line_to(18.5, 13.5);
+        }))],
+        "key" => vec![(Stroke, build(|pb| {
+            pb.push_circle(7.5, 15.5, 4.5);
+            pb.move_to(10.7, 12.3);
+            pb.line_to(20.5, 2.5);
+            pb.move_to(16.5, 6.5);
+            pb.line_to(19.5, 9.5);
+            pb.move_to(14.0, 9.0);
+            pb.line_to(16.0, 11.0);
+        }))],
+        "calendar" => vec![(Stroke, build(|pb| {
+            round_rect(pb, 3.0, 4.5, 18.0, 17.0, 2.0);
+            pb.move_to(3.0, 9.5);
+            pb.line_to(21.0, 9.5);
+            pb.move_to(8.0, 2.5);
+            pb.line_to(8.0, 6.5);
+            pb.move_to(16.0, 2.5);
+            pb.line_to(16.0, 6.5);
+            pb.move_to(7.5, 14.0);
+            pb.line_to(8.5, 14.0);
+            pb.move_to(11.5, 14.0);
+            pb.line_to(12.5, 14.0);
+            pb.move_to(15.5, 14.0);
+            pb.line_to(16.5, 14.0);
+            pb.move_to(7.5, 17.5);
+            pb.line_to(8.5, 17.5);
+            pb.move_to(11.5, 17.5);
+            pb.line_to(12.5, 17.5);
+        }))],
+        "mail" | "mailbox" => vec![(Stroke, build(|pb| {
+            round_rect(pb, 2.5, 5.0, 19.0, 14.0, 2.0);
+            pb.move_to(3.0, 6.5);
+            pb.line_to(12.0, 13.0);
+            pb.line_to(21.0, 6.5);
+        }))],
+        "trash" | "bin" | "waste" => vec![(Stroke, build(|pb| {
+            pb.move_to(3.0, 6.0);
+            pb.line_to(21.0, 6.0);
+            pb.move_to(9.0, 6.0);
+            pb.line_to(9.0, 3.5);
+            pb.line_to(15.0, 3.5);
+            pb.line_to(15.0, 6.0);
+            pb.move_to(5.0, 6.0);
+            pb.line_to(6.2, 20.0);
+            pb.cubic_to(6.3, 21.1, 7.2, 22.0, 8.3, 22.0);
+            pb.line_to(15.7, 22.0);
+            pb.cubic_to(16.8, 22.0, 17.7, 21.1, 17.8, 20.0);
+            pb.line_to(19.0, 6.0);
+            pb.move_to(10.0, 10.5);
+            pb.line_to(10.0, 17.5);
+            pb.move_to(14.0, 10.5);
+            pb.line_to(14.0, 17.5);
+        }))],
+        "faucet" | "water" | "valve" => vec![(Stroke, build(|pb| {
+            pb.move_to(3.0, 9.0);
+            pb.line_to(13.0, 9.0);
+            pb.cubic_to(16.3, 9.0, 19.0, 11.7, 19.0, 15.0);
+            pb.line_to(19.0, 16.0);
+            pb.move_to(3.0, 13.0);
+            pb.line_to(12.0, 13.0);
+            pb.cubic_to(13.7, 13.0, 15.0, 14.3, 15.0, 16.0);
+            pb.move_to(9.0, 9.0);
+            pb.line_to(9.0, 5.0);
+            pb.move_to(6.0, 5.0);
+            pb.line_to(12.0, 5.0);
+            pb.move_to(17.0, 20.0);
+            pb.line_to(17.0, 21.5);
+        }))],
+        "shower" | "bath" => vec![(Stroke, build(|pb| {
+            pb.move_to(4.0, 21.0);
+            pb.line_to(4.0, 6.0);
+            pb.cubic_to(4.0, 3.8, 5.8, 2.0, 8.0, 2.0);
+            pb.cubic_to(10.2, 2.0, 12.0, 3.8, 12.0, 6.0);
+            pb.move_to(8.5, 9.0);
+            pb.cubic_to(8.5, 7.1, 10.1, 5.5, 12.0, 5.5);
+            pb.cubic_to(13.9, 5.5, 15.5, 7.1, 15.5, 9.0);
+            pb.close();
+            for (x, y) in [(10.0, 12.5), (13.5, 13.0), (17.0, 12.5), (11.5, 16.0), (15.5, 16.5), (13.5, 19.5)] {
+                pb.move_to(x, y);
+                pb.line_to(x, y + 0.5);
+            }
+        }))],
+        "oven" | "stove" => vec![(Stroke, build(|pb| {
+            round_rect(pb, 3.0, 2.5, 18.0, 19.0, 2.0);
+            pb.move_to(3.0, 7.5);
+            pb.line_to(21.0, 7.5);
+            round_rect(pb, 7.0, 11.0, 10.0, 7.0, 1.0);
+            pb.move_to(7.0, 5.0);
+            pb.line_to(7.5, 5.0);
+            pb.move_to(11.0, 5.0);
+            pb.line_to(11.5, 5.0);
+            pb.move_to(15.0, 5.0);
+            pb.line_to(15.5, 5.0);
+        }))],
+        "fridge" | "refrigerator" => vec![(Stroke, build(|pb| {
+            round_rect(pb, 5.0, 2.0, 14.0, 20.0, 2.0);
+            pb.move_to(5.0, 10.0);
+            pb.line_to(19.0, 10.0);
+            pb.move_to(9.0, 5.5);
+            pb.line_to(9.0, 7.0);
+            pb.move_to(9.0, 13.0);
+            pb.line_to(9.0, 16.0);
+        }))],
+        "vacuum" | "robot" => vec![(Stroke, build(|pb| {
+            pb.push_circle(12.0, 12.0, 9.5);
+            pb.push_circle(12.0, 12.0, 3.0);
+            pb.move_to(5.5, 7.0);
+            pb.cubic_to(7.2, 5.1, 9.5, 4.0, 12.0, 4.0);
+            pb.cubic_to(14.5, 4.0, 16.8, 5.1, 18.5, 7.0);
+        }))],
+        "laptop" | "computer" => vec![(Stroke, build(|pb| {
+            round_rect(pb, 4.0, 4.0, 16.0, 11.0, 1.5);
+            pb.move_to(2.0, 19.0);
+            pb.line_to(22.0, 19.0);
+            pb.line_to(20.0, 15.0);
+            pb.move_to(2.0, 19.0);
+            pb.line_to(4.0, 15.0);
+        }))],
+        "router" | "network" => vec![(Stroke, build(|pb| {
+            round_rect(pb, 2.5, 13.0, 19.0, 7.0, 2.0);
+            pb.move_to(6.5, 16.5);
+            pb.line_to(7.0, 16.5);
+            pb.move_to(10.0, 16.5);
+            pb.line_to(10.5, 16.5);
+            pb.move_to(17.0, 13.0);
+            pb.line_to(17.0, 9.0);
+            pb.move_to(13.5, 6.5);
+            pb.cubic_to(15.4, 4.6, 18.6, 4.6, 20.5, 6.5);
+            pb.move_to(11.0, 4.0);
+            pb.cubic_to(14.3, 0.7, 19.7, 0.7, 23.0, 4.0);
+        }))],
+        "gauge" | "meter" => vec![(Stroke, build(|pb| {
+            pb.move_to(4.2, 18.5);
+            pb.cubic_to(3.1, 16.9, 2.5, 15.0, 2.5, 13.0);
+            pb.cubic_to(2.5, 7.8, 6.8, 3.5, 12.0, 3.5);
+            pb.cubic_to(17.2, 3.5, 21.5, 7.8, 21.5, 13.0);
+            pb.cubic_to(21.5, 15.0, 20.9, 16.9, 19.8, 18.5);
+            pb.move_to(12.0, 14.0);
+            pb.line_to(16.0, 9.0);
+            pb.push_circle(12.0, 14.0, 1.5);
+        }))],
+        "chart" | "bar_chart" => vec![(Stroke, build(|pb| {
+            pb.move_to(3.0, 3.0);
+            pb.line_to(3.0, 21.0);
+            pb.line_to(21.0, 21.0);
+            pb.move_to(8.0, 17.0);
+            pb.line_to(8.0, 12.0);
+            pb.move_to(13.0, 17.0);
+            pb.line_to(13.0, 6.0);
+            pb.move_to(18.0, 17.0);
+            pb.line_to(18.0, 10.0);
+        }))],
+        "solar" | "solar_panel" => vec![(Stroke, build(|pb| {
+            pb.move_to(5.0, 9.0);
+            pb.line_to(19.0, 9.0);
+            pb.line_to(21.5, 18.0);
+            pb.line_to(2.5, 18.0);
+            pb.close();
+            pb.move_to(3.8, 13.5);
+            pb.line_to(20.2, 13.5);
+            pb.move_to(9.7, 9.0);
+            pb.line_to(9.0, 18.0);
+            pb.move_to(14.3, 9.0);
+            pb.line_to(15.0, 18.0);
+            pb.move_to(12.0, 18.0);
+            pb.line_to(12.0, 21.5);
+            pb.move_to(8.5, 21.5);
+            pb.line_to(15.5, 21.5);
+            pb.move_to(12.0, 2.0);
+            pb.line_to(12.0, 4.5);
+            pb.move_to(6.5, 4.0);
+            pb.line_to(7.5, 5.5);
+            pb.move_to(17.5, 4.0);
+            pb.line_to(16.5, 5.5);
+        }))],
+        "radiator" | "heater" => vec![(Stroke, build(|pb| {
+            for x in [5.0, 9.67, 14.33, 19.0] {
+                round_rect(pb, x - 1.8, 4.0, 3.6, 15.0, 1.8);
+            }
+            pb.move_to(3.2, 8.0);
+            pb.line_to(2.0, 8.0);
+            pb.move_to(3.2, 15.0);
+            pb.line_to(2.0, 15.0);
+            pb.move_to(6.0, 19.0);
+            pb.line_to(6.0, 21.0);
+            pb.move_to(18.0, 19.0);
+            pb.line_to(18.0, 21.0);
+        }))],
+        "lamp" | "floor_lamp" => vec![(Stroke, build(|pb| {
+            pb.move_to(8.0, 2.5);
+            pb.line_to(16.0, 2.5);
+            pb.line_to(19.0, 10.0);
+            pb.line_to(5.0, 10.0);
+            pb.close();
+            pb.move_to(12.0, 10.0);
+            pb.line_to(12.0, 21.0);
+            pb.move_to(8.0, 21.5);
+            pb.line_to(16.0, 21.5);
+        }))],
+        "heart" | "favorite" => vec![(Stroke, build(|pb| {
+            pb.move_to(12.0, 20.5);
+            pb.line_to(4.2, 12.8);
+            pb.cubic_to(2.0, 10.6, 2.0, 7.0, 4.2, 4.9);
+            pb.cubic_to(6.4, 2.7, 9.9, 2.7, 12.0, 5.0);
+            pb.cubic_to(14.1, 2.7, 17.6, 2.7, 19.8, 4.9);
+            pb.cubic_to(22.0, 7.0, 22.0, 10.6, 19.8, 12.8);
+            pb.close();
+        }))],
+        "star" => vec![(Stroke, build(|pb| {
+            let pts: Vec<(f32, f32)> = (0..10)
+                .map(|k| {
+                    let a = std::f32::consts::PI * (k as f32 / 5.0) - std::f32::consts::FRAC_PI_2;
+                    let r = if k % 2 == 0 { 10.0 } else { 4.4 };
+                    (12.0 + r * a.cos(), 12.6 + r * a.sin())
+                })
+                .collect();
+            pb.move_to(pts[0].0, pts[0].1);
+            for p in &pts[1..] {
+                pb.line_to(p.0, p.1);
+            }
+            pb.close();
+        }))],
+        "gamepad" | "game" => vec![(Stroke, build(|pb| {
+            pb.move_to(7.0, 7.0);
+            pb.line_to(17.0, 7.0);
+            pb.cubic_to(19.8, 7.0, 21.5, 9.5, 21.8, 13.0);
+            pb.cubic_to(22.1, 16.5, 20.9, 18.5, 19.0, 18.5);
+            pb.cubic_to(17.0, 18.5, 16.0, 16.0, 14.5, 15.0);
+            pb.line_to(9.5, 15.0);
+            pb.cubic_to(8.0, 16.0, 7.0, 18.5, 5.0, 18.5);
+            pb.cubic_to(3.1, 18.5, 1.9, 16.5, 2.2, 13.0);
+            pb.cubic_to(2.5, 9.5, 4.2, 7.0, 7.0, 7.0);
+            pb.close();
+            pb.move_to(6.0, 11.0);
+            pb.line_to(10.0, 11.0);
+            pb.move_to(8.0, 9.0);
+            pb.line_to(8.0, 13.0);
+            pb.move_to(15.0, 10.5);
+            pb.line_to(15.5, 10.5);
+            pb.move_to(17.5, 12.5);
+            pb.line_to(18.0, 12.5);
+        }))],
         _ => vec![(Stroke, build(|pb| pb.push_circle(12.0, 12.0, 8.0)))],
     }
 }
+
+/// Names [`draw_icon`] knows, besides the fallback circle (aliases left out).
+#[cfg(test)]
+pub const SHEET: &[&str] = &[
+    "leaf", "plant", "camera", "window", "blinds", "garage", "car", "ev_charger", "shield", "bell", "person", "motion",
+    "key", "calendar", "mail", "trash", "faucet", "shower", "oven", "fridge", "vacuum", "laptop", "router", "gauge",
+    "chart", "solar", "radiator", "lamp", "heart", "star", "gamepad",
+];
 
 /// Draw a named line icon whose 24x24 box has its top-left corner at (x, y).
 /// `stroke_width` is in 24-grid units (2.0 matches Lucide).
@@ -660,5 +1070,37 @@ pub fn draw_weather_art(pixmap: &mut PixmapMut, condition: &str, x: f32, y: f32,
         }
         "windy" | "windy-variant" => draw_icon(pixmap, "wind", x, y, size, ink.line, line_w),
         _ => cloud_at(pixmap, 0.0, 0.0, 1.0),
+    }
+}
+
+#[cfg(test)]
+mod sheet_tests {
+    use super::*;
+
+    /// Every new icon, large, as a PNG: `ICON_SHEET=/tmp/i.png cargo test icon_sheet -- --ignored`
+    #[test]
+    #[ignore]
+    fn icon_sheet() {
+        let Ok(out) = std::env::var("ICON_SHEET") else { return };
+        let (cell, cols) = (120u32, 8u32);
+        let rows = (SHEET.len() as u32).div_ceil(cols);
+        let mut canvas = crate::display::Canvas::new(cell * cols, cell * rows);
+        canvas.clear(Color::rgb(255, 255, 255));
+        for (i, name) in SHEET.iter().enumerate() {
+            let (x, y) = ((i as u32 % cols * cell) as f32, (i as u32 / cols * cell) as f32);
+            canvas.draw_icon(name, x + 24.0, y + 14.0, 72.0, Color::rgb(20, 24, 32), 2.2);
+            canvas.draw_text(name, x + 60.0, y + 92.0, 16.0, false, Color::rgb(90, 90, 90), crate::display::TextAlign::Center);
+        }
+        std::fs::write(out, canvas.to_png_bytes().unwrap()).unwrap();
+    }
+
+    #[test]
+    fn every_picker_icon_is_drawn() {
+        // The fallback is a bare circle: an icon the picker offers must not be it
+        let fallback = format!("{:?}", icon_shapes("no_such_icon").iter().map(|(_, p)| p.as_ref().map(|p| p.points().to_vec())).collect::<Vec<_>>());
+        for name in crate::setup::ICONS {
+            let shapes = format!("{:?}", icon_shapes(name).iter().map(|(_, p)| p.as_ref().map(|p| p.points().to_vec())).collect::<Vec<_>>());
+            assert_ne!(shapes, fallback, "{name} has no drawing");
+        }
     }
 }

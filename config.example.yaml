@@ -193,9 +193,13 @@ pages:
       - type: "image"
         entity_id: "image.energy_prices_today"
         title: "Electricity price today"
+        # fit: cover        # contain (whole picture, default), cover (fill, cut at the edges) or stretch
         # frameless: true   # just the picture, without the card around it
 
-# Available icons: lightbulb, lightbulb_on, power, plug, fan, thermometer, flame,
-# snowflake, droplet, wind, zap, sun, moon, cloud, home, sofa, bed, door, lock,
-# tv, music, coffee, washer, printer, battery, clock, layers, progress, play,
-# refresh, check
+# Available icons: lightbulb, lightbulb_on, lamp, power, plug, fan, thermometer,
+# flame, radiator, snowflake, droplet, wind, zap, sun, moon, cloud, leaf, plant,
+# home, sofa, bed, door, window, blinds, garage, lock, key, shield, bell, camera,
+# person, motion, car, ev_charger, solar, gauge, chart, tv, music, coffee,
+# washer, oven, fridge, vacuum, faucet, shower, trash, mail, calendar, laptop,
+# router, gamepad, printer, battery, clock, layers, progress, play, refresh,
+# check, heart, star

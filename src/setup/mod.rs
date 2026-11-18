@@ -37,7 +37,10 @@ const GRIDSTACK_CSS: &str = include_str!("vendor/gridstack/gridstack.min.css");
 pub const ICONS: &[&str] = &[
     "lightbulb", "lightbulb_on", "power", "plug", "fan", "thermometer", "flame", "snowflake", "droplet", "wind", "zap",
     "sun", "moon", "cloud", "home", "sofa", "bed", "door", "lock", "tv", "music", "coffee", "washer", "printer",
-    "battery", "clock", "layers", "progress", "play", "refresh", "check",
+    "battery", "clock", "layers", "progress", "play", "refresh", "check", "lamp", "radiator", "leaf", "plant", "window",
+    "blinds", "garage", "car", "ev_charger", "solar", "gauge", "chart", "camera", "shield", "bell", "person", "motion",
+    "key", "calendar", "mail", "trash", "faucet", "shower", "oven", "fridge", "vacuum", "laptop", "router", "gamepad",
+    "heart", "star",
 ];
 
 struct Inner {
@@ -509,6 +512,7 @@ async fn preview(State(s): State<Shared>, Query(q): Query<PreviewQuery>) -> Resp
     let mut canvas = Canvas::for_screen(w, h);
     let mut renderer = ScreenRenderer::new(&config);
     renderer.last_update = ha.last_update().await;
+    renderer.set_images(ha.images().await);
     // Most Kobos have a frontlight; show its button as on the device.
     renderer.frontlight = Some(true);
     if q.sleep {

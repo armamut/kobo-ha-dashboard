@@ -197,6 +197,9 @@ body.ws-on aside.preview { display: none; }
 .menu .has-sub:hover > .menu, .menu .has-sub:focus-within > .menu { display: flex; }
 .menu.flip .has-sub > .menu { left: auto; right: 100%; }
 #ctxMenu { position: fixed; top: 0; left: 0; }
+#toast { position: fixed; z-index: 70; left: 50%; bottom: 24px; transform: translate(-50%, 20px); max-width: min(560px, calc(100% - 32px)); padding: 12px 16px; border-radius: 10px; background: var(--text); color: var(--surface); font-size: 14px; box-shadow: 0 10px 30px rgba(0,0,0,.25); opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s; }
+#toast.show { opacity: 1; transform: translate(-50%, 0); }
+.tab-edit { position: fixed; z-index: 40; padding: 4px 10px !important; font-weight: 600 !important; border-radius: 8px !important; box-shadow: 0 0 0 2px var(--accent); }
 .ws-pages .tab.drop-before { box-shadow: -3px 0 0 var(--accent); }
 .ws-pages .tab.drop-after { box-shadow: 3px 0 0 var(--accent); }
 .ws-right input[type=text], .ws-right input[type=number], .ws-right select { width: 100%; }
@@ -687,7 +690,10 @@ const CARD_TYPES = {
     fields: [["title", "text", "design.title_optional"], ["scenes", "list", "design.buttons", { max: 6, domains: ACTION_DOMAINS, item: "scene" }]] },
   scene: { icon: "play", domains: ACTION_DOMAINS, defaults: { title: "" },
     fields: [["entity_id"], ["title", "text", "design.label"], ["icon"]] },
-  image: { icon: "progress", domains: ["image"], fields: [["entity_id"], ["title", "text", "design.title_optional"], ["frameless", "bool", "design.frameless"]] },
+  image: { icon: "camera", domains: ["image"], defaults: { fit: "contain" },
+    fields: [["entity_id"], ["title", "text", "design.title_optional"],
+      ["fit", "select", "design.image_fit", { options: ["contain", "cover", "stretch"], label: "design.fit_" }],
+      ["frameless", "bool", "design.frameless"]] },
   heading: { icon: "layers", fields: [["title", "text", "design.heading_title"], ["icon"]] },
   statistics: { icon: "progress", domains: ["sensor", "counter", "input_number", "number"],
     defaults: { period: "day", days: 14, stat: "mean" },
@@ -764,11 +770,45 @@ async function pushDraft(record) {
     renderOverflow();
     renderLayout();
     refreshPreview();
+    checkAdded();
+    watchPictures();
   } catch (e) {
     $("saveStatus").textContent = T("app.not_saved", { error: e.message });
     $("saveStatus").classList.add("dirty");
   }
   updateUndoButtons();
+}
+
+/// A card added with a click that found no room: say so, rather than
+/// leaving it in the list of cards that don't fit without a word.
+let addedCheck = null;
+function checkAdded() {
+  const a = addedCheck;
+  if (!a || a.page !== page || layoutStale()) return;
+  addedCheck = null;
+  if (!isOffscreen(a.index)) return;
+  const [w, h] = layouts[page].mins[a.index] || [1, 1];
+  toast(T("ws.no_room", { type: typeLabel(a.type), w, h }));
+}
+
+let toastTimer = null;
+function toast(text) {
+  let t = $("toast");
+  if (!t) { t = el("div", { id: "toast", role: "status" }); document.body.append(t); }
+  t.textContent = text;
+  t.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove("show"), 6000);
+}
+
+/// Pictures come from Home Assistant in the background: look again shortly
+/// after an edit while a picture card on this page has none yet.
+let pictureTimers = [];
+function watchPictures() {
+  pictureTimers.forEach(clearTimeout);
+  const p = cfg.pages[page];
+  if (!p || !p.cards.some((c) => c.type === "image" && c.entity_id)) return;
+  pictureTimers = [2500, 7000, 15000].map((ms) => setTimeout(refreshPreview, ms));
 }
 
 function setDirty(d) {
@@ -1289,11 +1329,13 @@ function renderDesign() {
 }
 
 function renderPageChips() {
-  const chip = (cls) => (p, i) => el("button", { type: "button", class: cls + (i === page ? " active" : ""), onclick: () => showPage(i) },
+  // In the workspace, a click on the open page's tab edits its name
+  const open = (cls, i) => (ev) => (cls === "tab" && i === page ? renameTab(ev.currentTarget, i) : showPage(i));
+  const chip = (cls) => (p, i) => el("button", { type: "button", class: cls + (i === page ? " active" : ""), onclick: open(cls, i) },
     el("img", { src: iconUrl(p.icon), alt: "" }), p.title || T("design.untitled"),
     hidden[i] ? el("span", { class: "badge", title: T("design.overflow_badge") }, String(hidden[i])) : null);
   const tabs = cfg.pages.map(chip("tab"));
-  tabs.forEach((t, i) => dragTab(t, i));
+  tabs.forEach((t, i) => { dragTab(t, i); t.title = T("ws.tab_title"); });
   $("pageTabs").replaceChildren(...tabs);
   $("previewPages").replaceChildren(...cfg.pages.map(chip("chip")));
 }
@@ -1328,6 +1370,37 @@ function dragTab(tab, i) {
     renderDesign();
     sync();
   });
+}
+
+/// Edit a page's name in its tab
+function renameTab(tab, i) {
+  const p = cfg.pages[i];
+  const input = el("input", { type: "text", class: "tab-edit", value: p.title, "aria-label": T("design.page_title") });
+  let done = false;
+  const finish = (save) => {
+    if (done) return;
+    done = true;
+    const v = input.value.trim();
+    input.remove();
+    if (save && v && v !== p.title) { p.title = v; p.id = uniquePageIdFor(slug(v) || "page" + i, p); sync(); }
+    renderPageChips();
+    if (i === page && openCard == null) renderInspector();
+  };
+  input.onkeydown = (ev) => { if (ev.key === "Enter") finish(true); if (ev.key === "Escape") { ev.stopPropagation(); finish(false); } };
+  input.onblur = () => finish(true);
+  // Over the tab, not in it: keys typed in a field inside a button press it
+  const r = tab.getBoundingClientRect();
+  Object.assign(input.style, { left: r.left + "px", top: r.top + "px", width: Math.max(160, r.width) + "px", height: r.height + "px" });
+  document.body.append(input);
+  input.focus();
+  input.select();
+}
+
+/// An id for page `p` that no other page has
+function uniquePageIdFor(id, p) {
+  let out = id, n = 2;
+  while (cfg.pages.some((q) => q !== p && q.id === out)) { out = id + "_" + n; n += 1; }
+  return out;
 }
 
 function showPage(i) {
@@ -1407,7 +1480,7 @@ function renderInspector() {
 
 function pageInspector(p) {
   const title = el("input", { type: "text", value: p.title });
-  title.oninput = () => { p.title = title.value; p.id = slug(title.value) || "page" + page; renderPageChipsSoon(); sync(); };
+  title.oninput = () => { p.title = title.value; p.id = uniquePageIdFor(slug(title.value) || "page" + page, p); renderPageChipsSoon(); sync(); };
   return [
     el("h3", { class: "ws-head" }, T("ws.page")),
     el("div", { class: "grid2" },
@@ -1619,6 +1692,7 @@ function addCard(type, pos) {
   const card = newCard(type);
   if (pos) card.pos = pos;
   cfg.pages[page].cards.push(card);
+  addedCheck = { page, index: cfg.pages[page].cards.length - 1, type };
   openCard = cfg.pages[page].cards.length - 1;
   renderDesign();
   $("inspector").querySelector("input")?.focus();
@@ -1666,6 +1740,16 @@ function fitStage(L) {
   stage.style.width = L.screen[0] * s + "px";
   stage.style.height = L.screen[1] * s + "px";
   return s;
+}
+
+/// Which page tab of the drawn header is at a screen position, if any
+function tabAt(x, y) {
+  const L = layouts[page], stage = $("layoutStage");
+  if (!L || !L.tab_bar || !cfg.pages.length) return null;
+  const r = stage.getBoundingClientRect(), s = r.width / L.screen[0];
+  const ux = (x - r.left) / s, uy = (y - r.top) / s, b = L.tab_bar;
+  if (ux < b.x || ux > b.x + b.w || uy < b.y || uy > b.y + b.h) return null;
+  return Math.min(cfg.pages.length - 1, Math.floor((ux - b.x) / (b.w / cfg.pages.length)));
 }
 
 function setPreviewing(on) {
@@ -2118,7 +2202,17 @@ async function boot() {
   $("wsBw").onchange = refreshPreview;
   $("wsSleep").onchange = refreshPreview;
   // A click on the canvas outside the cards selects the page
-  $("canvasWrap").addEventListener("pointerdown", (ev) => { if (!previewing && !ev.target.closest(".grid-stack-item")) deselectCard(); });
+  $("canvasWrap").addEventListener("pointerdown", (ev) => {
+    if (ev.target.closest(".grid-stack-item")) return;
+    // The page tabs drawn in the header switch pages, as on the Kobo
+    const tab = tabAt(ev.clientX, ev.clientY);
+    if (tab != null) {
+      if (tab !== page) showPage(tab);
+      else if (!previewing) { deselectCard(); $("inspector").querySelector("input")?.focus(); }
+      return;
+    }
+    if (!previewing) deselectCard();
+  });
   $("gridCols").onchange = resizeGrid;
   $("gridRows").onchange = resizeGrid;
   $("layoutCompact").onclick = () => gs && gs.compact();

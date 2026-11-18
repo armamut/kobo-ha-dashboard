@@ -23,6 +23,7 @@ pub fn picture_box(rect: Rect, titled: bool, frameless: bool) -> Rect {
 }
 
 /// Draw the card and the picture, centred and as large as fits.
+#[allow(clippy::too_many_arguments)]
 pub fn render_image_card(
     canvas: &mut Canvas,
     theme: &Theme,
@@ -190,5 +191,18 @@ mod tests {
         let data = canvas.raw_rgba_data();
         let p = (25 * 800 + 25) * 4;
         assert_eq!(data[p + 3], 0, "the frame was drawn");
+    }
+
+    #[test]
+    fn cover_and_stretch_fill_the_box() {
+        use crate::config::ImageFit;
+        use crate::display::canvas::fit_image_as;
+        let wide = png(400, 100, [200, 60, 40]);
+        let contain = fit_image_as(&wide, 300, 300, ImageFit::Contain).unwrap();
+        assert_eq!((contain.width(), contain.height()), (300, 75));
+        for fit in [ImageFit::Cover, ImageFit::Stretch] {
+            let p = fit_image_as(&wide, 300, 300, fit).unwrap();
+            assert_eq!((p.width(), p.height()), (300, 300), "{fit:?}");
+        }
     }
 }

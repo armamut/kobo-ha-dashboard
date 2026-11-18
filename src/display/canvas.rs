@@ -134,6 +134,13 @@ pub enum ImageIssue {
 /// its aspect ratio. Fails when the bytes are not a decodable image or the
 /// picture is larger than [`MAX_IMAGE_PIXELS`] (the reason also goes to the log).
 pub fn fit_image(bytes: &[u8], box_w: u32, box_h: u32) -> Result<Pixmap, ImageIssue> {
+    fit_image_as(bytes, box_w, box_h, crate::config::ImageFit::Contain)
+}
+
+/// Decode a picture and scale it to a `box_w`x`box_h` box as `fit` says:
+/// whole inside it, filling it with the edges cut off, or stretched to it.
+pub fn fit_image_as(bytes: &[u8], box_w: u32, box_h: u32, fit: crate::config::ImageFit) -> Result<Pixmap, ImageIssue> {
+    use crate::config::ImageFit;
     if box_w == 0 || box_h == 0 {
         return Err(ImageIssue::Unreadable);
     }
@@ -159,9 +166,23 @@ pub fn fit_image(bytes: &[u8], box_w: u32, box_h: u32) -> Result<Pixmap, ImageIs
     if w == 0 || h == 0 {
         return Err(ImageIssue::Unreadable);
     }
-    let scale = (box_w as f32 / w as f32).min(box_h as f32 / h as f32);
-    let tw = ((w as f32 * scale).round() as u32).clamp(1, box_w);
-    let th = ((h as f32 * scale).round() as u32).clamp(1, box_h);
+    // Cover: cut the middle of the picture to the box's shape first, so the
+    // scaling below fills the box exactly
+    let decoded = if fit == ImageFit::Cover {
+        let s = (box_w as f32 / w as f32).max(box_h as f32 / h as f32);
+        let cw = ((box_w as f32 / s).round() as u32).clamp(1, w);
+        let ch = ((box_h as f32 / s).round() as u32).clamp(1, h);
+        image::imageops::crop_imm(&decoded, (w - cw) / 2, (h - ch) / 2, cw, ch).to_image()
+    } else {
+        decoded
+    };
+    let (w, h) = decoded.dimensions();
+    let (tw, th) = if fit == ImageFit::Contain {
+        let scale = (box_w as f32 / w as f32).min(box_h as f32 / h as f32);
+        (((w as f32 * scale).round() as u32).clamp(1, box_w), ((h as f32 * scale).round() as u32).clamp(1, box_h))
+    } else {
+        (box_w, box_h)
+    };
     let scaled = if (tw, th) == (w, h) {
         decoded
     } else {

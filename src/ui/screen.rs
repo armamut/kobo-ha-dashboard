@@ -1,4 +1,4 @@
-use crate::config::{AppConfig, Card, CardConfig, GridPos, GridSize, PageConfig, SceneItemConfig};
+use crate::config::{AppConfig, Card, CardConfig, GridPos, GridSize, ImageFit, PageConfig, SceneItemConfig};
 use crate::display::canvas::ui_size;
 use crate::display::Canvas;
 use crate::ha::models::EntityState;
@@ -281,7 +281,7 @@ fn grid_min(card: &CardConfig, w: f32) -> (f32, f32) {
             ((scenes.len() as f32 * 116.0 - 16.0).max(120.0), t + 72.0)
         }
         CardConfig::Heading { .. } => (160.0, heading_card::HEADING_H - 12.0),
-        CardConfig::Statistics { .. } => (240.0, 200.0),
+        CardConfig::Statistics { .. } => (240.0, 170.0),
         CardConfig::Image { title, .. } => {
             let t = if title.is_some() { image_card::TITLE_H } else { 0.0 };
             (160.0, t + 120.0)
@@ -389,6 +389,8 @@ pub struct GridLayout {
     pub places: Vec<Option<GridPos>>,
     /// Smallest size of each card, (columns, rows)
     pub mins: Vec<(u8, u8)>,
+    /// The page tabs in the header, split evenly between the pages
+    pub tab_bar: Option<Rect>,
     /// Size each card has when nothing squeezes it, (columns, rows)
     pub naturals: Vec<(u8, u8)>,
     /// Size of a new card of each type, as the editor makes it, and its
@@ -409,7 +411,7 @@ fn new_cards() -> Vec<CardConfig> {
         CardConfig::MediaPlayer { entity_id: e.into(), title: None },
         CardConfig::ScenesRow { title: None, scenes: Vec::new() },
         CardConfig::Scene { entity_id: e.into(), title: String::new(), icon: None },
-        CardConfig::Image { entity_id: e.into(), title: None, frameless: false },
+        CardConfig::Image { entity_id: e.into(), title: None, frameless: false, fit: ImageFit::Contain },
         CardConfig::Heading { title: String::new(), icon: None },
         CardConfig::Statistics {
             entity_id: e.into(),
@@ -428,6 +430,11 @@ fn type_name(card: &CardConfig) -> String {
         .ok()
         .and_then(|v| v.get("type").and_then(|t| t.as_str()).map(str::to_string))
         .unwrap_or_default()
+}
+
+/// Where the header draws the page tabs on a screen `w` wide
+fn tab_bar(w: f32) -> Rect {
+    Rect::new(SIDE_PAD, HEADER_WITH_TABS - 84.0, w - 2.0 * SIDE_PAD, 64.0)
 }
 
 /// The layout editor's view of a grid page on a `w`x`h` screen; `None` for a
@@ -452,7 +459,8 @@ pub fn grid_layout(page: &PageConfig, w: u32, h: u32, with_tabs: bool) -> Option
             (type_name(c), (w, h, mw.min(w), mh.min(h)))
         })
         .collect();
-    Some(GridLayout { screen: (w, h), area, gap: GAP, grid, places, mins, naturals, new_sizes })
+    let tab_bar = with_tabs.then(|| tab_bar(w));
+    Some(GridLayout { screen: (w, h), area, gap: GAP, grid, places, mins, tab_bar, naturals, new_sizes })
 }
 
 /// Where each card of `page` goes on a `cw`x`ch` screen whose header ends at
@@ -629,11 +637,11 @@ impl ScreenRenderer {
 
     /// Decoded picture for one card, scaled to its box, or why it can't be
     /// shown. `None` while it has not been fetched.
-    fn image_pixmap(&mut self, entity_id: &str, area: Rect, scale: f32) -> Option<Result<Arc<tiny_skia::Pixmap>, ImageIssue>> {
+    fn image_pixmap(&mut self, entity_id: &str, area: Rect, fit: ImageFit, scale: f32) -> Option<Result<Arc<tiny_skia::Pixmap>, ImageIssue>> {
         let bytes = self.images.get(entity_id)?.clone();
         let bw = ((area.w * scale).round() as i32).clamp(1, 4096) as u32;
         let bh = ((area.h * scale).round() as i32).clamp(1, 4096) as u32;
-        let key = format!("{}@{}x{}", entity_id, bw, bh);
+        let key = format!("{}@{}x{}:{:?}", entity_id, bw, bh, fit);
         if let Some((cached, pixmap)) = self.image_cache.get(&key) {
             if Arc::ptr_eq(cached, &bytes) {
                 return Some(pixmap.clone());
@@ -641,7 +649,7 @@ impl ScreenRenderer {
         }
         // A failure is cached too: a picture that is too large or broken is not
         // decoded again (and logged again) on every redraw.
-        let pixmap = crate::display::canvas::fit_image(&bytes, bw, bh).map(Arc::new);
+        let pixmap = crate::display::canvas::fit_image_as(&bytes, bw, bh, fit).map(Arc::new);
         self.image_cache.insert(key, (bytes, pixmap.clone()));
         Some(pixmap)
     }
@@ -703,8 +711,8 @@ impl ScreenRenderer {
         let prepared: Vec<Option<Result<Arc<tiny_skia::Pixmap>, ImageIssue>>> = placements
             .iter()
             .map(|(card, rect)| match card {
-                CardConfig::Image { entity_id, title, frameless } => {
-                    self.image_pixmap(entity_id, image_card::picture_box(*rect, title.is_some(), *frameless), scale)
+                CardConfig::Image { entity_id, title, frameless, fit } => {
+                    self.image_pixmap(entity_id, image_card::picture_box(*rect, title.is_some(), *frameless), *fit, scale)
                 }
                 _ => None,
             })
@@ -717,8 +725,7 @@ impl ScreenRenderer {
 
         if let Some(next) = self.sleep_until.clone() {
             let bar = if has_tabs {
-                // Same place and size as the tab row drawn by the header
-                Rect::new(SIDE_PAD, HEADER_WITH_TABS - 84.0, w - 2.0 * SIDE_PAD, 64.0)
+                tab_bar(w)
             } else {
                 Rect::new(SIDE_PAD, h - SLEEP_NOTE_H + 4.0, w - 2.0 * SIDE_PAD, SLEEP_NOTE_H - 28.0)
             };
@@ -851,7 +858,7 @@ impl ScreenRenderer {
                 unit.as_deref(),
                 targets,
             ),
-            CardConfig::Image { entity_id, title, frameless } => {
+            CardConfig::Image { entity_id, title, frameless, .. } => {
                 render_image_card(canvas, theme, rect, entity_id, title.as_deref(), *frameless, image, targets)
             }
         }
@@ -935,7 +942,7 @@ mod tests {
     fn renders_an_image_card_from_fetched_bytes() {
         let mut config = AppConfig::default();
         let page = &mut config.pages[0];
-        page.cards = vec![CardConfig::Image { entity_id: "image.chart".into(), title: Some("Prices".into()), frameless: false }.into()];
+        page.cards = vec![CardConfig::Image { entity_id: "image.chart".into(), title: Some("Prices".into()), frameless: false, fit: ImageFit::Contain }.into()];
 
         // A red PNG, as Home Assistant would serve it from /api/image_proxy
         let mut img = image::RgbaImage::new(400, 200);
