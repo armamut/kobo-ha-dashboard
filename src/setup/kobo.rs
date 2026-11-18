@@ -232,8 +232,9 @@ pub const COMMIT: &str = env!("KOBO_HA_COMMIT");
 
 /// Marker the commit is stored behind in every build, so the setup tool can
 /// read it out of the Kobo program without running it.
-#[used]
-static BUILD_MARKER: &str = concat!("KOBO_HA_BUILD[", env!("KOBO_HA_COMMIT"), "]");
+/// Written to the log at start, which also keeps every linker (MSVC's too)
+/// from dropping it as unused.
+pub static BUILD_MARKER: &str = concat!("KOBO_HA_BUILD[", env!("KOBO_HA_COMMIT"), "]");
 
 /// The commit a Kobo program was built from, `None` for one built before the
 /// marker existed.
@@ -464,7 +465,8 @@ mod tests {
         std::fs::write(&p, b"\x7fELF old build").unwrap();
         assert_eq!(binary_commit(&p), None);
         let _ = std::fs::remove_file(&p);
-        // This test program carries its own marker
+        // This test program carries its own marker, once something uses it
+        assert!(std::hint::black_box(BUILD_MARKER).contains(COMMIT));
         let me = std::env::current_exe().unwrap();
         assert_eq!(binary_commit(&me).as_deref(), Some(COMMIT));
     }

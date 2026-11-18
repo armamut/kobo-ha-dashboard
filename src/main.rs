@@ -196,7 +196,7 @@ async fn run_device(
     ha_client: HaClient,
     once: bool,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    tracing::info!("Starting on Kobo e-reader device");
+    tracing::info!("Starting on Kobo e-reader device, version {} ({})", env!("CARGO_PKG_VERSION"), setup::kobo::BUILD_MARKER);
     spawn_log_trim();
     let probed = display::framebuffer::probe_resolution(&config.device.fb_device);
     let (width, height) = config.device.resolve_dimensions(probed);
