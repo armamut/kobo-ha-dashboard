@@ -127,6 +127,7 @@ pub async fn start_setup_server(
         .route("/api/icon.png", get(icon_png))
         .route("/api/kobo", get(list_kobos))
         .route("/api/kobo/install", post(install_kobo))
+        .route("/api/kobo/eject", post(eject_kobo))
         .route("/api/kobo/import", post(import_kobo))
         .route("/api/kobo/nickelmenu", post(install_nickelmenu))
         .route("/api/fonts/ensure", post(ensure_font))
@@ -667,7 +668,8 @@ async fn icon_png(Query(q): Query<IconQuery>) -> Response {
 }
 
 async fn list_kobos(State(s): State<Shared>) -> Json<serde_json::Value> {
-    Json(serde_json::json!({ "devices": kobo::detect(), "kobo_binary": s.kobo_binary.is_some() }))
+    let stale = s.kobo_binary.as_deref().is_some_and(kobo::binary_is_stale);
+    Json(serde_json::json!({ "devices": kobo::detect(), "kobo_binary": s.kobo_binary.is_some(), "kobo_binary_stale": stale }))
 }
 
 #[derive(Deserialize)]
@@ -803,6 +805,20 @@ async fn upload_picture(State(s): State<Shared>, Query(q): Query<UploadQuery>, b
         }
     };
     Json(serde_json::json!({ "file": name, "width": w, "height": h })).into_response()
+}
+
+#[derive(Deserialize)]
+struct EjectRequest {
+    path: String,
+}
+
+async fn eject_kobo(Json(req): Json<EjectRequest>) -> Response {
+    let path = PathBuf::from(&req.path);
+    let result = tokio::task::spawn_blocking(move || kobo::eject(&path)).await.unwrap_or_else(|e| Err(e.to_string()));
+    match result {
+        Ok(()) => Json(serde_json::json!({ "ok": true })).into_response(),
+        Err(e) => bad_request_key("eject_failed", &e, serde_json::json!({ "error": e })),
+    }
 }
 
 #[derive(Deserialize)]

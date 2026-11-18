@@ -249,7 +249,8 @@ body > .drag-ghost { width: var(--gw, auto) !important; height: var(--gh, auto) 
 .ws-right .cardform { border: 0; margin: 0; padding: 0; }
 .ws-right .subitem { grid-template-columns: 1fr 1fr; }
 .ws-right .subitem > label:first-child { grid-column: 1 / -1; }
-.ws-right .subitem > button { justify-self: end; align-self: end; width: auto; }
+.ws-right .subitem > button, .subitem-tools { justify-self: end; align-self: end; width: auto; }
+.subitem-tools { gap: 4px; flex-wrap: nowrap; }
 .ws-right .cardrow { grid-template-columns: 26px 1fr; padding: 7px 9px; cursor: pointer; margin-bottom: 6px; }
 .ws-right .cardrow:hover { border-color: var(--accent); }
 .ws-right .cardrow .ticon { width: 24px; height: 24px; }
@@ -612,6 +613,7 @@ a.btn.primary { color: var(--accent-ink); }
         <label class="field"><span data-i18n="install.menu_name"></span> <input id="menuName" type="text"></label>
       </div>
       <div id="binaryWarn" class="notice err hidden" data-i18n-html="install.binary_missing"></div>
+      <div id="staleWarn" class="notice warn hidden" data-i18n-html="install.binary_stale"></div>
     </div>
 
     <div class="card">
@@ -1745,8 +1747,8 @@ function cardInspector(c, i) {
 function duplicateCard(i) {
   const cards = cfg.pages[page].cards;
   const copy = JSON.parse(JSON.stringify(cards[i]));
-  // The copy takes the first free spot of the same size, if there is one
-  delete copy.pos;
+  // The copy keeps the size: its place is taken, so the server moves it to
+  // the first free spot of that size (below it, if there is room)
   cards.splice(i + 1, 0, copy);
   // Cards after it keep their places: only the indices move
   openCard = i + 1;
@@ -1951,7 +1953,13 @@ function listEditor(c, key, label, opts) {
       el("label", { class: "field" }, T("design.label"), title),
       el("label", { class: "field" }, T("design.icon"), iconSelect(item.icon, (v) => { if (v) item.icon = v; else if (opts.item === "scene") item.icon = "play"; else delete item.icon; sync(); }, opts.item !== "scene", "zap")),
       opts.item === "sensor" ? el("label", { class: "field" }, T("design.unit"), unit) : el("span"),
-      el("button", { class: "btn small icon danger", title: T("design.remove"), onclick: () => { items.splice(j, 1); renderInspector(); sync(); } }, "✕")));
+      // Order: up, down, and out
+      el("div", { class: "row subitem-tools" },
+        el("button", { type: "button", class: "btn small icon", title: T("design.move_up"), "aria-label": T("design.move_up"), disabled: j === 0,
+          onclick: () => { [items[j - 1], items[j]] = [items[j], items[j - 1]]; renderInspector(); sync(); } }, "↑"),
+        el("button", { type: "button", class: "btn small icon", title: T("design.move_down"), "aria-label": T("design.move_down"), disabled: j === items.length - 1,
+          onclick: () => { [items[j + 1], items[j]] = [items[j], items[j + 1]]; renderInspector(); sync(); } }, "↓"),
+        el("button", { type: "button", class: "btn small icon danger", title: T("design.remove"), onclick: () => { items.splice(j, 1); renderInspector(); sync(); } }, "✕"))));
   });
   if (items.length < opts.max) {
     wrap.append(el("div", {}, el("button", { class: "btn small", onclick: () => {
@@ -2310,7 +2318,9 @@ function moveCard(i, to) {
 function pasteCard() {
   if (!clipboard || !cfg.pages[page]) return;
   const c = JSON.parse(clipboard);
-  delete c.pos;
+  // Same size as the copied card; where its place is taken (or off this
+  // page's grid), the server finds it the first free spot of that size
+  delete c.parked;
   cfg.pages[page].cards.push(c);
   openCard = cfg.pages[page].cards.length - 1;
   renderDesign();
@@ -2397,6 +2407,7 @@ async function scanKobos() {
   try {
     const r = await api("/api/kobo");
     $("binaryWarn").classList.toggle("hidden", r.kobo_binary);
+    $("staleWarn").classList.toggle("hidden", !(r.kobo_binary && r.kobo_binary_stale));
     applyDetectedModel(r.devices);
     const list = $("devices");
     if (!r.devices.length) {
@@ -2432,6 +2443,7 @@ async function scanKobos() {
             T("install.model_mismatch", { model: d.model_name, configured: configured ? configured.name : T("connect.model_auto") }),
             el("button", { class: "btn small", onclick: () => { setModel(d.model); scanKobos(); } }, T("install.use_model", { model: d.model_name }))) : null),
         d.has_config ? el("button", { class: "btn", onclick: () => importFrom(d.path) }, T("install.load_config")) : null,
+        el("button", { class: "btn", title: T("install.eject_title"), onclick: () => ejectKobo(d.path) }, T("install.eject")),
         primary);
     }));
   } catch (e) {
@@ -2459,12 +2471,28 @@ async function install(path, withNickelMenu = false, nickelMenuPending = false) 
     }
     $("finishRow")?.remove();
     log.after(el("div", { id: "finishRow", class: "row", style: "margin-top:12px;justify-content:flex-end" },
-      el("button", { class: "btn primary", onclick: quitSetup }, T("install.finish"))));
+      // Installed and saved: nothing left to ask
+      el("button", { class: "btn primary", onclick: () => (dirty ? quitSetup() : finishQuit(false)) }, T("install.finish"))));
     scanKobos();
   } catch (e) {
     lines.push("✕ " + e.message);
     log.textContent = lines.join("\n");
   }
+}
+
+/// Eject the Kobo so it can be unplugged safely
+async function ejectKobo(path) {
+  const log = $("installLog");
+  try {
+    await pushDraft(true);
+    await api("/api/kobo/eject", { method: "POST", body: { path } });
+    log.classList.remove("hidden");
+    log.textContent = T("install.ejected");
+  } catch (e) {
+    log.classList.remove("hidden");
+    log.textContent = "✕ " + e.message;
+  }
+  scanKobos();
 }
 
 async function importFrom(path) {
@@ -2555,9 +2583,6 @@ async function boot() {
   document.addEventListener("click", (ev) => { if (!ev.target.closest(".menu-wrap")) closeMenu(); closeCardMenu(); closeIconPicker(); });
   document.addEventListener("contextmenu", (ev) => {
     if (!ev.target.closest(".grid-stack-item, .shelf-item, .palette-item, .ws-pages .tab")) closeCardMenu();
-    // The design workspace works like an app: no browser menu, except in
-    // fields, where it copies and pastes
-    if (ev.target.closest("#ws") && !ev.target.closest("input, textarea, select, #ctxMenu")) ev.preventDefault();
   });
   window.addEventListener("blur", closeCardMenu);
   $("inspector").addEventListener("scroll", closeIconPicker);

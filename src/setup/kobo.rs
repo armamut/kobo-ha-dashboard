@@ -161,6 +161,74 @@ pub fn install_nickelmenu(root: &Path, package: &[u8], file_name: &str) -> Resul
     Ok(())
 }
 
+/// Eject a Kobo's storage the way the system's own "Eject" does, so it can
+/// be unplugged safely. Only a folder `detect` found is ejected.
+pub fn eject(root: &Path) -> Result<(), String> {
+    if !detect().iter().any(|d| Path::new(&d.path) == root) {
+        return Err(format!("{} is not a connected Kobo", root.display()));
+    }
+    let run = |cmd: &str, args: &[&str]| {
+        std::process::Command::new(cmd)
+            .args(args)
+            .output()
+            .map_err(|e| format!("{}: {}", cmd, e))
+            .and_then(|o| if o.status.success() { Ok(()) } else { Err(String::from_utf8_lossy(&o.stderr).trim().to_string()) })
+    };
+    let path = root.to_string_lossy().to_string();
+    if cfg!(target_os = "macos") {
+        run("diskutil", &["eject", &path])
+    } else if cfg!(target_os = "windows") {
+        // The drive letter, as Explorer's own Eject takes it
+        let drive = path.trim_end_matches(['\\', '/']).to_string();
+        let script = format!("(New-Object -ComObject Shell.Application).Namespace(17).ParseName('{}').InvokeVerb('Eject')", drive.replace('\'', ""));
+        run("powershell", &["-NoProfile", "-Command", &script])?;
+        // The verb returns at once; the drive is gone a moment later
+        for _ in 0..20 {
+            if !root.exists() {
+                return Ok(());
+            }
+            std::thread::sleep(std::time::Duration::from_millis(250));
+        }
+        Err("Windows did not eject the Kobo; use \"Safely remove\" instead".into())
+    } else {
+        run("gio", &["mount", "-e", &path]).or_else(|_| run("umount", &[&path]))
+    }
+}
+
+/// The commit this program was built from (see build.rs)
+pub const COMMIT: &str = env!("KOBO_HA_COMMIT");
+
+/// Marker the commit is stored behind in every build, so the setup tool can
+/// read it out of the Kobo program without running it.
+#[used]
+static BUILD_MARKER: &str = concat!("KOBO_HA_BUILD[", env!("KOBO_HA_COMMIT"), "]");
+
+/// The commit a Kobo program was built from, `None` for one built before the
+/// marker existed.
+pub fn binary_commit(path: &Path) -> Option<String> {
+    let bytes = std::fs::read(path).ok()?;
+    let tag = b"KOBO_HA_BUILD[";
+    // The tag also appears on its own (in this very function): the marker
+    // is the one followed by a commit and "]"
+    bytes.windows(tag.len()).enumerate().filter(|(_, w)| *w == tag).find_map(|(at, _)| {
+        let start = at + tag.len();
+        let rest = &bytes[start..bytes.len().min(start + 41)];
+        let end = rest.iter().position(|&b| b == b']')?;
+        let commit = &rest[..end];
+        (!commit.is_empty() && commit.iter().all(|b| b.is_ascii_alphanumeric())).then(|| String::from_utf8_lossy(commit).into_owned())
+    })
+}
+
+/// Whether the Kobo program was built from other code than this setup tool,
+/// e.g. after `cargo run` rebuilt the setup tool but not the ARM program.
+/// Builds without git information are never called stale.
+pub fn binary_is_stale(path: &Path) -> bool {
+    if COMMIT == "unknown" {
+        return false;
+    }
+    binary_commit(path).as_deref() != Some(COMMIT)
+}
+
 /// Locate the ARM (Kobo) build of the dashboard to copy onto the device.
 pub fn find_kobo_binary(explicit: Option<&Path>) -> Option<PathBuf> {
     if let Some(p) = explicit {
@@ -286,12 +354,23 @@ pub fn install(
         }
     }
 
+    // Pictures go as `.bin`: the Kobo lists every .png or .jpg it finds as
+    // a book, also in this folder. The dashboard reads them by their content.
+    let dir = app.join("pictures");
+    if dir.is_dir() {
+        // Copies from before, under their picture names, out of the library
+        for e in std::fs::read_dir(&dir).map_err(|e| err("Reading pictures folder", e))?.flatten() {
+            if e.path().extension().is_some_and(|x| x != "bin") {
+                let _ = std::fs::remove_file(e.path());
+            }
+        }
+    }
     if !pictures.is_empty() {
-        let dir = app.join("pictures");
         std::fs::create_dir_all(&dir).map_err(|e| err("Creating pictures folder", e))?;
         for p in pictures {
             if let Some(name) = p.file_name() {
-                std::fs::copy(p, dir.join(name)).map_err(|e| err("Copying picture", e))?;
+                let target = dir.join(format!("{}.bin", name.to_string_lossy()));
+                std::fs::copy(p, target).map_err(|e| err("Copying picture", e))?;
             }
         }
         log.push(Msg::new("pictures").arg("n", pictures.len().to_string()));
@@ -344,6 +423,21 @@ mod tests {
     }
 
     #[test]
+    fn the_build_commit_is_read_from_a_program() {
+        let p = std::env::temp_dir().join(format!("kobo-ha-commit-{}", std::process::id()));
+        // Built at run time, so this test program does not carry it whole
+        // Upper-cased at run time, so this test program does not carry it
+        std::fs::write(&p, format!("ELF....{}abc123]....", "kobo_ha_build[".to_uppercase())).unwrap();
+        assert_eq!(binary_commit(&p).as_deref(), Some("abc123"));
+        std::fs::write(&p, b"\x7fELF old build").unwrap();
+        assert_eq!(binary_commit(&p), None);
+        let _ = std::fs::remove_file(&p);
+        // This test program carries its own marker
+        let me = std::env::current_exe().unwrap();
+        assert_eq!(binary_commit(&me).as_deref(), Some(COMMIT));
+    }
+
+    #[test]
     fn install_writes_everything_and_backs_up() {
         let root = std::env::temp_dir().join(format!("kobo-ha-test-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&root);
@@ -359,7 +453,9 @@ mod tests {
         std::fs::write(&picture, "PNG").unwrap();
         let log = install(&root, &AppConfig::default(), "My: Home", &bin, &[], &[picture]).unwrap();
         assert_eq!(log.last().unwrap().key, "done");
-        assert_eq!(std::fs::read_to_string(root.join(".kobo-ha/pictures/chart.png")).unwrap(), "PNG");
+        // Not as a .png: the Kobo would list it as a book
+        assert_eq!(std::fs::read_to_string(root.join(".kobo-ha/pictures/chart.png.bin")).unwrap(), "PNG");
+        assert!(!root.join(".kobo-ha/pictures/chart.png").exists());
         assert_eq!(std::fs::read_to_string(root.join(".kobo-ha/config.yaml.bak")).unwrap(), "old");
         assert!(root.join(".kobo-ha/kobo-ha-dashboard").is_file());
         assert!(root.join(".kobo-ha/wifi.sh").is_file());

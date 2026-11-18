@@ -742,7 +742,9 @@ impl ScreenRenderer {
         }
         let dir = PICTURES_DIR.lock().ok().and_then(|d| d.clone());
         let bytes = dir.and_then(|d| {
-            let path = d.join(safe_file_name(name)?);
+            // On the Kobo the file carries `.bin`, so it is not listed as a book
+            let name = safe_file_name(name)?;
+            let path = [d.join(name), d.join(format!("{}.bin", name))].into_iter().find(|p| p.is_file())?;
             let len = std::fs::metadata(&path).ok()?.len();
             // As large as a picture from Home Assistant may be
             (len <= 10_000_000).then(|| std::fs::read(path).ok()).flatten()

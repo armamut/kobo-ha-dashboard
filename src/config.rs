@@ -329,7 +329,7 @@ pub struct PageConfig {
     /// grid), cards flow into rows by themselves.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub grid: Option<GridSize>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "known_cards")]
     pub cards: Vec<Card>,
     /// Where the page came from, e.g. `lovelace:energie`. An import only
     /// replaces and removes pages with its own mark, so your own pages survive.
@@ -380,6 +380,24 @@ pub struct Card {
     /// Put aside in the editor: kept, but not on the page
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub parked: bool,
+}
+
+/// A page's cards, leaving out those of a type this version does not know
+/// (a config from a newer setup tool), instead of rejecting the whole
+/// config and falling back to the demo pages.
+fn known_cards<'de, D: serde::Deserializer<'de>>(d: D) -> Result<Vec<Card>, D::Error> {
+    let raw = Vec::<serde_json::Value>::deserialize(d)?;
+    let mut out = Vec::with_capacity(raw.len());
+    for v in raw {
+        match serde_json::from_value::<Card>(v.clone()) {
+            Ok(card) => out.push(card),
+            Err(e) if e.to_string().contains("unknown variant") => {
+                tracing::warn!("Card of type {} left out: this version does not know it", v.get("type").unwrap_or(&serde_json::Value::Null));
+            }
+            Err(e) => return Err(serde::de::Error::custom(e)),
+        }
+    }
+    Ok(out)
 }
 
 impl From<CardConfig> for Card {
@@ -849,6 +867,24 @@ impl AppConfig {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_card_of_an_unknown_type_is_left_out_not_the_config() {
+        let yaml = r#"
+pages:
+  - id: home
+    title: Home
+    cards:
+      - { type: light, entity_id: light.a }
+      - { type: hologram, entity_id: light.b }
+      - { type: switch, entity_id: switch.c }
+"#;
+        let config: AppConfig = serde_yaml::from_str(yaml).expect("the config still loads");
+        assert_eq!(config.pages[0].cards.len(), 2);
+        // A known type with a broken field is still an error
+        let broken = "pages:\n  - { id: h, title: H, cards: [{ type: light }] }\n";
+        assert!(serde_yaml::from_str::<AppConfig>(broken).is_err());
+    }
 
     #[test]
     fn libra_2_touch_axes() {
