@@ -1,6 +1,6 @@
 [package]
 name = "kobo-ha-dashboard"
-version = "0.3.20"
+version = "0.3.21"
 edition = "2021"
 description = "Home Assistant dashboard for Kobo e-readers, with a desktop setup tool"
 authors = ["armamut"]
