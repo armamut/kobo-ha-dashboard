@@ -40,6 +40,8 @@ pub struct HaClient {
     stat_requests: Arc<Vec<StatRequest>>,
     /// `image.*` entities shown by image cards
     image_entities: Arc<Vec<String>>,
+    /// Thermostats drawn with a graph, and how many hours back
+    climate_graphs: Arc<Vec<(String, u32)>>,
     /// Their pictures, as fetched from `/api/image_proxy`
     images: Arc<RwLock<HashMap<String, Arc<Vec<u8>>>>>,
     /// When the pictures were last fetched
@@ -86,6 +88,9 @@ pub(crate) struct StatRequest {
 struct Extras {
     forecasts: HashMap<String, Value>,
     history: HashMap<String, Vec<f32>>,
+    /// Thermostat graphs: `[[ms, room, target, 1 heating / 2 cooling / 0], ...]`
+    climate: HashMap<String, Value>,
+    last_climate_fetch: Option<Instant>,
     /// Per entity, a map of chart key -> `[[start_ms, value], ...]`
     stats: HashMap<String, Value>,
     last_history_fetch: Option<Instant>,
@@ -128,6 +133,7 @@ impl HaClient {
             history_entities: Arc::new(Vec::new()),
             stat_requests: Arc::new(Vec::new()),
             image_entities: Arc::new(Vec::new()),
+            climate_graphs: Arc::new(Vec::new()),
             images: Arc::new(RwLock::new(HashMap::new())),
             last_image_fetch: Arc::new(std::sync::Mutex::new(None)),
             image_versions: Arc::new(std::sync::Mutex::new(HashMap::new())),
@@ -153,12 +159,16 @@ impl HaClient {
         let mut history = Vec::new();
         let mut stats = Vec::new();
         let mut images = Vec::new();
+        let mut climate = Vec::new();
         let mut all = Vec::new();
         for card in app.pages.iter().flat_map(|p| p.cards.iter()).map(|c| &c.kind) {
             match card {
                 CardConfig::Weather { entity_id, .. } => weather.push(entity_id.clone()),
                 CardConfig::Sensor { entity_id, show_graph: true, .. } => history.push(entity_id.clone()),
                 CardConfig::Image { entity_id, .. } => images.push(entity_id.clone()),
+                CardConfig::Climate { entity_id, show_graph: true, graph_hours, .. } => {
+                    climate.push((entity_id.clone(), graph_hours.unwrap_or(24).clamp(1, 24 * 14)))
+                }
                 CardConfig::Statistics { entity_id, period, days, hours, stat, .. } => stats.push(StatRequest {
                     entity_id: entity_id.clone(),
                     period: period.clone(),
@@ -199,6 +209,9 @@ impl HaClient {
         client.history_entities = Arc::new(history);
         client.stat_requests = Arc::new(stats);
         client.image_entities = Arc::new(images);
+        climate.sort();
+        climate.dedup();
+        client.climate_graphs = Arc::new(climate);
         client.entity_ids = Arc::new(all);
         client
     }
@@ -244,6 +257,9 @@ impl HaClient {
         }
         if let Some(h) = extras.history.get(&state.entity_id) {
             state.attributes.insert(HISTORY_ATTR.to_string(), serde_json::json!(h));
+        }
+        if let Some(c) = extras.climate.get(&state.entity_id) {
+            state.attributes.insert(crate::ui::widgets::climate_card::CLIMATE_HISTORY_ATTR.to_string(), c.clone());
         }
         if let Some(stats) = extras.stats.get(&state.entity_id) {
             state.attributes.insert(crate::ui::widgets::statistics_card::STATS_ATTR.to_string(), stats.clone());
@@ -362,13 +378,24 @@ impl HaClient {
     /// True when forecasts, history or statistics were fetched (pictures
     /// arrive on their own and ask for their own redraw).
     async fn refresh_extras_inner(&self) -> bool {
-        let (need_forecast, need_history, need_stats) = {
+        let (need_forecast, need_history, need_stats, need_climate) = {
             let ex = self.extras.read().await;
             let stale = |t: Option<Instant>| t.map(|t| t.elapsed() > HISTORY_REFRESH).unwrap_or(true);
-            (stale(ex.last_forecast_fetch), stale(ex.last_history_fetch), stale(ex.last_stats_fetch))
+            (stale(ex.last_forecast_fetch), stale(ex.last_history_fetch), stale(ex.last_stats_fetch), stale(ex.last_climate_fetch))
         };
-
         let mut fetched = false;
+        if need_climate && !self.climate_graphs.is_empty() {
+            fetched = true;
+            match self.fetch_climate_history().await {
+                Ok(c) => {
+                    let mut ex = self.extras.write().await;
+                    ex.climate = c;
+                    ex.last_climate_fetch = Some(Instant::now());
+                }
+                Err(e) => tracing::warn!("Thermostat history fetch failed: {}", e),
+            }
+        }
+
         if need_forecast && !self.weather_entities.is_empty() {
             fetched = true;
             let mut forecasts = HashMap::new();
@@ -641,6 +668,50 @@ impl HaClient {
         Ok(out.into_iter().map(|(entity, charts)| (entity, Value::Object(charts))).collect())
     }
 
+    /// Room temperature, target and heating of the thermostats with a graph,
+    /// from their recorded history with attributes, at most a few hundred
+    /// points each.
+    async fn fetch_climate_history(&self) -> Result<HashMap<String, Value>, Box<dyn std::error::Error + Send + Sync>> {
+        let hours = self.climate_graphs.iter().map(|c| c.1).max().unwrap_or(24);
+        let ids: Vec<&str> = self.climate_graphs.iter().map(|c| c.0.as_str()).collect();
+        let start = chrono::Utc::now() - chrono::Duration::hours(hours as i64);
+        let resp = self
+            .client
+            .get(self.url(&format!("/api/history/period/{}", start.format("%Y-%m-%dT%H:%M:%SZ"))))
+            // Attribute changes (the room temperature) are what the graph shows
+            .query(&[("filter_entity_id", ids.join(",")), ("significant_changes_only", "0".to_string())])
+            .send()
+            .await?;
+        if !resp.status().is_success() {
+            return Err(format!("HTTP {}", resp.status()).into());
+        }
+        let series: Vec<Vec<Value>> = crate::ha::read_json(resp).await?;
+        let mut out = HashMap::new();
+        for points in series {
+            let Some(entity) = points.first().and_then(|p| p.get("entity_id")).and_then(Value::as_str).map(str::to_string) else { continue };
+            let want = self.climate_graphs.iter().find(|c| c.0 == entity).map(|c| c.1).unwrap_or(hours);
+            let from = (chrono::Utc::now() - chrono::Duration::hours(want as i64)).timestamp_millis() as f64;
+            let rows: Vec<[f64; 4]> = points
+                .iter()
+                .filter_map(|p| {
+                    let t = p.get("last_updated").or_else(|| p.get("last_changed"))?.as_str()?;
+                    let t = (chrono::DateTime::parse_from_rfc3339(t).ok()?.timestamp_millis() as f64).max(from);
+                    let a = p.get("attributes")?;
+                    let room = a.get("current_temperature")?.as_f64()?;
+                    let target = a.get("temperature").and_then(Value::as_f64).unwrap_or(f64::NAN);
+                    let action = match a.get("hvac_action").and_then(Value::as_str) {
+                        Some("heating") => 1.0,
+                        Some("cooling") => 2.0,
+                        _ => 0.0,
+                    };
+                    Some([t, room, target, action])
+                })
+                .collect();
+            out.insert(entity, serde_json::json!(thin_steps(&rows, 400)));
+        }
+        Ok(out)
+    }
+
     /// Recorded numeric states of some entities over the longest range they
     /// need (at most a month: the history API returns every change), as
     /// (milliseconds, value), oldest first.
@@ -850,6 +921,25 @@ impl HaClient {
             }
         }
     }
+}
+
+/// At most `max` rows of a step series: the last row of each equal slice
+/// of time stands for it, and a change of heating is never dropped.
+fn thin_steps(rows: &[[f64; 4]], max: usize) -> Vec<[f64; 4]> {
+    if rows.len() <= max {
+        return rows.iter().map(|r| r.map(|v| if v.is_nan() { -999.0 } else { v })).collect();
+    }
+    let (t0, t1) = (rows[0][0], rows[rows.len() - 1][0]);
+    let slice = ((t1 - t0) / max as f64).max(1.0);
+    let mut out: Vec<[f64; 4]> = Vec::new();
+    for r in rows {
+        let r = r.map(|v| if v.is_nan() { -999.0 } else { v });
+        match out.last_mut() {
+            Some(last) if ((r[0] - t0) / slice).floor() == ((last[0] - t0) / slice).floor() && last[3] == r[3] => *last = [last[0], r[1], r[2], r[3]],
+            _ => out.push(r),
+        }
+    }
+    out
 }
 
 /// Start of the period of `kind` that holds `t` (milliseconds), in local

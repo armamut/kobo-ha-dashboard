@@ -235,6 +235,8 @@ design:
   show_graph: "Pokaż wykres z 24 godzin"
   large_value: "Duże wartości (mniejsza ikona)"
   frameless: "Bez ramki (sam obraz)"
+  show_climate_graph: "Pokaż wykres temperatury pokojowej i docelowej"
+  graph_hours: "Godziny wykresu (puste: 24)"
   secondary_entity: "Pozostały czas lub godzina końca (opcjonalnie)"
   progress_max: "Wartość po zakończeniu"
   entities: "Encje"

@@ -235,6 +235,8 @@ design:
   show_graph: "Grafiek van 24 uur tonen"
   large_value: "Grote waarden (kleiner pictogram)"
   frameless: "Zonder kader (alleen de afbeelding)"
+  show_climate_graph: "Grafiek van kamer- en doeltemperatuur tonen"
+  graph_hours: "Uren in de grafiek (leeg: 24)"
   secondary_entity: "Resterende tijd of eindtijd (optioneel)"
   progress_max: "Waarde als het klaar is"
   entities: "Entiteiten"

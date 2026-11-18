@@ -4,7 +4,7 @@ use crate::display::Canvas;
 use crate::ha::models::EntityState;
 use crate::ui::layout::{InteractiveTarget, Rect, UiAction};
 use crate::ui::theme::Theme;
-use crate::ui::widgets::climate_card::CLIMATE_WIDE;
+use crate::ui::widgets::climate_card::{self, CLIMATE_WIDE};
 use crate::ui::widgets::cover_card::COVER_WIDE;
 use crate::ui::widgets::glance_card::{self, glance_height};
 use crate::ui::widgets::header::{read_device_status, HeaderStatus, SIDE_PAD};
@@ -71,6 +71,10 @@ fn heights(card: &CardConfig, w: f32) -> (f32, f32) {
             }
         }
         CardConfig::Switch { .. } => (150.0, 118.0),
+        CardConfig::Climate { show_graph: true, .. } => {
+            let controls = climate_card::graph_controls_h(w);
+            (controls + 200.0, controls + climate_card::GRAPH_MIN_H)
+        }
         CardConfig::Climate { .. } => {
             if w >= CLIMATE_WIDE {
                 (160.0, 136.0)
@@ -287,6 +291,7 @@ fn grid_min(card: &CardConfig, w: f32) -> (f32, f32) {
         CardConfig::Sensor { .. } => (150.0, 80.0),
         CardConfig::Light { .. } | CardConfig::Switch { .. } => (120.0, 80.0),
         CardConfig::Scene { .. } => (120.0, 72.0),
+        CardConfig::Climate { show_graph: true, .. } => (240.0, climate_card::graph_controls_h(w) + climate_card::GRAPH_MIN_H),
         CardConfig::Climate { .. } => (240.0, 136.0),
         CardConfig::Weather { .. } => (220.0, 130.0),
         CardConfig::MediaPlayer { .. } => (200.0, 100.0),
@@ -430,7 +435,7 @@ fn new_cards() -> Vec<CardConfig> {
         CardConfig::Weather { entity_id: e.into(), title: None, forecast_days: 5 },
         CardConfig::Light { entity_id: e.into(), title: None, subtitle: None, icon: None, show_brightness: false },
         CardConfig::Switch { entity_id: e.into(), title: None, subtitle: None, icon: None },
-        CardConfig::Climate { entity_id: e.into(), title: None, step: 0.5 },
+        CardConfig::Climate { entity_id: e.into(), title: None, step: 0.5, show_graph: false, graph_hours: None },
         CardConfig::Sensor { entity_id: e.into(), title: None, unit: None, icon: None, show_graph: false, large_value: false },
         CardConfig::SensorGrid { title: None, sensors: Vec::new(), large_value: false },
         CardConfig::MediaPlayer { entity_id: e.into(), title: None },
@@ -831,9 +836,17 @@ impl ScreenRenderer {
             CardConfig::MediaPlayer { entity_id, title } => {
                 render_media_card(canvas, theme, rect, entity_id, states.get(entity_id), title.as_deref(), targets)
             }
-            CardConfig::Climate { entity_id, title, step } => {
-                render_climate_card(canvas, theme, rect, entity_id, states.get(entity_id), title.as_deref(), *step, targets)
-            }
+            CardConfig::Climate { entity_id, title, step, show_graph, graph_hours } => render_climate_card(
+                canvas,
+                theme,
+                rect,
+                entity_id,
+                states.get(entity_id),
+                title.as_deref(),
+                *step,
+                show_graph.then(|| graph_hours.unwrap_or(24)),
+                targets,
+            ),
             CardConfig::Light { entity_id, title, subtitle, icon, show_brightness } => render_light_card(
                 canvas,
                 theme,
@@ -1328,7 +1341,7 @@ mod tests {
 
         // Smaller than it can be drawn: grown, and kept on the grid
         let climate = Card {
-            kind: CardConfig::Climate { entity_id: "climate.a".into(), title: None, step: 0.5 },
+            kind: CardConfig::Climate { entity_id: "climate.a".into(), title: None, step: 0.5, show_graph: false, graph_hours: None },
             pos: Some(GridPos { x: 5, y: 11, w: 1, h: 1 }),
         };
         let page = grid_page(6, 12, vec![climate]);
@@ -1407,7 +1420,7 @@ mod tests {
         };
         assert_eq!(min_cells(&sensor, grid, area, 1), (1, 1));
         assert_eq!(min_cells(&switch("switch.a", None).kind, grid, area, 1), (1, 1));
-        let climate = CardConfig::Climate { entity_id: "climate.a".into(), title: None, step: 0.5 };
+        let climate = CardConfig::Climate { entity_id: "climate.a".into(), title: None, step: 0.5, show_graph: false, graph_hours: None };
         let (w, h) = min_cells(&climate, grid, area, 1);
         assert!(w >= 2 && h >= 2, "{}x{}", w, h);
     }
@@ -1454,6 +1467,7 @@ mod tests {
 - {type: statistics, entity_id: sensor.energy_today, title: Energy, period: day, days: 14, stat: change, chart: line}
 - {type: progress, entity_id: sensor.print_progress, title: Print, icon: printer, secondary_entity: sensor.print_end}
 - {type: cover, entity_id: cover.living_room, title: Living room blinds}
+- {type: climate, entity_id: climate.living_room, title: Living room, show_graph: true}
 - type: glance
   title: House
   entities:
@@ -1484,6 +1498,18 @@ mod tests {
         let config = AppConfig::default();
         let mut renderer = ScreenRenderer::new(&config);
         let mut states = crate::ha::mock::generate_mock_states();
+        let now = chrono::Utc::now().timestamp_millis() as f64;
+        let rows: Vec<[f64; 4]> = (0..96)
+            .map(|i| {
+                let t = now - (96 - i) as f64 * 900_000.0;
+                let target = if i < 30 { 25.0 } else { 26.0 };
+                let room = target - 0.8 + ((i as f64) * 0.7).sin() * 1.2;
+                [t, (room * 10.0f64).round() / 10.0, target, if room < target { 1.0 } else { 0.0 }]
+            })
+            .collect();
+        if let Some(c) = states.get_mut("climate.living_room") {
+            c.attributes.insert(crate::ui::widgets::climate_card::CLIMATE_HISTORY_ATTR.into(), serde_json::json!(rows));
+        }
         let mut add = |id: &str, state: &str, attrs: serde_json::Value| {
             let attributes = attrs.as_object().unwrap().iter().map(|(k, v)| (k.clone(), v.clone())).collect();
             states.insert(id.into(), EntityState { entity_id: id.into(), state: state.into(), attributes, last_changed: None, last_updated: None });

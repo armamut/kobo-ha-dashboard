@@ -235,6 +235,8 @@ design:
   show_graph: "Mostra grafico 24 ore"
   large_value: "Valori grandi (icona più piccola)"
   frameless: "Senza cornice (solo l'immagine)"
+  show_climate_graph: "Mostra un grafico di temperatura ambiente e obiettivo"
+  graph_hours: "Ore del grafico (24 se vuoto)"
   secondary_entity: "Tempo rimanente o ora di fine (facoltativo)"
   progress_max: "Valore a fine"
   entities: "Entità"

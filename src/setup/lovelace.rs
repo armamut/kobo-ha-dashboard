@@ -277,7 +277,7 @@ fn flatten(cards: &[Value], out: &mut Vec<CardConfig>, skipped: &mut BTreeMap<St
                     skip(skipped, kind);
                     continue;
                 };
-                out.push(CardConfig::Climate { entity_id: entity.to_string(), title: name_of(card).map(str::to_string), step: 0.5 });
+                out.push(CardConfig::Climate { entity_id: entity.to_string(), title: name_of(card).map(str::to_string), step: 0.5, show_graph: false, graph_hours: None });
             }
             "media-control" => {
                 let Some(entity) = card.get("entity").and_then(Value::as_str) else {
@@ -367,7 +367,7 @@ fn entity_card(
             Some(CardConfig::Switch { entity_id, title, subtitle: None, icon })
         }
         "fan" => Some(CardConfig::Switch { entity_id, title, subtitle: None, icon: icon.or_else(|| Some("fan".to_string())) }),
-        "climate" => Some(CardConfig::Climate { entity_id, title, step: 0.5 }),
+        "climate" => Some(CardConfig::Climate { entity_id, title, step: 0.5, show_graph: false, graph_hours: None }),
         "media_player" => Some(CardConfig::MediaPlayer { entity_id, title }),
         "weather" => Some(CardConfig::Weather { entity_id, title, forecast_days: 5 }),
         "scene" => Some(CardConfig::Scene {

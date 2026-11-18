@@ -235,6 +235,8 @@ design:
   show_graph: "24 時間のグラフを表示"
   large_value: "値を大きく表示（アイコンは小さく）"
   frameless: "枠なし（画像のみ）"
+  show_climate_graph: "室温と目標温度のグラフを表示"
+  graph_hours: "グラフの時間（空欄なら 24）"
   secondary_entity: "残り時間または終了時刻（任意）"
   progress_max: "完了時の値"
   entities: "エンティティ"

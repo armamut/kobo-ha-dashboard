@@ -343,6 +343,7 @@ fn entity_set(c: &AppConfig) -> Vec<String> {
                 Some(format!("{}#{}:{}:{:?}:{}", entity_id, period, days, hours, stat))
             }
             CardConfig::Image { entity_id, .. } => Some(entity_id.clone()),
+            CardConfig::Climate { entity_id, show_graph: true, graph_hours, .. } => Some(format!("{}#graph{:?}", entity_id, graph_hours)),
             _ => None,
         })
         .collect()

@@ -235,6 +235,8 @@ design:
   show_graph: "24-Stunden-Diagramm anzeigen"
   large_value: "Große Werte (kleineres Symbol)"
   frameless: "Rahmenlos (nur das Bild)"
+  show_climate_graph: "Verlauf von Raum- und Zieltemperatur zeigen"
+  graph_hours: "Stunden im Verlauf (leer: 24)"
   secondary_entity: "Restzeit oder Endzeit (optional)"
   progress_max: "Wert bei fertig"
   entities: "Entitäten"

@@ -698,7 +698,8 @@ const CARD_TYPES = {
     fields: [["entity_id"], ["title"], ["subtitle"], ["icon"], ["show_brightness", "bool", "design.show_brightness"]] },
   switch: { icon: "power", domains: TOGGLE_DOMAINS, fields: [["entity_id"], ["title"], ["subtitle"], ["icon"]] },
   climate: { icon: "thermometer", domains: ["climate"], defaults: { step: 0.5 },
-    fields: [["entity_id"], ["title"], ["step", "number", "design.step", { min: 0.1, max: 5, step: 0.1 }]] },
+    fields: [["entity_id"], ["title"], ["step", "number", "design.step", { min: 0.1, max: 5, step: 0.1 }],
+      ["show_graph", "bool", "design.show_climate_graph"], ["graph_hours", "number", "design.graph_hours", { min: 1, max: 336 }]] },
   sensor: { icon: "zap", domains: SENSOR_DOMAINS, defaults: { show_graph: false },
     fields: [["entity_id"], ["title"], ["unit", "text", "design.unit_optional"], ["icon"], ["show_graph", "bool", "design.show_graph"], ["large_value", "bool", "design.large_value"]] },
   sensor_grid: { icon: "layers", defaults: { sensors: [] },
@@ -837,7 +838,9 @@ let pictureTimers = [];
 function watchPictures() {
   pictureTimers.forEach(clearTimeout);
   const p = cfg.pages[page];
-  if (!p || !p.cards.some((c) => c.type === "image" && c.entity_id)) return;
+  // Pictures and the data of graphs arrive after the edit that asked for them
+  const later = (c) => (c.type === "image" && c.entity_id) || (c.type === "climate" && c.show_graph) || c.type === "statistics";
+  if (!p || !p.cards.some(later)) return;
   pictureTimers = [2500, 7000, 15000].map((ms) => setTimeout(refreshPreview, ms));
 }
 

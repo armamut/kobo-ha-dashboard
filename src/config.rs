@@ -438,6 +438,12 @@ pub enum CardConfig {
         title: Option<String>,
         #[serde(default = "default_temp_step")]
         step: f32,
+        /// A graph below the controls: room temperature, target and when it heated
+        #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+        show_graph: bool,
+        /// How far back the graph goes; 24 hours when not given
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        graph_hours: Option<u32>,
     },
     #[serde(rename = "sensor")]
     Sensor {
@@ -719,6 +725,8 @@ pub fn default_demo_pages() -> Vec<PageConfig> {
                     entity_id: "climate.living_room".to_string(),
                     title: Some("Living room".to_string()),
                     step: 0.5,
+                    show_graph: false,
+                    graph_hours: None,
                 },
                 CardConfig::SensorGrid {
                     title: Some("Climate".to_string()),
@@ -767,11 +775,15 @@ pub fn default_demo_pages() -> Vec<PageConfig> {
                     entity_id: "climate.lounge".to_string(),
                     title: Some("Living room".to_string()),
                     step: 0.5,
+                    show_graph: false,
+                    graph_hours: None,
                 },
                 CardConfig::Climate {
                     entity_id: "climate.bedroom".to_string(),
                     title: Some("Bedroom".to_string()),
                     step: 0.5,
+                    show_graph: false,
+                    graph_hours: None,
                 },
                 CardConfig::Sensor {
                     entity_id: "sensor.energy_today".to_string(),

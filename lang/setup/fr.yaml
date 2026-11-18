@@ -235,6 +235,8 @@ design:
   show_graph: "Afficher le graphique sur 24 h"
   large_value: "Grandes valeurs (icône plus petite)"
   frameless: "Sans cadre (l'image seule)"
+  show_climate_graph: "Afficher un graphique des températures ambiante et cible"
+  graph_hours: "Heures du graphique (24 si vide)"
   secondary_entity: "Temps restant ou heure de fin (facultatif)"
   progress_max: "Valeur une fois terminé"
   entities: "Entités"

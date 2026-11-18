@@ -287,7 +287,7 @@ fn card_for(e: &EntityInfo) -> Option<CardConfig> {
             subtitle,
             icon: if e.domain == "fan" { Some("fan".into()) } else { None },
         },
-        "climate" => CardConfig::Climate { entity_id: e.entity_id.clone(), title, step: 0.5 },
+        "climate" => CardConfig::Climate { entity_id: e.entity_id.clone(), title, step: 0.5, show_graph: false, graph_hours: None },
         "media_player" => CardConfig::MediaPlayer { entity_id: e.entity_id.clone(), title },
         _ => return None,
     })

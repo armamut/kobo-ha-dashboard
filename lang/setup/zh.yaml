@@ -235,6 +235,8 @@ design:
   show_graph: "显示 24 小时图表"
   large_value: "大号数值（较小图标）"
   frameless: "无边框（仅图片）"
+  show_climate_graph: "显示室温和目标温度图表"
+  graph_hours: "图表时长（小时，留空为 24）"
   secondary_entity: "剩余时间或结束时间（可选）"
   progress_max: "完成时的值"
   entities: "实体"

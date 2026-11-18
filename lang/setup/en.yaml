@@ -239,6 +239,8 @@ design:
   show_graph: "Show 24-hour graph"
   large_value: "Large values (smaller icon)"
   frameless: "Frameless (just the picture)"
+  show_climate_graph: "Show a graph of room and target temperature"
+  graph_hours: "Graph hours (24 when empty)"
   secondary_entity: "Time left or end time (optional)"
   progress_max: "Value when done"
   entities: "Entities"
