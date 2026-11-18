@@ -4,7 +4,7 @@ use crate::ha::client::HISTORY_ATTR;
 use crate::ha::models::EntityState;
 use crate::ui::layout::{InteractiveTarget, Rect, UiAction};
 use crate::ui::theme::{Theme, Tone};
-use crate::ui::widgets::{draw_card, draw_icon_badge, draw_value_unit, format_entity_state, type_scale, PAD};
+use crate::ui::widgets::{draw_card, draw_icon_badge, draw_value_unit, format_entity_state, type_scale, value_unit_width, PAD};
 use std::collections::HashMap;
 
 pub const TILE_H: f32 = 132.0;
@@ -47,9 +47,20 @@ fn fit_value_size(canvas: &Canvas, value: &str, unit: &str, max: f32, max_w: f32
 pub fn sensor_grid_columns(width: f32, count: usize) -> usize {
     if width >= 900.0 {
         count.clamp(1, 4)
-    } else {
+    } else if width >= 360.0 {
         count.clamp(1, 2)
+    } else {
+        1
     }
+}
+
+/// Shortest tile: a small icon and the title above the value
+pub const COMPACT_TILE_H: f32 = 84.0;
+
+/// Smallest height of a sensor grid at `width`, with compact tiles.
+pub fn sensor_grid_min_height(width: f32, count: usize, has_title: bool) -> f32 {
+    let rows = count.div_ceil(sensor_grid_columns(width, count)).max(1);
+    2.0 * PAD + if has_title { SECTION_TITLE_H } else { 0.0 } + rows as f32 * COMPACT_TILE_H + (rows - 1) as f32 * TILE_GAP
 }
 
 pub fn sensor_grid_height(width: f32, count: usize, has_title: bool) -> f32 {
@@ -85,38 +96,116 @@ pub fn render_sensor_card(
 
     draw_card(canvas, theme, rect, None);
 
-    let badge = if large_value { 40.0 } else { 60.0 };
-    let bx = rect.x + PAD;
-    let by = rect.y + PAD;
-    draw_icon_badge(canvas, theme, bx, by, badge, icon, tone, true);
-    let tx = bx + badge + 16.0;
-    canvas.draw_text_fit(
-        &title,
-        tx,
-        by + badge / 2.0 - 13.0,
-        type_scale::BODY,
-        true,
-        theme.text_muted,
-        TextAlign::Left,
-        rect.x + rect.w - PAD - tx,
-    );
+    if rect.h < ROW_CARD_H {
+        render_sensor_row(canvas, theme, rect, &title, &value, &unit, icon, tone);
+    } else if rect.h < TILE_CARD_H {
+        draw_compact_tile(canvas, theme, rect, 18.0, icon, tone, &title, &value, &unit, if large_value { 60.0 } else { 52.0 });
+    } else {
+        let badge = if large_value || rect.w < 240.0 { 44.0 } else { 60.0 };
+        let bx = rect.x + PAD;
+        let by = rect.y + PAD;
+        draw_icon_badge(canvas, theme, bx, by, badge, icon, tone, true);
+        let tx = bx + badge + 16.0;
+        canvas.draw_text_fit(
+            &title,
+            tx,
+            by + badge / 2.0 - 13.0,
+            type_scale::BODY,
+            true,
+            theme.text_muted,
+            TextAlign::Left,
+            rect.x + rect.w - PAD - tx,
+        );
 
-    let values = history(state);
-    let graph = show_graph && values.len() >= 2;
-    let value_size = if large_value { fit_value_size(canvas, &value, &unit, 84.0, rect.w - 2.0 * PAD) } else { 56.0 };
-    let value_y = if graph { by + badge + 12.0 } else { rect.y + rect.h - PAD - value_size };
-    draw_value_unit(canvas, theme, bx, value_y, &value, &unit, value_size, rect.w - 2.0 * PAD);
+        // The graph needs some height; on a short card the value is enough.
+        let values = history(state);
+        let graph_room = |size: f32| rect.y + rect.h - PAD - (by + badge + 12.0 + size + 12.0);
+        let graph = show_graph && values.len() >= 2 && graph_room(56.0) >= 40.0;
+        // A tall card without a graph shows a larger value.
+        let max_size = if large_value || (!graph && rect.h >= 220.0) { type_scale::HERO } else { 56.0 };
+        let value_size = fit_value_size(canvas, &value, &unit, max_size, rect.w - 2.0 * PAD);
+        let value_y = if graph { by + badge + 12.0 } else { rect.y + rect.h - PAD - value_size };
+        draw_value_unit(canvas, theme, bx, value_y, &value, &unit, value_size, rect.w - 2.0 * PAD);
 
-    if graph {
-        let gy = value_y + value_size + 12.0;
-        let gh = (rect.y + rect.h - PAD - gy).max(24.0);
-        canvas.draw_sparkline(bx, gy, rect.w - 2.0 * PAD, gh, &values, tone.solid, 3.0, Some(tone.tint));
+        if graph {
+            let gy = value_y + value_size + 12.0;
+            let gh = (rect.y + rect.h - PAD - gy).max(24.0);
+            canvas.draw_sparkline(bx, gy, rect.w - 2.0 * PAD, gh, &values, tone.solid, 3.0, Some(tone.tint));
+        }
     }
 
     targets.push(InteractiveTarget {
         rect,
         action: UiAction::Refresh,
     });
+}
+
+/// Cards shorter than this show the compact tile: a small icon and the title
+/// above the value.
+pub const TILE_CARD_H: f32 = 140.0;
+/// Cards shorter than this show a single row: icon, title, value.
+pub const ROW_CARD_H: f32 = 96.0;
+
+/// A small icon beside the title, the value below: a short card, or a tile of
+/// a sensor grid with little room.
+#[allow(clippy::too_many_arguments)]
+fn draw_compact_tile(
+    canvas: &mut Canvas,
+    theme: &Theme,
+    cell: Rect,
+    ip: f32,
+    icon: &str,
+    tone: Tone,
+    title: &str,
+    value: &str,
+    unit: &str,
+    max_value: f32,
+) {
+    let icon_size = 26.0;
+    canvas.draw_icon(icon, cell.x + ip, cell.y + ip, icon_size, tone.solid, 2.2);
+    canvas.draw_text_fit(
+        title,
+        cell.x + ip + icon_size + 8.0,
+        cell.y + ip + 1.0,
+        type_scale::LABEL,
+        false,
+        theme.text_muted,
+        TextAlign::Left,
+        cell.w - 2.0 * ip - icon_size - 8.0,
+    );
+    let room = cell.h - 2.0 * ip - icon_size - 4.0;
+    let mut size = max_value.min(room).max(24.0);
+    while size > 24.0 && value_unit_width(canvas, value, unit, size) > cell.w - 2.0 * ip {
+        size -= 2.0;
+    }
+    draw_value_unit(canvas, theme, cell.x + ip, cell.y + cell.h - ip - size, value, unit, size, cell.w - 2.0 * ip);
+}
+
+/// One row: icon, title and the value on the right. The title goes first
+/// when room runs out, then the icon; the value always stays.
+#[allow(clippy::too_many_arguments)]
+fn render_sensor_row(canvas: &mut Canvas, theme: &Theme, rect: Rect, title: &str, value: &str, unit: &str, icon: &str, tone: Tone) {
+    let pad = 18.0;
+    let cy = rect.y + rect.h / 2.0;
+    let inner = rect.w - 2.0 * pad;
+    let badge = (rect.h - 24.0).clamp(28.0, 48.0);
+    let mut size = type_scale::VALUE.min(rect.h - 28.0).max(24.0);
+    while size > 24.0 && value_unit_width(canvas, value, unit, size) > inner {
+        size -= 2.0;
+    }
+    let vw = value_unit_width(canvas, value, unit, size).min(inner);
+    let with_badge = badge + 12.0 + vw <= inner;
+    let vx = rect.x + rect.w - pad - vw;
+    draw_value_unit(canvas, theme, vx, cy - size * 0.5, value, unit, size, vw);
+    if with_badge {
+        let bx = rect.x + pad;
+        draw_icon_badge(canvas, theme, bx, cy - badge / 2.0, badge, icon, tone, true);
+        let tx = bx + badge + 12.0;
+        let tw = vx - 12.0 - tx;
+        if tw >= 48.0 {
+            canvas.draw_text_fit(title, tx, cy - 12.0, type_scale::LABEL, true, theme.text_muted, TextAlign::Left, tw);
+        }
+    }
 }
 
 pub fn render_sensor_grid(
@@ -157,6 +246,20 @@ pub fn render_sensor_grid(
         let low_battery = icon == "battery"
             && state.and_then(|s| s.state.parse::<f32>().ok()).map(|v| v < 20.0).unwrap_or(false);
         let tone = if low_battery { theme.heat } else { tone_for_icon(theme, icon) };
+        let value = state.map(format_entity_state).unwrap_or_else(|| "--".to_string());
+        let unit = item
+            .unit
+            .clone()
+            .or_else(|| state.and_then(|s| s.unit_of_measurement()))
+            .unwrap_or_default();
+
+        // A short or narrow tile: a small icon beside the title, no badge
+        if tile_h < 112.0 || col_w < 170.0 {
+            let max = if large_value { 60.0 } else { type_scale::VALUE };
+            draw_compact_tile(canvas, theme, cell, 12.0, icon, tone, &item.title, &value, &unit, max);
+            continue;
+        }
+
         let ip = 16.0;
         let badge = if large_value { 36.0 } else { 48.0 };
         draw_icon_badge(canvas, theme, cell.x + ip, cell.y + ip, badge, icon, tone, true);
@@ -171,12 +274,6 @@ pub fn render_sensor_grid(
             cell.w - 2.0 * ip - badge - 12.0,
         );
 
-        let value = state.map(format_entity_state).unwrap_or_else(|| "--".to_string());
-        let unit = item
-            .unit
-            .clone()
-            .or_else(|| state.and_then(|s| s.unit_of_measurement()))
-            .unwrap_or_default();
         let value_size = if large_value {
             fit_value_size(canvas, &value, &unit, 60.0, cell.w - 2.0 * ip)
         } else {

@@ -92,6 +92,21 @@ pub fn render_climate_card(
         canvas.draw_text_fit(&title, tx, cy - 36.0, type_scale::TITLE, true, theme.text, TextAlign::Left, tw);
         canvas.draw_text_fit(&subtitle, tx, cy + 4.0, type_scale::LABEL, false, theme.text_muted, TextAlign::Left, tw);
         (minus, plus)
+    } else if rect.h < COMPACT_BELOW {
+        // Short: a small icon and the title, then temperature + buttons. The
+        // tint already says whether it is heating.
+        let p = 18.0;
+        let icon_size = 28.0;
+        canvas.draw_icon(icon, rect.x + p, rect.y + p, icon_size, tone.solid, 2.2);
+        let tx = rect.x + p + icon_size + 10.0;
+        canvas.draw_text_fit(&title, tx, rect.y + p + 1.0, type_scale::BODY, true, theme.text, TextAlign::Left, rect.x + rect.w - p - tx);
+
+        let btn = (rect.h - 2.0 * p - icon_size - 12.0).min(rect.w * 0.2).clamp(40.0, 64.0);
+        let row_y = rect.y + rect.h - p - btn;
+        let plus = Rect::new(rect.x + rect.w - p - btn, row_y, btn, btn);
+        let minus = Rect::new(plus.x - 10.0 - btn, row_y, btn, btn);
+        draw_temperature(canvas, theme, rect.x + p, row_y + btn / 2.0, &temp_str, minus.x - 8.0 - (rect.x + p));
+        (minus, plus)
     } else {
         // Two rows: header, then temperature + buttons
         draw_icon_badge(canvas, theme, bx, by, badge, icon, tone, active);
@@ -108,10 +123,8 @@ pub fn render_climate_card(
         let minus = Rect::new(plus.x - 10.0 - btn, row_y, btn, btn);
 
         // The temperature is the point of the card: shrink it until it fits.
-        let temp_size = temp_font_size(canvas, &temp_str, avail);
-        let temp_y = row_y + btn / 2.0 - temp_size * 0.5;
-        let w = canvas.draw_text_fit(&temp_str, bx, temp_y, temp_size, true, theme.text, TextAlign::Left, avail);
-        canvas.draw_text("°C", bx + w + 4.0, temp_y + 6.0, 26.0, false, theme.text_muted, TextAlign::Left);
+        let unit_w = canvas.measure_text("°C", 26.0, false).0;
+        draw_temperature(canvas, theme, bx, row_y + btn / 2.0, &temp_str, avail + 12.0 + unit_w);
         (minus, plus)
     };
 
@@ -127,6 +140,24 @@ pub fn render_climate_card(
         rect: plus_rect.inset(-10.0),
         action: UiAction::SetClimateTemp(entity_id.to_string(), step),
     });
+}
+
+/// Cards shorter than this (and narrower than `CLIMATE_WIDE`) drop the badge
+/// and the subtitle.
+const COMPACT_BELOW: f32 = 190.0;
+
+/// The temperature and its unit in `room` px, centred on `cy`. On a very
+/// narrow card the unit goes first, so the number is never cut off.
+fn draw_temperature(canvas: &mut Canvas, theme: &Theme, x: f32, cy: f32, temp: &str, room: f32) {
+    let unit_w = canvas.measure_text("°C", 26.0, false).0;
+    let with_unit = canvas.measure_text(temp, 40.0, true).0 <= room - 12.0 - unit_w;
+    let avail = if with_unit { room - 12.0 - unit_w } else { room };
+    let size = temp_font_size(canvas, temp, avail);
+    let y = cy - size * 0.5;
+    let w = canvas.draw_text_fit(temp, x, y, size, true, theme.text, TextAlign::Left, avail);
+    if with_unit {
+        canvas.draw_text("°C", x + w + 4.0, y + 6.0, 26.0, false, theme.text_muted, TextAlign::Left);
+    }
 }
 
 /// The size the temperature is drawn at: the largest that fits next to the unit

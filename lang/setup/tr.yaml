@@ -134,7 +134,7 @@ report:
 
 layout:
   title: "Yerleşim"
-  hint: "Bir kartı taşımak için sürükleyin, boyutunu değiştirmek için kenarını ya da köşesini sürükleyin; diğer kartlar yer açar. Düzenlemek için karta tıklayın. Seçili kartı ok tuşlarıyla taşıyabilir, Shift + ok tuşlarıyla boyutlandırabilirsiniz."
+  hint: "Bir kartı taşımak için sürükleyin, boyutunu değiştirmek için kenarını ya da köşesini sürükleyin; diğer kartlar yer açar. Düzenlemek için karta tıklayın. Seçili kartı ok tuşlarıyla taşıyabilir, Shift + ok tuşlarıyla boyutlandırabilirsiniz. Kart küçüldükçe daha az şey gösterir: bir sensör simgesine ve değerine iner."
   grid: "Izgara"
   columns: "Sütun"
   rows: "Satır"

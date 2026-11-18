@@ -134,7 +134,7 @@ report:
 
 layout:
   title: "Disposição"
-  hint: "Arraste um cartão para movê-lo, ou a borda ou o canto para redimensioná-lo; os outros cartões abrem espaço. Clique num cartão para editá-lo. As setas movem o cartão selecionado e Shift + setas o redimensionam."
+  hint: "Arraste um cartão para movê-lo, ou a borda ou o canto para redimensioná-lo; os outros cartões abrem espaço. Clique num cartão para editá-lo. As setas movem o cartão selecionado e Shift + setas o redimensionam. Um cartão menor mostra menos: um sensor reduz-se ao ícone e ao valor."
   grid: "Grade"
   columns: "Colunas"
   rows: "Linhas"

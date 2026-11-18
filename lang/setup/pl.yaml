@@ -134,7 +134,7 @@ report:
 
 layout:
   title: "Układ"
-  hint: "Przeciągnij kartę, aby ją przesunąć, albo jej krawędź lub róg, aby zmienić rozmiar; pozostałe karty zrobią miejsce. Kliknij kartę, aby ją edytować. Strzałki przesuwają zaznaczoną kartę, Shift + strzałki zmieniają jej rozmiar."
+  hint: "Przeciągnij kartę, aby ją przesunąć, albo jej krawędź lub róg, aby zmienić rozmiar; pozostałe karty zrobią miejsce. Kliknij kartę, aby ją edytować. Strzałki przesuwają zaznaczoną kartę, Shift + strzałki zmieniają jej rozmiar. Mniejsza karta pokazuje mniej: czujnik zmniejsza się do ikony i wartości."
   grid: "Siatka"
   columns: "Kolumny"
   rows: "Wiersze"

@@ -7,7 +7,7 @@ use crate::ui::theme::Theme;
 use crate::ui::widgets::climate_card::CLIMATE_WIDE;
 use crate::ui::widgets::header::{read_device_status, HeaderStatus, SIDE_PAD};
 use crate::ui::widgets::scene_card::SCENES_TITLE_H;
-use crate::ui::widgets::sensor_card::{sensor_grid_columns, sensor_grid_height, TILE_GAP};
+use crate::ui::widgets::sensor_card::{sensor_grid_columns, sensor_grid_height, sensor_grid_min_height, TILE_GAP};
 use crate::ui::widgets::*;
 use chrono::{DateTime, Utc};
 use std::collections::HashMap;
@@ -263,16 +263,29 @@ fn cells_for(len: f32, pitch: f32, max: u8) -> u8 {
     (((len + GAP - SHORT_BY) / pitch).ceil().max(1.0) as u8).min(max.max(1))
 }
 
-/// Narrowest a card can be drawn: about the half-width cards of the smallest
-/// screens, and a little under the landscape weather column for the wide
-/// cards (that column comes out narrower once it is snapped to cells).
-fn min_width(card: &CardConfig) -> f32 {
+/// Smallest (width, height) of a card on a grid page, at width `w`. Below the
+/// sizes the flowing layout uses, every card has a compact form: a sensor
+/// becomes a row with its icon and value, the weather card leaves out the
+/// forecast, the media card the skip buttons, and so on.
+fn grid_min(card: &CardConfig, w: f32) -> (f32, f32) {
     match card {
-        CardConfig::Heading { .. } | CardConfig::Scene { .. } => 160.0,
-        _ => match span_of(card) {
-            Span::Full => LANDSCAPE_LEFT_W - 40.0,
-            Span::Half => 240.0,
-        },
+        CardConfig::Sensor { .. } => (150.0, 80.0),
+        CardConfig::Light { .. } | CardConfig::Switch { .. } => (120.0, 80.0),
+        CardConfig::Scene { .. } => (120.0, 72.0),
+        CardConfig::Climate { .. } => (240.0, 136.0),
+        CardConfig::Weather { .. } => (220.0, 130.0),
+        CardConfig::MediaPlayer { .. } => (200.0, 100.0),
+        CardConfig::SensorGrid { title, sensors, .. } => (150.0, sensor_grid_min_height(w, sensors.len(), title.is_some())),
+        CardConfig::ScenesRow { title, scenes } => {
+            let t = if title.is_some() { SCENES_TITLE_H } else { 0.0 };
+            ((scenes.len() as f32 * 116.0 - 16.0).max(120.0), t + 72.0)
+        }
+        CardConfig::Heading { .. } => (160.0, heading_card::HEADING_H - 12.0),
+        CardConfig::Statistics { .. } => (240.0, 200.0),
+        CardConfig::Image { title, .. } => {
+            let t = if title.is_some() { image_card::TITLE_H } else { 0.0 };
+            (160.0, t + 120.0)
+        }
     }
 }
 
@@ -282,9 +295,9 @@ pub fn min_cells(card: &CardConfig, grid: GridSize, area: Rect, w: u8) -> (u8, u
     let grid = grid.clamped();
     let pitch_x = (area.w + GAP) / grid.columns as f32;
     let pitch_y = (area.h + GAP) / grid.rows as f32;
-    let min_w = cells_for(min_width(card), pitch_x, grid.columns);
+    let min_w = cells_for(grid_min(card, 0.0).0, pitch_x, grid.columns);
     let width = cell_rect(area, grid, GridPos { x: 0, y: 0, w: w.max(min_w).min(grid.columns), h: 1 }).w;
-    (min_w, cells_for(heights(card, width).1, pitch_y, grid.rows))
+    (min_w, cells_for(grid_min(card, width).1, pitch_y, grid.rows))
 }
 
 /// Where each card of a grid page goes, in cells. A card keeps its own place,
@@ -1009,7 +1022,12 @@ mod tests {
             let (w, h) = if landscape { (1448, 1072) } else { (1072, 1448) };
             let mut canvas = Canvas::new(w, h);
             let mut renderer = ScreenRenderer::new(&config);
-            let states = crate::ha::mock::generate_mock_states();
+            let mut states = crate::ha::mock::generate_mock_states();
+        let bars: Vec<(f64, f64)> = (0..14).map(|i| (1.7e12 + i as f64 * 86.4e6, 3.0 + (i * 7 % 5) as f64)).collect();
+        states.get_mut("sensor.energy_today").unwrap().attributes.insert(
+            crate::ui::widgets::statistics_card::STATS_ATTR.into(),
+            serde_json::json!({ crate::ui::widgets::statistics_card::stat_key("day", 14, "change"): bars }),
+        );
             for page in 0..config.pages.len() {
                 renderer.render(&mut canvas, &config, page, &states, false);
                 let rects: Vec<Rect> = renderer.targets.iter().map(|t| t.rect).collect();
@@ -1200,7 +1218,11 @@ mod tests {
         assert_eq!(places[1], Some(GridPos { x: 2, y: 2, w: 3, h: 2 }));
 
         // Smaller than it can be drawn: grown, and kept on the grid
-        let page = grid_page(6, 12, vec![switch("switch.a", Some(GridPos { x: 5, y: 11, w: 1, h: 1 }))]);
+        let climate = Card {
+            kind: CardConfig::Climate { entity_id: "climate.a".into(), title: None, step: 0.5 },
+            pos: Some(GridPos { x: 5, y: 11, w: 1, h: 1 }),
+        };
+        let page = grid_page(6, 12, vec![climate]);
         let (mw, mh) = min_cells(&page.cards[0], page.grid.unwrap(), area, 1);
         assert!(mw > 1 && mh > 1, "{}x{}", mw, mh);
         let p = grid_places(&page.cards, page.grid.unwrap(), area)[0].unwrap();
@@ -1227,6 +1249,27 @@ mod tests {
     }
 
     #[test]
+    fn small_cards_fit_one_cell() {
+        // A sensor, a light or a switch fits a single cell of a 6x12 grid in
+        // its compact form; a thermostat needs more.
+        let grid = GridSize { columns: 6, rows: 12 };
+        let area = content_area(1072.0, 1448.0, HEADER_WITH_TABS);
+        let sensor = CardConfig::Sensor {
+            entity_id: "sensor.t".into(),
+            title: None,
+            unit: None,
+            icon: None,
+            show_graph: true,
+            large_value: false,
+        };
+        assert_eq!(min_cells(&sensor, grid, area, 1), (1, 1));
+        assert_eq!(min_cells(&switch("switch.a", None).kind, grid, area, 1), (1, 1));
+        let climate = CardConfig::Climate { entity_id: "climate.a".into(), title: None, step: 0.5 };
+        let (w, h) = min_cells(&climate, grid, area, 1);
+        assert!(w >= 2 && h >= 2, "{}x{}", w, h);
+    }
+
+    #[test]
     fn a_new_card_takes_its_smallest_size_when_only_that_fits() {
         // Everything but the last two rows is taken
         let grid = GridSize { columns: 6, rows: 18 };
@@ -1239,4 +1282,71 @@ mod tests {
         assert_eq!((p.y, p.h), (16, 2));
     }
 
+
+    /// Every card at sizes from its natural one down to its smallest, written
+    /// to `$CARD_GALLERY` as a PNG: `CARD_GALLERY=/tmp/g.png cargo test card_gallery -- --ignored`
+    #[test]
+    #[ignore]
+    fn card_gallery() {
+        let Ok(out) = std::env::var("CARD_GALLERY") else { return };
+        let cards: Vec<CardConfig> = serde_yaml::from_str(
+            r#"
+- {type: sensor, entity_id: sensor.temperature, title: Living room, icon: thermometer}
+- {type: sensor, entity_id: sensor.energy_today, title: Energy, icon: zap, show_graph: true}
+- {type: light, entity_id: light.ceiling, title: Ceiling, show_brightness: true}
+- {type: switch, entity_id: switch.air_purifier, title: Air purifier}
+- {type: scene, entity_id: scene.movie, title: Movie, icon: film}
+- {type: climate, entity_id: climate.living_room, title: Living room}
+- {type: weather, entity_id: weather.home, forecast_days: 5}
+- {type: media_player, entity_id: media_player.speaker}
+- type: sensor_grid
+  title: Climate
+  sensors:
+    - {entity_id: sensor.temperature, title: Temp, icon: thermometer}
+    - {entity_id: sensor.humidity, title: Humidity, icon: droplet}
+    - {entity_id: sensor.co2, title: CO2, icon: leaf}
+    - {entity_id: sensor.power, title: Power, icon: zap}
+- {type: statistics, entity_id: sensor.energy_today, title: Energy, period: day, days: 14, stat: change}
+"#,
+        )
+        .unwrap();
+        let sizes: Vec<(f32, f32)> = std::env::var("CARD_SIZES")
+            .unwrap_or("600x320,420x260,320x180,240x136,180x110,150x76".into())
+            .split(',')
+            .map(|s| {
+                let (w, h) = s.split_once('x').unwrap();
+                (w.parse().unwrap(), h.parse().unwrap())
+            })
+            .collect();
+        // Never below what the grid allows (a cell may be SHORT_BY short)
+        let size_of = |card: &CardConfig, (w, h): (f32, f32)| {
+            let w = w.max(grid_min(card, 0.0).0);
+            (w, h.max(grid_min(card, w).1 - SHORT_BY))
+        };
+        let width = sizes.iter().map(|s| s.0 + GAP).sum::<f32>() + GAP + 200.0;
+        let row_h: Vec<f32> =
+            cards.iter().map(|c| sizes.iter().map(|s| size_of(c, *s).1).fold(0.0, f32::max)).collect();
+        let height = row_h.iter().map(|h| h + GAP).sum::<f32>() + GAP;
+        let config = AppConfig::default();
+        let mut renderer = ScreenRenderer::new(&config);
+        let mut states = crate::ha::mock::generate_mock_states();
+        let bars: Vec<(f64, f64)> = (0..14).map(|i| (1.7e12 + i as f64 * 86.4e6, 3.0 + (i * 7 % 5) as f64)).collect();
+        states.get_mut("sensor.energy_today").unwrap().attributes.insert(
+            crate::ui::widgets::statistics_card::STATS_ATTR.into(),
+            serde_json::json!({ crate::ui::widgets::statistics_card::stat_key("day", 14, "change"): bars }),
+        );
+        let mut canvas = Canvas::new(width as u32, height as u32);
+        canvas.clear(renderer.theme.bg);
+        let mut y = GAP;
+        for (card, rh) in cards.iter().zip(&row_h) {
+            let mut x = GAP;
+            for &size in &sizes {
+                let (w, h) = size_of(card, size);
+                renderer.render_card(&mut canvas, card, Rect::new(x, y, w, h), &states, None);
+                x += w + GAP;
+            }
+            y += rh + GAP;
+        }
+        std::fs::write(out, canvas.to_png_bytes().unwrap()).unwrap();
+    }
 }

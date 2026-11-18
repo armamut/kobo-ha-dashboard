@@ -76,25 +76,55 @@ pub(crate) fn render_toggle_card(
     level_pct: Option<u8>,
 ) {
     draw_card(canvas, theme, rect, is_on.then_some(tone));
+    let badge_tone = if is_on { tone } else { theme.idle };
 
-    let badge = 68.0;
-    let toggle_w = 76.0;
-    let bx = rect.x + PAD;
+    // The brightness bar needs a tall card; the toggle and the subtitle drop
+    // out as the card gets smaller (the tint still says on or off).
+    let level_pct = level_pct.filter(|_| rect.h >= 150.0);
+
+    // Narrow and tall: the badge above the title
+    if rect.w < 180.0 && rect.h >= 130.0 && level_pct.is_none() {
+        let badge = 60.0;
+        let block = badge + 12.0 + 26.0;
+        let by = rect.y + (rect.h - block) / 2.0;
+        draw_icon_badge(canvas, theme, rect.x + (rect.w - badge) / 2.0, by, badge, icon, badge_tone, is_on);
+        canvas.draw_text_fit(title, rect.x + rect.w / 2.0, by + badge + 12.0, type_scale::LABEL, true, theme.text, TextAlign::Center, rect.w - 24.0);
+        return;
+    }
+
+    let pad = if rect.h < 110.0 { 18.0 } else { PAD };
+    let badge = if level_pct.is_some() { 68.0 } else { (rect.h - 28.0).clamp(32.0, 68.0) };
+    let bx = rect.x + pad;
     let bar_h = 14.0;
     // With a brightness bar the header sits at the top; otherwise it is centred.
     let by = if level_pct.is_some() { rect.y + PAD } else { rect.y + (rect.h - badge) / 2.0 };
-    draw_icon_badge(canvas, theme, bx, by, badge, icon, if is_on { tone } else { theme.idle }, is_on);
+    let tx = bx + badge + if badge < 56.0 { 14.0 } else { 18.0 };
 
-    let toggle_h = toggle_w * 0.56;
-    draw_toggle(canvas, theme, rect.x + rect.w - PAD - toggle_w, by + (badge - toggle_h) / 2.0, toggle_w, is_on, tone);
+    let toggle_w = if badge < 56.0 { 64.0 } else { 76.0 };
+    let with_toggle = rect.x + rect.w - pad - toggle_w - 14.0 - tx >= 90.0;
+    let text_right = if with_toggle { rect.x + rect.w - pad - toggle_w - 14.0 } else { rect.x + rect.w - pad };
+    let text_w = text_right - tx;
+    if text_w < 40.0 {
+        // Too narrow for any text: just the badge, centred
+        draw_icon_badge(canvas, theme, rect.x + (rect.w - badge) / 2.0, by, badge, icon, badge_tone, is_on);
+        return;
+    }
+    draw_icon_badge(canvas, theme, bx, by, badge, icon, badge_tone, is_on);
+    if with_toggle {
+        let toggle_h = toggle_w * 0.56;
+        draw_toggle(canvas, theme, rect.x + rect.w - pad - toggle_w, by + (badge - toggle_h) / 2.0, toggle_w, is_on, tone);
+    }
 
-    let tx = bx + badge + 18.0;
-    let text_w = rect.x + rect.w - PAD - toggle_w - 14.0 - tx;
     // Step down one size before resorting to an ellipsis.
     let title_size = if canvas.measure_text(title, type_scale::TITLE, true).0 <= text_w { type_scale::TITLE } else { 24.0 };
-    canvas.draw_text_fit(title, tx, by + 2.0 + (type_scale::TITLE - title_size) * 0.6, title_size, true, theme.text, TextAlign::Left, text_w);
-    let sub_color = if is_on { theme.text } else { theme.text_muted };
-    canvas.draw_text_fit(subtitle, tx, by + 40.0, type_scale::LABEL, false, sub_color, TextAlign::Left, text_w);
+    let with_subtitle = badge >= 52.0;
+    let block = title_size + if with_subtitle { 8.0 + type_scale::LABEL } else { 0.0 };
+    let ty = by + badge / 2.0 - block / 2.0 - 2.0;
+    canvas.draw_text_fit(title, tx, ty, title_size, true, theme.text, TextAlign::Left, text_w);
+    if with_subtitle {
+        let sub_color = if is_on { theme.text } else { theme.text_muted };
+        canvas.draw_text_fit(subtitle, tx, ty + title_size + 8.0, type_scale::LABEL, false, sub_color, TextAlign::Left, text_w);
+    }
 
     if let Some(pct) = level_pct {
         let label_w = 72.0;

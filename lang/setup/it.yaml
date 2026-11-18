@@ -134,7 +134,7 @@ report:
 
 layout:
   title: "Disposizione"
-  hint: "Trascina una scheda per spostarla, o il suo bordo o angolo per ridimensionarla; le altre schede fanno spazio. Fai clic su una scheda per modificarla. Le frecce spostano la scheda selezionata, Maiusc + frecce la ridimensionano."
+  hint: "Trascina una scheda per spostarla, o il suo bordo o angolo per ridimensionarla; le altre schede fanno spazio. Fai clic su una scheda per modificarla. Le frecce spostano la scheda selezionata, Maiusc + frecce la ridimensionano. Una scheda più piccola mostra meno: un sensore si riduce a icona e valore."
   grid: "Griglia"
   columns: "Colonne"
   rows: "Righe"

@@ -134,7 +134,7 @@ report:
 
 layout:
   title: "Disposición"
-  hint: "Arrastra una tarjeta para moverla, o su borde o esquina para cambiar su tamaño; las demás tarjetas dejan sitio. Haz clic en una tarjeta para editarla. Las flechas mueven la tarjeta seleccionada y Mayús + flechas cambian su tamaño."
+  hint: "Arrastra una tarjeta para moverla, o su borde o esquina para cambiar su tamaño; las demás tarjetas dejan sitio. Haz clic en una tarjeta para editarla. Las flechas mueven la tarjeta seleccionada y Mayús + flechas cambian su tamaño. Una tarjeta más pequeña muestra menos: un sensor se reduce a su icono y su valor."
   grid: "Cuadrícula"
   columns: "Columnas"
   rows: "Filas"

@@ -138,7 +138,7 @@ report:
 
 layout:
   title: "Layout"
-  hint: "Drag a card to move it, drag its edge or corner to resize it; other cards make room. Click a card to edit it. Arrow keys move the selected card, Shift + arrow keys resize it."
+  hint: "Drag a card to move it, drag its edge or corner to resize it; other cards make room. Click a card to edit it. Arrow keys move the selected card, Shift + arrow keys resize it. A smaller card shows less: a sensor shrinks to its icon and value."
   grid: "Grid"
   columns: "Columns"
   rows: "Rows"

@@ -134,7 +134,7 @@ report:
 
 layout:
   title: "Indeling"
-  hint: "Sleep een kaart om hem te verplaatsen, of de rand of hoek om het formaat te wijzigen; andere kaarten maken plaats. Klik op een kaart om hem te bewerken. Pijltjestoetsen verplaatsen de geselecteerde kaart, Shift + pijltjestoetsen wijzigen het formaat."
+  hint: "Sleep een kaart om hem te verplaatsen, of de rand of hoek om het formaat te wijzigen; andere kaarten maken plaats. Klik op een kaart om hem te bewerken. Pijltjestoetsen verplaatsen de geselecteerde kaart, Shift + pijltjestoetsen wijzigen het formaat. Een kleinere kaart toont minder: een sensor krimpt tot zijn pictogram en waarde."
   grid: "Raster"
   columns: "Kolommen"
   rows: "Rijen"

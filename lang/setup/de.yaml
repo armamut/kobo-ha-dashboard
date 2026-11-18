@@ -134,7 +134,7 @@ report:
 
 layout:
   title: "Anordnung"
-  hint: "Ziehe eine Karte, um sie zu verschieben, oder ihren Rand bzw. ihre Ecke, um die Größe zu ändern; andere Karten machen Platz. Klicke auf eine Karte, um sie zu bearbeiten. Pfeiltasten verschieben die ausgewählte Karte, Umschalt + Pfeiltasten ändern ihre Größe."
+  hint: "Ziehe eine Karte, um sie zu verschieben, oder ihren Rand bzw. ihre Ecke, um die Größe zu ändern; andere Karten machen Platz. Klicke auf eine Karte, um sie zu bearbeiten. Pfeiltasten verschieben die ausgewählte Karte, Umschalt + Pfeiltasten ändern ihre Größe. Eine kleinere Karte zeigt weniger: ein Sensor schrumpft auf Symbol und Wert."
   grid: "Raster"
   columns: "Spalten"
   rows: "Zeilen"

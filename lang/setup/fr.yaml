@@ -134,7 +134,7 @@ report:
 
 layout:
   title: "Disposition"
-  hint: "Faites glisser une carte pour la déplacer, ou son bord ou son coin pour la redimensionner ; les autres cartes se décalent. Cliquez sur une carte pour la modifier. Les flèches déplacent la carte sélectionnée, Maj + flèches la redimensionnent."
+  hint: "Faites glisser une carte pour la déplacer, ou son bord ou son coin pour la redimensionner ; les autres cartes se décalent. Cliquez sur une carte pour la modifier. Les flèches déplacent la carte sélectionnée, Maj + flèches la redimensionnent. Une carte plus petite en montre moins : un capteur se réduit à son icône et sa valeur."
   grid: "Grille"
   columns: "Colonnes"
   rows: "Lignes"

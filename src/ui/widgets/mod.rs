@@ -124,12 +124,26 @@ pub fn draw_value_unit(
     max_w: f32,
 ) -> f32 {
     let unit_size = (size * 0.5).max(20.0);
-    let unit_w = if unit.is_empty() { 0.0 } else { canvas.measure_text(unit, unit_size, false).0 + 6.0 };
+    let unit_w = unit_width(canvas, unit, size);
     let vw = canvas.draw_text_fit(value, x, y, size, true, theme.text, TextAlign::Left, (max_w - unit_w).max(10.0));
     if !unit.is_empty() {
         canvas.draw_text(unit, x + vw + 6.0, y + size * 0.85 - unit_size * 0.85, unit_size, false, theme.text_muted, TextAlign::Left);
     }
     vw + unit_w
+}
+
+/// Width of the unit [`draw_value_unit`] puts after a value of `size`.
+fn unit_width(canvas: &Canvas, unit: &str, size: f32) -> f32 {
+    if unit.is_empty() {
+        0.0
+    } else {
+        canvas.measure_text(unit, (size * 0.5).max(20.0), false).0 + 6.0
+    }
+}
+
+/// Width [`draw_value_unit`] needs for `value` and `unit` at `size`.
+pub fn value_unit_width(canvas: &Canvas, value: &str, unit: &str, size: f32) -> f32 {
+    canvas.measure_text(value, size, true).0 + unit_width(canvas, unit, size)
 }
 
 /// Format a HA numeric state compactly ("21.63" -> "21.6", "540.0" -> "540"),
