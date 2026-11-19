@@ -20,6 +20,7 @@ pub const BUILTIN: &[(&str, &str)] = &[
     ("pt", include_str!("../lang/pt.yaml")),
     ("pl", include_str!("../lang/pl.yaml")),
     ("ru", include_str!("../lang/ru.yaml")),
+    ("uk", include_str!("../lang/uk.yaml")),
     ("ja", include_str!("../lang/ja.yaml")),
     ("zh", include_str!("../lang/zh.yaml")),
 ];
@@ -36,6 +37,7 @@ pub const SETUP_BUILTIN: &[(&str, &str)] = &[
     ("pt", include_str!("../lang/setup/pt.yaml")),
     ("pl", include_str!("../lang/setup/pl.yaml")),
     ("ru", include_str!("../lang/setup/ru.yaml")),
+    ("uk", include_str!("../lang/setup/uk.yaml")),
     ("ja", include_str!("../lang/setup/ja.yaml")),
     ("zh", include_str!("../lang/setup/zh.yaml")),
 ];
@@ -465,6 +467,9 @@ mod tests {
         assert_eq!(t("state.on"), "Вкл");
         assert_eq!(nth("date.months", 9), "октября");
         assert_eq!(num(21.56, 1), "21,6");
+        set_language("uk-UA");
+        assert_eq!(t("state.on"), "Увімк.");
+        assert_eq!(nth("date.months", 9), "жовтня");
         set_language("en");
     }
 

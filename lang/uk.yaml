@@ -1,0 +1,119 @@
+# Kobo HA Dashboard - Українська
+
+meta:
+  name: "Українська"
+  font: ""
+  percent: "{value}%"
+  decimal: ","
+
+date:
+  weekdays: ["Понеділок", "Вівторок", "Середа", "Четвер", "П'ятниця", "Субота", "Неділя"]
+  weekdays_short: ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Нд"]
+  months: ["січня", "лютого", "березня", "квітня", "травня", "червня", "липня", "серпня", "вересня", "жовтня", "листопада", "грудня"]
+  long: "{day} {month}"
+  today: "Сьогодні"
+
+header:
+  live: "Онлайн · {time}"
+  live_short: "Онлайн"
+  updated: "Оновлено · {time}"
+  offline: "Немає зв'язку"
+  demo: "Демо-режим"
+
+state:
+  on: "Увімк."
+  off: "Вимк."
+  unavailable: "Недоступно"
+  unknown: "—"
+  running: "Працює"
+  idle: "Очікування"
+  standby: "Режим очікування"
+  heating: "Нагрівання"
+  cooling: "Охолодження"
+  drying: "Осушення"
+  fan: "Вентилятор"
+  printing: "Друк"
+  paused: "Пауза"
+  stopped: "Зупинено"
+  finished: "Завершено"
+  error: "Помилка"
+  not_playing: "Не відтворюється"
+  locked: "Зачинено"
+  unlocked: "Відчинено"
+  locking: "Зачиняється"
+  unlocking: "Відчиняється"
+  jammed: "Заклинило"
+  open: "Відчинено"
+  closed: "Зачинено"
+  opening: "Відчиняється"
+  closing: "Зачиняється"
+  detected: "Виявлено"
+  clear: "Чисто"
+  wet: "Волого"
+  dry: "Сухо"
+  connected: "Підключено"
+  disconnected: "Відключено"
+  plugged_in: "Підключено"
+  unplugged: "Відключено"
+  low: "Низький"
+  normal: "Норма"
+  charging: "Заряджається"
+  not_charging: "Не заряджається"
+  not_running: "Не працює"
+  problem: "Проблема"
+  ok: "ОК"
+  hot: "Спекотно"
+  cold: "Холодно"
+  update_available: "Є оновлення"
+  up_to_date: "Актуально"
+  home: "Вдома"
+  away: "Не вдома"
+
+climate:
+  default_title: "Термостат"
+  room: "Кімната {temp}°"
+
+media:
+  default_title: "Медіа"
+
+weather:
+  no_forecast: "Немає даних прогнозу"
+  wind_kmh: "км/год"
+  condition:
+    sunny: "Сонячно"
+    clear-night: "Ясно"
+    partlycloudy: "Мінлива хмарність"
+    cloudy: "Хмарно"
+    rainy: "Дощ"
+    pouring: "Злива"
+    snowy: "Сніг"
+    snowy-rainy: "Мокрий сніг"
+    hail: "Град"
+    lightning: "Гроза"
+    lightning-rainy: "Гроза"
+    fog: "Туман"
+    windy: "Вітряно"
+    windy-variant: "Вітряно"
+    exceptional: "Аномалія"
+
+generated:
+  overview: "Головна"
+  other: "Інше"
+  scenes: "Сцени"
+
+sleep:
+  title: "Режим сну"
+  next: "Оновлення о {time}"
+  wake_hint: "Натисніть кнопку живлення, щоб розбудити панель"
+  battery_empty: "Батарея розряджена"
+  charge_hint: "Підключіть Kobo до зарядки"
+
+image:
+  too_large: "Завелике для Kobo ({size}, макс. 4K)"
+  unreadable: "Kobo не може прочитати це зображення"
+
+update:
+  title: "Вийшла версія {version}"
+  how: "Щоб установити її, підключіть Kobo до комп'ютера й відкрийте інструмент налаштування: там видно нову версію і де її завантажити."
+  skip: "Пропустити цю версію"
+  close: "Закрити"
