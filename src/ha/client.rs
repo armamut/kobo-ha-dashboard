@@ -874,11 +874,7 @@ impl HaClient {
                 states.get(entity_id).is_some_and(|s| s.state == "locked")
             };
             let service = if locked { "unlock" } else { "lock" };
-            return (
-                "lock".to_string(),
-                service.to_string(),
-                serde_json::json!({ "entity_id": entity_id }),
-            );
+            return ("lock".to_string(), service.to_string(), serde_json::json!({ "entity_id": entity_id }));
         }
         let domain = match domain {
             "light" | "switch" | "fan" | "input_boolean" | "automation" | "media_player" | "climate" | "cover" => domain,

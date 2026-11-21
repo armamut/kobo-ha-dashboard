@@ -35,7 +35,7 @@ state:
   stopped: "停止"
   finished: "完了"
   cleaning: "清掃中"
-  docked: "充電中"
+  docked: "ドック"
   returning: "帰還中"
   error: "エラー"
   not_playing: "再生していません"

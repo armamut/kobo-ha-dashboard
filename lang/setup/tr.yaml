@@ -252,7 +252,7 @@ design:
   unit: "Birim"
   unit_optional: "Birim (isteğe bağlı)"
   service: "Servis (isteğe bağlı)"
-  service_data: "Veri JSON (isteğe bağlı)"
+  service_data: "JSON verisi (isteğe bağlı)"
   state_on: "Açık etiketi (isteğe bağlı)"
   state_off: "Kapalı etiketi (isteğe bağlı)"
   forecast_days: "Tahmin günü"

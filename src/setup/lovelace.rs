@@ -248,16 +248,11 @@ fn flatten(cards: &[Value], out: &mut Vec<CardConfig>, skipped: &mut BTreeMap<St
                 }
             }
             "button" => {
-                if let Some(tap) = card.get("tap_action").filter(|t| {
-                    matches!(
-                        t.get("action").and_then(Value::as_str),
-                        Some("perform-action" | "call-service")
-                    )
-                }) {
-                    let svc = tap
-                        .get("perform_action")
-                        .or_else(|| tap.get("service"))
-                        .and_then(Value::as_str);
+                if let Some(tap) = card
+                    .get("tap_action")
+                    .filter(|t| matches!(t.get("action").and_then(Value::as_str), Some("perform-action" | "call-service")))
+                {
+                    let svc = tap.get("perform_action").or_else(|| tap.get("service")).and_then(Value::as_str);
                     if let Some(svc) = svc {
                         let entity_id = tap
                             .get("target")
@@ -266,9 +261,10 @@ fn flatten(cards: &[Value], out: &mut Vec<CardConfig>, skipped: &mut BTreeMap<St
                             .or_else(|| card.get("entity").and_then(Value::as_str))
                             .unwrap_or_default()
                             .to_string();
-                        let title = name_of(card)
-                            .map(str::to_string)
-                            .unwrap_or_else(|| if entity_id.is_empty() { svc.to_string() } else { entity_label(&entity_id) });
+                        let title =
+                            name_of(card)
+                                .map(str::to_string)
+                                .unwrap_or_else(|| if entity_id.is_empty() { svc.to_string() } else { entity_label(&entity_id) });
                         out.push(CardConfig::Scene {
                             entity_id,
                             title,
@@ -941,8 +937,12 @@ views:
         ]}]});
         let result = import(&config, (1072, 1448), false).expect("imports");
         let cards: Vec<&CardConfig> = result.pages.iter().flat_map(|p| p.cards.iter().map(|c| &c.kind)).collect();
-        assert!(cards.iter().any(|c| matches!(c, CardConfig::Vacuum { entity_id, .. } if entity_id == "vacuum.gostinaia_v")));
-        assert!(cards.iter().any(|c| matches!(c, CardConfig::Switch { entity_id, .. } if entity_id == "lock.linus_l2")));
+        assert!(cards
+            .iter()
+            .any(|c| matches!(c, CardConfig::Vacuum { entity_id, .. } if entity_id == "vacuum.gostinaia_v")));
+        assert!(cards
+            .iter()
+            .any(|c| matches!(c, CardConfig::Switch { entity_id, .. } if entity_id == "lock.linus_l2")));
         assert!(cards.iter().any(|c| matches!(
             c,
             CardConfig::Scene { entity_id, service: Some(s), data: Some(d), .. }

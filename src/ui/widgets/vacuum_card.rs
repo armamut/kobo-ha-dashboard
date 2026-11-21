@@ -94,9 +94,7 @@ pub fn render_vacuum_card(
         let total = n * btn + (n - 1.0) * gap;
         let x0 = rect.x + (rect.w - total) / 2.0;
         let y = rect.y + rect.h - p - btn;
-        buttons = (0..resolved.len())
-            .map(|i| Rect::new(x0 + i as f32 * (btn + gap), y, btn, btn))
-            .collect();
+        buttons = (0..resolved.len()).map(|i| Rect::new(x0 + i as f32 * (btn + gap), y, btn, btn)).collect();
     } else {
         let row_h = (rect.h - 2.0 * p).min(72.0);
         let btn = row_h.clamp(36.0, 64.0);

@@ -252,7 +252,7 @@ design:
   unit: "Eenheid"
   unit_optional: "Eenheid (optioneel)"
   service: "Service (optioneel)"
-  service_data: "Data JSON (optioneel)"
+  service_data: "JSON-gegevens (optioneel)"
   state_on: "Label Aan (optioneel)"
   state_off: "Label Uit (optioneel)"
   forecast_days: "Verwachtingsdagen"

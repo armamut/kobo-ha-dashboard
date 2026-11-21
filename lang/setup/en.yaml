@@ -256,7 +256,7 @@ design:
   unit: "Unit"
   unit_optional: "Unit (optional)"
   service: "Service (optional)"
-  service_data: "Data JSON (optional)"
+  service_data: "JSON data (optional)"
   state_on: "On label (optional)"
   state_off: "Off label (optional)"
   forecast_days: "Forecast days"

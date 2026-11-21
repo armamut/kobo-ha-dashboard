@@ -252,7 +252,7 @@ design:
   unit: "单位"
   unit_optional: "单位（可选）"
   service: "服务（可选）"
-  service_data: "数据 JSON（可选）"
+  service_data: "JSON 数据（可选）"
   state_on: "开启文本（可选）"
   state_off: "关闭文本（可选）"
   forecast_days: "预报天数"
