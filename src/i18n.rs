@@ -235,6 +235,10 @@ pub fn state_label(raw: &str) -> String {
         "paused" | "pause" => "paused",
         "stop" | "stopped" => "stopped",
         "complete" | "completed" | "finished" | "finish" => "finished",
+        "cleaning" => "cleaning",
+        "docked" => "docked",
+        "returning" | "returning_to_base" => "returning",
+        "charging" => "charging",
         "error" => "error",
         _ => return raw.to_string(),
     };

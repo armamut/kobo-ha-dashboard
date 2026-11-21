@@ -200,6 +200,7 @@ impl HaClient {
                 | CardConfig::Image { entity_id, .. }
                 | CardConfig::MediaPlayer { entity_id, .. }
                 | CardConfig::Cover { entity_id, .. }
+                | CardConfig::Vacuum { entity_id, .. }
                 | CardConfig::Scene { entity_id, .. } => all.push(entity_id.clone()),
                 CardConfig::Progress {
                     entity_id, secondary_entity, ..
@@ -865,8 +866,16 @@ impl HaClient {
         }
     }
 
-    pub fn toggle_request(&self, entity_id: &str) -> (String, String, Value) {
+    pub async fn toggle_request(&self, entity_id: &str) -> (String, String, Value) {
         let domain = entity_id.split('.').next().unwrap_or("homeassistant");
+        if domain == "lock" {
+            let locked = {
+                let states = self.states.read().await;
+                states.get(entity_id).is_some_and(|s| s.state == "locked")
+            };
+            let service = if locked { "unlock" } else { "lock" };
+            return ("lock".to_string(), service.to_string(), serde_json::json!({ "entity_id": entity_id }));
+        }
         let domain = match domain {
             "light" | "switch" | "fan" | "input_boolean" | "automation" | "media_player" | "climate" | "cover" => domain,
             _ => "homeassistant",
@@ -875,13 +884,13 @@ impl HaClient {
     }
 
     /// Service for a "scene" button: run scenes/scripts, press buttons, toggle the rest.
-    pub fn activate_request(&self, entity_id: &str) -> (String, String, Value) {
+    pub async fn activate_request(&self, entity_id: &str) -> (String, String, Value) {
         let domain = entity_id.split('.').next().unwrap_or("");
         let data = serde_json::json!({ "entity_id": entity_id });
         match domain {
             "scene" | "script" => (domain.to_string(), "turn_on".to_string(), data),
             "button" | "input_button" => (domain.to_string(), "press".to_string(), data),
-            _ => self.toggle_request(entity_id),
+            _ => self.toggle_request(entity_id).await,
         }
     }
 
@@ -904,7 +913,7 @@ impl HaClient {
     }
 
     pub async fn toggle_entity(&self, entity_id: &str) {
-        let (domain, service, payload) = self.toggle_request(entity_id);
+        let (domain, service, payload) = self.toggle_request(entity_id).await;
         let _ = self.call_service(&domain, &service, payload).await;
     }
 
@@ -934,6 +943,27 @@ impl HaClient {
                 }
                 "media_play_pause" => {
                     state.state = if state.state == "playing" { "paused" } else { "playing" }.to_string();
+                }
+                "lock" => {
+                    state.state = "locked".to_string();
+                }
+                "unlock" => {
+                    state.state = "unlocked".to_string();
+                }
+                "start_pause" => {
+                    state.state = if state.state == "cleaning" { "paused" } else { "cleaning" }.to_string();
+                }
+                "start" => {
+                    state.state = "cleaning".to_string();
+                }
+                "pause" => {
+                    state.state = "paused".to_string();
+                }
+                "stop" => {
+                    state.state = "idle".to_string();
+                }
+                "return_to_base" => {
+                    state.state = "returning".to_string();
                 }
                 _ => {}
             }

@@ -249,6 +249,8 @@ body > .drag-ghost { width: var(--gw, auto) !important; height: var(--gh, auto) 
 .ws-right .cardform { border: 0; margin: 0; padding: 0; }
 .ws-right .subitem { grid-template-columns: 1fr 1fr; }
 .ws-right .subitem > label:first-child { grid-column: 1 / -1; }
+.ws-right .subitem > label.full { grid-column: 1 / -1; }
+.ws-right .subitem > .subitem-tools { grid-column: 1 / -1; }
 .ws-right .subitem > button, .subitem-tools { justify-self: end; align-self: end; width: auto; }
 .subitem-tools { gap: 4px; flex-wrap: nowrap; }
 .ws-right .cardrow { grid-template-columns: 26px 1fr; padding: 7px 9px; cursor: pointer; margin-bottom: 6px; }
@@ -740,31 +742,33 @@ async function setUiLang(code) {
 }
 
 // Card schemas: which entity domains fit, and which fields to edit.
-const TOGGLE_DOMAINS = ["switch", "fan", "input_boolean", "automation", "light", "cover", "climate", "media_player", "humidifier", "siren"];
+const TOGGLE_DOMAINS = ["switch", "fan", "input_boolean", "automation", "light", "cover", "climate", "media_player", "humidifier", "siren", "lock"];
 const SENSOR_DOMAINS = ["sensor", "binary_sensor", "lock", "input_number", "number", "counter", "input_text", "input_select", "select", "text"];
-const ACTION_DOMAINS = ["scene", "script", "button", "input_button", "switch", "light", "input_boolean", "automation"];
+const ACTION_DOMAINS = ["scene", "script", "button", "input_button", "remote", "switch", "light", "input_boolean", "automation"];
 const CARD_TYPES = {
   weather: { icon: "sun", domains: ["weather"], defaults: { forecast_days: 5 },
     fields: [["entity_id"], ["forecast_days", "number", "design.forecast_days", { min: 1, max: 7 }]] },
   light: { icon: "lightbulb", domains: ["light"], defaults: { show_brightness: false },
     fields: [["entity_id"], ["title"], ["subtitle"], ["icon"], ["show_brightness", "bool", "design.show_brightness"]] },
-  switch: { icon: "power", domains: TOGGLE_DOMAINS, fields: [["entity_id"], ["title"], ["subtitle"], ["icon"]] },
+  switch: { icon: "power", domains: TOGGLE_DOMAINS,
+    fields: [["entity_id"], ["title"], ["subtitle"], ["icon"], ["state_on", "text", "design.state_on"], ["state_off", "text", "design.state_off"]] },
   climate: { icon: "thermometer", domains: ["climate"], defaults: { step: 0.5 },
     fields: [["entity_id"], ["title"], ["step", "number", "design.step", { min: 0.1, max: 5, step: 0.1 }],
       ["show_graph", "bool", "design.show_climate_graph"], ["graph_hours", "number", "design.graph_hours", { min: 1, max: 336 }]] },
   sensor: { icon: "zap", domains: SENSOR_DOMAINS, defaults: { show_graph: false },
-    fields: [["entity_id"], ["title"], ["unit", "text", "design.unit_optional"], ["icon"], ["show_graph", "bool", "design.show_graph"], ["large_value", "bool", "design.large_value"]] },
+    fields: [["entity_id"], ["title"], ["unit", "text", "design.unit_optional"], ["icon"], ["show_graph", "bool", "design.show_graph"], ["large_value", "bool", "design.large_value"], ["state_on", "text", "design.state_on"], ["state_off", "text", "design.state_off"]] },
   sensor_grid: { icon: "layers", defaults: { sensors: [] },
     fields: [["title", "text", "design.title_optional"], ["sensors", "list", "design.sensors", { max: 8, domains: SENSOR_DOMAINS, item: "sensor" }], ["large_value", "bool", "design.large_value"]] },
   media_player: { icon: "music", domains: ["media_player"], fields: [["entity_id"], ["title"]] },
   scenes_row: { icon: "play", defaults: { scenes: [] },
     fields: [["title", "text", "design.title_optional"], ["scenes", "list", "design.buttons", { max: 6, domains: ACTION_DOMAINS, item: "scene" }]] },
   scene: { icon: "play", domains: ACTION_DOMAINS, defaults: { title: "" },
-    fields: [["entity_id"], ["title", "text", "design.label"], ["icon"]] },
+    fields: [["entity_id"], ["title", "text", "design.label"], ["icon"], ["service", "text", "design.service"], ["data", "json", "design.service_data"]] },
   progress: { icon: "progress", domains: ["sensor", "number", "input_number", "counter"],
     fields: [["entity_id"], ["title"], ["icon"], ["secondary_entity", "entity2", "design.secondary_entity", { domains: ["sensor"] }],
       ["max", "number", "design.progress_max", { min: 1, step: 1 }]] },
   cover: { icon: "blinds", domains: ["cover"], fields: [["entity_id"], ["title"], ["icon"]] },
+  vacuum: { icon: "vacuum", domains: ["vacuum"], fields: [["entity_id"], ["title"], ["icon"]] },
   breakdown: { icon: "chart", defaults: { entities: [] },
     fields: [["title", "text", "design.title_optional"], ["entities", "list", "design.entities", { max: 8, domains: SENSOR_DOMAINS, item: "sensor" }]] },
   glance: { icon: "layers", defaults: { entities: [] },
@@ -1338,7 +1342,7 @@ async function generate() {
 /// camera entity.
 const PALETTE = [
   ["ws.group_page", ["heading", "weather"]],
-  ["ws.group_controls", ["light", "switch", "climate", "cover", "media_player", "scene", "scenes_row"]],
+  ["ws.group_controls", ["light", "switch", "climate", "cover", "vacuum", "media_player", "scene", "scenes_row"]],
   ["ws.group_values", ["sensor", "sensor_grid", "glance", "progress"]],
   ["ws.group_charts", ["statistics", "breakdown"]],
   ["ws.group_pictures", ["image", "camera", "picture"]],
@@ -1947,6 +1951,20 @@ function cardForm(c) {
       form.append(el("label", { class: "field" }, T(label), rangeSelect(c, form)));
     } else if (kind === "list") {
       form.append(listEditor(c, key, T(label), opts));
+    } else if (kind === "json") {
+      const t = el("input", { type: "text", value: c[key] ? JSON.stringify(c[key]) : "", placeholder: '{"device": "...", "command": "..."}' });
+      t.oninput = () => {
+        const raw = t.value.trim();
+        if (!raw) { delete c[key]; t.style.borderColor = ""; sync(); return; }
+        try {
+          c[key] = JSON.parse(raw);
+          t.style.borderColor = "";
+          sync();
+        } catch {
+          t.style.borderColor = "var(--danger, #c62828)";
+        }
+      };
+      form.append(el("label", { class: "field" }, T(label), t));
     } else {
       const placeholder = key === "title" && c.type !== "scene" && c.type !== "heading" ? T("design.title_auto") : "";
       const t = el("input", { type: "text", value: c[key] || "", placeholder });
@@ -2029,11 +2047,42 @@ function listEditor(c, key, label, opts) {
     title.oninput = () => { item.title = title.value; sync(); };
     const unit = el("input", { type: "text", value: item.unit || "", placeholder: T("design.unit") });
     unit.oninput = () => { if (unit.value) item.unit = unit.value; else delete item.unit; sync(); };
+    const extraFields = [];
+    if (opts.item === "sensor") {
+      extraFields.push(el("label", { class: "field full" }, T("design.unit"), unit));
+      const sOn = el("input", { type: "text", value: item.state_on || "" });
+      sOn.oninput = () => { if (sOn.value) item.state_on = sOn.value; else delete item.state_on; renderCardsSoon(); sync(); };
+      const sOff = el("input", { type: "text", value: item.state_off || "" });
+      sOff.oninput = () => { if (sOff.value) item.state_off = sOff.value; else delete item.state_off; renderCardsSoon(); sync(); };
+      extraFields.push(
+        el("label", { class: "field" }, T("design.state_on"), sOn),
+        el("label", { class: "field" }, T("design.state_off"), sOff),
+      );
+    } else if (opts.item === "scene") {
+      const svc = el("input", { type: "text", value: item.service || "", placeholder: "remote.send_command" });
+      svc.oninput = () => { if (svc.value) item.service = svc.value; else delete item.service; sync(); };
+      const dataIn = el("input", { type: "text", value: item.data ? JSON.stringify(item.data) : "", placeholder: '{"device": "...", "command": "..."}' });
+      dataIn.oninput = () => {
+        const raw = dataIn.value.trim();
+        if (!raw) { delete item.data; dataIn.style.borderColor = ""; sync(); return; }
+        try {
+          item.data = JSON.parse(raw);
+          dataIn.style.borderColor = "";
+          sync();
+        } catch {
+          dataIn.style.borderColor = "var(--danger, #c62828)";
+        }
+      };
+      extraFields.push(
+        el("label", { class: "field full" }, T("design.service"), svc),
+        el("label", { class: "field full" }, T("design.service_data"), dataIn),
+      );
+    }
     wrap.append(el("div", { class: "subitem" },
       el("label", { class: "field" }, T("design.entity"), input, meta),
       el("label", { class: "field" }, T("design.label"), title),
       el("label", { class: "field" }, T("design.icon"), iconSelect(item.icon, (v) => { if (v) item.icon = v; else if (opts.item === "scene") item.icon = "play"; else delete item.icon; sync(); }, opts.item !== "scene", "zap")),
-      opts.item === "sensor" ? el("label", { class: "field" }, T("design.unit"), unit) : el("span"),
+      ...extraFields,
       // Order: up, down, and out
       el("div", { class: "row subitem-tools" },
         el("button", { type: "button", class: "btn small icon", title: T("design.move_up"), "aria-label": T("design.move_up"), disabled: j === 0,

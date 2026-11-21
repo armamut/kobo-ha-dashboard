@@ -170,6 +170,8 @@ mod tests {
             title: id.into(),
             icon: None,
             unit: None,
+            state_on: None,
+            state_off: None,
         };
         let mut states = HashMap::new();
         for (id, v) in [("a", "120"), ("b", "-5"), ("c", "unavailable")] {

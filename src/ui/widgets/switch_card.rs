@@ -5,6 +5,7 @@ use crate::ui::layout::{InteractiveTarget, Rect, UiAction};
 use crate::ui::theme::Theme;
 use crate::ui::widgets::light_card::render_toggle_card;
 
+#[allow(clippy::too_many_arguments)]
 pub fn render_switch_card(
     canvas: &mut Canvas,
     theme: &Theme,
@@ -14,6 +15,8 @@ pub fn render_switch_card(
     custom_title: Option<&str>,
     custom_subtitle: Option<&str>,
     custom_icon: Option<&str>,
+    state_on: Option<&str>,
+    state_off: Option<&str>,
     targets: &mut Vec<InteractiveTarget>,
 ) {
     let is_on = state.map(|s| s.is_on()).unwrap_or(false);
@@ -27,6 +30,8 @@ pub fn render_switch_card(
     let status = match state {
         None => i18n::t("state.unavailable"),
         Some(s) if s.state == "unavailable" => i18n::t("state.unavailable"),
+        Some(s) if s.state == "on" && state_on.is_some() => state_on.unwrap().to_string(),
+        Some(s) if s.state == "off" && state_off.is_some() => state_off.unwrap().to_string(),
         Some(s) if matches!(domain, "lock" | "cover") => i18n::entity_state_label(domain, s.get_attr_str("device_class"), &s.state),
         Some(s) if s.is_on() => i18n::t("state.running"),
         Some(_) => i18n::t("state.off"),

@@ -884,6 +884,52 @@ fn icon_shapes(name: &str) -> Vec<(Mode, Option<Path>)> {
                 pb.line_to(15.5, 9.5);
             }),
         )],
+        "volume_up" => vec![(
+            Stroke,
+            build(|pb| {
+                pb.move_to(3.0, 9.5);
+                pb.line_to(7.0, 9.5);
+                pb.line_to(12.0, 5.0);
+                pb.line_to(12.0, 19.0);
+                pb.line_to(7.0, 14.5);
+                pb.line_to(3.0, 14.5);
+                pb.close();
+                pb.move_to(16.0, 12.0);
+                pb.line_to(21.0, 12.0);
+                pb.move_to(18.5, 9.5);
+                pb.line_to(18.5, 14.5);
+            }),
+        )],
+        "volume_down" => vec![(
+            Stroke,
+            build(|pb| {
+                pb.move_to(3.0, 9.5);
+                pb.line_to(7.0, 9.5);
+                pb.line_to(12.0, 5.0);
+                pb.line_to(12.0, 19.0);
+                pb.line_to(7.0, 14.5);
+                pb.line_to(3.0, 14.5);
+                pb.close();
+                pb.move_to(16.0, 12.0);
+                pb.line_to(21.0, 12.0);
+            }),
+        )],
+        "volume_mute" | "mute" => vec![(
+            Stroke,
+            build(|pb| {
+                pb.move_to(3.0, 9.5);
+                pb.line_to(7.0, 9.5);
+                pb.line_to(12.0, 5.0);
+                pb.line_to(12.0, 19.0);
+                pb.line_to(7.0, 14.5);
+                pb.line_to(3.0, 14.5);
+                pb.close();
+                pb.move_to(16.0, 9.5);
+                pb.line_to(21.0, 14.5);
+                pb.move_to(21.0, 9.5);
+                pb.line_to(16.0, 14.5);
+            }),
+        )],
         "bell" | "doorbell" => vec![(
             Stroke,
             build(|pb| {

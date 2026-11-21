@@ -4,7 +4,7 @@ use crate::ha::client::HISTORY_ATTR;
 use crate::ha::models::EntityState;
 use crate::ui::layout::{InteractiveTarget, Rect, UiAction};
 use crate::ui::theme::{Theme, Tone};
-use crate::ui::widgets::{draw_card, draw_icon_badge, draw_value_unit, format_entity_state, type_scale, value_unit_width, PAD};
+use crate::ui::widgets::{draw_card, draw_icon_badge, draw_value_unit, format_entity_state_with_overrides, type_scale, value_unit_width, PAD};
 use std::collections::HashMap;
 
 pub const TILE_H: f32 = 132.0;
@@ -73,6 +73,7 @@ pub fn sensor_grid_height(width: f32, count: usize, has_title: bool) -> f32 {
     2.0 * PAD + if has_title { SECTION_TITLE_H } else { 0.0 } + rows as f32 * TILE_H + (rows - 1) as f32 * TILE_GAP
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn render_sensor_card(
     canvas: &mut Canvas,
     theme: &Theme,
@@ -84,13 +85,17 @@ pub fn render_sensor_card(
     custom_icon: Option<&str>,
     show_graph: bool,
     large_value: bool,
+    state_on: Option<&str>,
+    state_off: Option<&str>,
     targets: &mut Vec<InteractiveTarget>,
 ) {
     let title = custom_title
         .map(|s| s.to_string())
         .or_else(|| state.map(|s| s.friendly_name()))
         .unwrap_or_else(|| entity_id.to_string());
-    let value = state.map(format_entity_state).unwrap_or_else(|| "--".to_string());
+    let value = state
+        .map(|s| format_entity_state_with_overrides(s, state_on, state_off))
+        .unwrap_or_else(|| "--".to_string());
     let unit = custom_unit
         .map(|s| s.to_string())
         .or_else(|| state.and_then(|s| s.unit_of_measurement()))
@@ -245,7 +250,9 @@ pub fn render_sensor_grid(
         let state = all_states.get(&item.entity_id);
         let low_battery = icon == "battery" && state.and_then(|s| s.state.parse::<f32>().ok()).map(|v| v < 20.0).unwrap_or(false);
         let tone = if low_battery { theme.heat } else { tone_for_icon(theme, icon) };
-        let value = state.map(format_entity_state).unwrap_or_else(|| "--".to_string());
+        let value = state
+            .map(|s| format_entity_state_with_overrides(s, item.state_on.as_deref(), item.state_off.as_deref()))
+            .unwrap_or_else(|| "--".to_string());
         let unit = item.unit.clone().or_else(|| state.and_then(|s| s.unit_of_measurement())).unwrap_or_default();
 
         // A short or narrow tile: a small icon beside the title, no badge
