@@ -249,6 +249,8 @@ body > .drag-ghost { width: var(--gw, auto) !important; height: var(--gh, auto) 
 .ws-right .cardform { border: 0; margin: 0; padding: 0; }
 .ws-right .subitem { grid-template-columns: 1fr 1fr; }
 .ws-right .subitem > label:first-child { grid-column: 1 / -1; }
+.ws-right .subitem > label.full { grid-column: 1 / -1; }
+.ws-right .subitem > .subitem-tools { grid-column: 1 / -1; }
 .ws-right .subitem > button, .subitem-tools { justify-self: end; align-self: end; width: auto; }
 .subitem-tools { gap: 4px; flex-wrap: nowrap; }
 .ws-right .cardrow { grid-template-columns: 26px 1fr; padding: 7px 9px; cursor: pointer; margin-bottom: 6px; }
@@ -2047,9 +2049,10 @@ function listEditor(c, key, label, opts) {
     unit.oninput = () => { if (unit.value) item.unit = unit.value; else delete item.unit; sync(); };
     const extraFields = [];
     if (opts.item === "sensor") {
-      const sOn = el("input", { type: "text", value: item.state_on || "", placeholder: T("design.state_on") });
+      extraFields.push(el("label", { class: "field full" }, T("design.unit"), unit));
+      const sOn = el("input", { type: "text", value: item.state_on || "" });
       sOn.oninput = () => { if (sOn.value) item.state_on = sOn.value; else delete item.state_on; renderCardsSoon(); sync(); };
-      const sOff = el("input", { type: "text", value: item.state_off || "", placeholder: T("design.state_off") });
+      const sOff = el("input", { type: "text", value: item.state_off || "" });
       sOff.oninput = () => { if (sOff.value) item.state_off = sOff.value; else delete item.state_off; renderCardsSoon(); sync(); };
       extraFields.push(
         el("label", { class: "field" }, T("design.state_on"), sOn),
@@ -2071,15 +2074,14 @@ function listEditor(c, key, label, opts) {
         }
       };
       extraFields.push(
-        el("label", { class: "field" }, T("design.service"), svc),
-        el("label", { class: "field" }, T("design.service_data"), dataIn),
+        el("label", { class: "field full" }, T("design.service"), svc),
+        el("label", { class: "field full" }, T("design.service_data"), dataIn),
       );
     }
     wrap.append(el("div", { class: "subitem" },
       el("label", { class: "field" }, T("design.entity"), input, meta),
       el("label", { class: "field" }, T("design.label"), title),
       el("label", { class: "field" }, T("design.icon"), iconSelect(item.icon, (v) => { if (v) item.icon = v; else if (opts.item === "scene") item.icon = "play"; else delete item.icon; sync(); }, opts.item !== "scene", "zap")),
-      opts.item === "sensor" ? el("label", { class: "field" }, T("design.unit"), unit) : el("span"),
       ...extraFields,
       // Order: up, down, and out
       el("div", { class: "row subitem-tools" },
