@@ -72,7 +72,51 @@ pub fn render_scenes_row(
 
         targets.push(InteractiveTarget {
             rect: item,
-            action: UiAction::ActivateScene(scene.entity_id.clone()),
+            action: scene_action(scene),
         });
+    }
+}
+
+/// Build the [`UiAction`] for a scene/button item: custom `service` + `data`
+/// when configured, otherwise [`UiAction::ActivateScene`].
+pub fn scene_action(scene: &SceneItemConfig) -> UiAction {
+    if let Some(svc) = scene.service.as_deref() {
+        if let Some((domain, service)) = svc.split_once('.') {
+            let mut payload = match scene.data.clone() {
+                Some(serde_json::Value::Object(map)) => map,
+                _ => serde_json::Map::new(),
+            };
+            if !scene.entity_id.is_empty() && !payload.contains_key("entity_id") {
+                payload.insert("entity_id".to_string(), serde_json::Value::String(scene.entity_id.clone()));
+            }
+            return UiAction::CallService(domain.to_string(), service.to_string(), serde_json::Value::Object(payload));
+        }
+    }
+    UiAction::ActivateScene(scene.entity_id.clone())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn custom_service_merges_entity_id_and_data() {
+        let item = SceneItemConfig {
+            entity_id: "remote.gostinaia_rm4_mini".into(),
+            title: "5A Power".into(),
+            icon: "power".into(),
+            service: Some("remote.send_command".into()),
+            data: Some(serde_json::json!({ "device": "magnat_reference_5a", "command": "power" })),
+        };
+        match scene_action(&item) {
+            UiAction::CallService(domain, service, data) => {
+                assert_eq!(domain, "remote");
+                assert_eq!(service, "send_command");
+                assert_eq!(data["entity_id"], "remote.gostinaia_rm4_mini");
+                assert_eq!(data["device"], "magnat_reference_5a");
+                assert_eq!(data["command"], "power");
+            }
+            other => panic!("expected CallService, got {:?}", other),
+        }
     }
 }

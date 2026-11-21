@@ -33,8 +33,8 @@ pub enum UiAction {
     MediaNext(String),
     MediaPrevious(String),
     ActivateScene(String),
-    /// A service of `domain` on one entity, e.g. ("cover", "open_cover", id)
-    CallService(String, String, String),
+    /// A service of `domain` with JSON `data` payload, e.g. ("cover", "open_cover", {"entity_id": id})
+    CallService(String, String, serde_json::Value),
     SwitchPage(usize),
     /// The header's new-version button: show the release notes
     ShowUpdate,

@@ -796,13 +796,13 @@ async fn run_device(config: AppConfig, ha_client: HaClient, once: bool) -> Resul
                         tracing::info!("Keep awake: {}", if keep_awake { "on (no sleep, no light auto-off)" } else { "off" });
                         None
                     }
-                    UiAction::ToggleEntity(id) => Some(ha_client.toggle_request(&id)),
+                    UiAction::ToggleEntity(id) => Some(ha_client.toggle_request(&id).await),
                     UiAction::SetClimateTemp(id, delta) => Some(ha_client.climate_request(&id, delta).await),
                     UiAction::MediaPlayPause(id) => Some(media("media_play_pause", &id)),
                     UiAction::MediaNext(id) => Some(media("media_next_track", &id)),
                     UiAction::MediaPrevious(id) => Some(media("media_previous_track", &id)),
-                    UiAction::ActivateScene(id) => Some(ha_client.activate_request(&id)),
-                    UiAction::CallService(domain, svc, id) => Some((domain, svc, serde_json::json!({ "entity_id": id }))),
+                    UiAction::ActivateScene(id) => Some(ha_client.activate_request(&id).await),
+                    UiAction::CallService(domain, svc, data) => Some((domain, svc, data)),
                 };
 
                 if let Some((domain, svc, data)) = service {

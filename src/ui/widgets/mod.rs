@@ -12,6 +12,7 @@ pub mod scene_card;
 pub mod sensor_card;
 pub mod statistics_card;
 pub mod switch_card;
+pub mod vacuum_card;
 pub mod weather_card;
 
 pub use breakdown_card::render_breakdown_card;
@@ -28,6 +29,7 @@ pub use scene_card::render_scenes_row;
 pub use sensor_card::{render_sensor_card, render_sensor_grid};
 pub use statistics_card::render_statistics_card;
 pub use switch_card::render_switch_card;
+pub use vacuum_card::render_vacuum_card;
 pub use weather_card::render_weather_card;
 
 use crate::display::{Canvas, TextAlign};
@@ -167,6 +169,21 @@ pub fn format_number(raw: &str) -> String {
     }
 }
 
+/// Format an entity's state, using optional `state_on`/`state_off` overrides
+/// before falling back to localized domain/`device_class` formatting.
+pub fn format_entity_state_with_overrides(state: &crate::ha::models::EntityState, state_on: Option<&str>, state_off: Option<&str>) -> String {
+    if state.state == "on" {
+        if let Some(label) = state_on {
+            return label.to_string();
+        }
+    } else if state.state == "off" {
+        if let Some(label) = state_off {
+            return label.to_string();
+        }
+    }
+    format_entity_state(state)
+}
+
 /// Format an entity's state, using its domain and `device_class` for localized
 /// non-numeric states (e.g. `binary_sensor` with `device_class: "lock"`).
 pub fn format_entity_state(state: &crate::ha::models::EntityState) -> String {
@@ -177,5 +194,30 @@ pub fn format_entity_state(state: &crate::ha::models::EntityState) -> String {
             let domain = state.entity_id.split('.').next().unwrap_or("");
             crate::i18n::entity_state_label(domain, state.get_attr_str("device_class"), &state.state)
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::ha::models::EntityState;
+
+    #[test]
+    fn state_overrides_replace_on_and_off_labels() {
+        let mut s = EntityState {
+            entity_id: "binary_sensor.eco".into(),
+            state: "on".into(),
+            attributes: Default::default(),
+            last_changed: None,
+            last_updated: None,
+        };
+        assert_eq!(format_entity_state_with_overrides(&s, Some("Активен"), Some("Выкл")), "Активен");
+        s.state = "off".into();
+        assert_eq!(format_entity_state_with_overrides(&s, Some("Активен"), Some("Выкл")), "Выкл");
+        s.state = "unavailable".into();
+        assert_eq!(
+            format_entity_state_with_overrides(&s, Some("Активен"), Some("Выкл")),
+            crate::i18n::t("state.unavailable")
+        );
     }
 }

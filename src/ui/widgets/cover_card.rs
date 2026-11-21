@@ -128,7 +128,7 @@ pub fn render_cover_card(
         draw_round_button(canvas, theme, *r, icon, tone, false);
         targets.push(InteractiveTarget {
             rect: r.inset(-6.0),
-            action: UiAction::CallService("cover".into(), service.into(), entity_id.to_string()),
+            action: UiAction::CallService("cover".into(), service.into(), serde_json::json!({ "entity_id": entity_id })),
         });
     }
 }

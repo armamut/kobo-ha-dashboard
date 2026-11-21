@@ -318,6 +318,8 @@ fn card_for(e: &EntityInfo) -> Option<CardConfig> {
             title,
             subtitle,
             icon: if e.domain == "fan" { Some("fan".into()) } else { None },
+            state_on: None,
+            state_off: None,
         },
         "climate" => CardConfig::Climate {
             entity_id: e.entity_id.clone(),
@@ -386,6 +388,8 @@ pub fn generate(entities: &[EntityInfo], screen: (u32, u32)) -> Vec<PageConfig> 
             entity_id: e.entity_id.clone(),
             title: short_name(&e.name, None),
             icon: if e.domain == "scene" { "play".into() } else { "zap".into() },
+            service: None,
+            data: None,
         })
         .collect();
     if !scenes.is_empty() {
@@ -454,6 +458,8 @@ pub fn generate(entities: &[EntityInfo], screen: (u32, u32)) -> Vec<PageConfig> 
                     title: short_name(&e.name, e.area.as_deref()),
                     icon: Some(sensor_icon(e.device_class.as_deref()).into()),
                     unit: e.unit.clone(),
+                    state_on: None,
+                    state_off: None,
                 })
                 .collect();
             if !sensors.is_empty() && !cards.is_empty() {
