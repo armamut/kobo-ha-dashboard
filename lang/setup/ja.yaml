@@ -81,6 +81,7 @@ connect:
   clock: "時計"
   clock_24: "24 時間表示"
   clock_12: "12 時間表示"
+  clock_off: "表示しない（電池を節約）"
   timezone: "タイムゾーン（UTC との時差）"
   use_mine: "現在地を使う"
   refresh: "画面の更新間隔（分）"

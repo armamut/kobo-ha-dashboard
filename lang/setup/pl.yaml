@@ -81,6 +81,7 @@ connect:
   clock: "Zegar"
   clock_24: "24-godzinny"
   clock_12: "12-godzinny"
+  clock_off: "Ukryty (oszczędza baterię)"
   timezone: "Strefa czasowa (przesunięcie UTC)"
   use_mine: "Użyj mojej"
   refresh: "Odświeżaj ekran co (minuty)"

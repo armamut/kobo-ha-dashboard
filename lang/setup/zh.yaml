@@ -81,6 +81,7 @@ connect:
   clock: "时钟"
   clock_24: "24 小时制"
   clock_12: "12 小时制"
+  clock_off: "不显示（省电）"
   timezone: "时区（UTC 偏移）"
   use_mine: "使用我的时区"
   refresh: "屏幕更新间隔（分钟）"

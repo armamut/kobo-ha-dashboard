@@ -81,6 +81,7 @@ connect:
   clock: "Horloge"
   clock_24: "24 heures"
   clock_12: "12 heures"
+  clock_off: "Masquée (économise la batterie)"
   timezone: "Fuseau horaire (décalage UTC)"
   use_mine: "Utiliser le mien"
   refresh: "Mettre à jour l'écran toutes les (minutes)"

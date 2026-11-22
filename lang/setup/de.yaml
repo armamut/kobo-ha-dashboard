@@ -81,6 +81,7 @@ connect:
   clock: "Uhr"
   clock_24: "24 Stunden"
   clock_12: "12 Stunden"
+  clock_off: "Ausblenden (spart Akku)"
   timezone: "Zeitzone (UTC-Versatz)"
   use_mine: "Meine verwenden"
   refresh: "Bildschirm aktualisieren alle (Minuten)"

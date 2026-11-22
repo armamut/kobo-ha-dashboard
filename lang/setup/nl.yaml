@@ -81,6 +81,7 @@ connect:
   clock: "Klok"
   clock_24: "24-uurs"
   clock_12: "12-uurs"
+  clock_off: "Verbergen (spaart de batterij)"
   timezone: "Tijdzone (UTC-verschil)"
   use_mine: "Mijn tijdzone"
   refresh: "Scherm bijwerken elke (minuten)"

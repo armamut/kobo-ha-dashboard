@@ -262,7 +262,7 @@ async fn run_device(config: AppConfig, ha_client: HaClient, once: bool) -> Resul
     // One interval for everything that happens on its own: the screen is
     // redrawn this often (pushed states wait for it), and states are polled
     // this often when live updates are down. Nothing is drawn in between.
-    let update_interval = Duration::from_secs(config.home_assistant.update_interval_secs.max(config::MIN_UPDATE_SECS));
+    let update_interval = Duration::from_secs(config.home_assistant.update_interval());
     tracing::info!("Updates every {:?}", update_interval);
     {
         let ha = ha_client.clone();

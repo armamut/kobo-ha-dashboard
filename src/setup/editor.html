@@ -483,7 +483,7 @@ a.btn.primary { color: var(--accent-ink); }
           <div class="row"><input id="accent" type="color"><span class="hint" style="margin:0" data-i18n="connect.accent_hint"></span></div>
         </label>
         <label class="field"><span data-i18n="connect.clock"></span>
-          <select id="timeFormat"><option value="24h" data-i18n="connect.clock_24"></option><option value="12h" data-i18n="connect.clock_12"></option></select>
+          <select id="timeFormat"><option value="24h" data-i18n="connect.clock_24"></option><option value="12h" data-i18n="connect.clock_12"></option><option value="off" data-i18n="connect.clock_off"></option></select>
         </label>
         <label class="field"><span data-i18n="connect.timezone"></span>
           <div class="row" style="flex-wrap:nowrap">
@@ -1145,10 +1145,14 @@ function bindConnect() {
   bind("orientation", () => cfg.device.orientation, (v) => (cfg.device.orientation = v), "change");
   bind("themeMode", () => cfg.theme.mode, (v) => (cfg.theme.mode = v), "change");
   bind("accent", () => cfg.theme.accent_color, (v) => (cfg.theme.accent_color = v), "change");
-  bind("timeFormat", () => cfg.theme.time_format, (v) => (cfg.theme.time_format = v), "change");
+  // "off" hides the clock (no redraw every minute); otherwise the format
+  bind("timeFormat", () => clockValue(), (v) => {
+    cfg.theme.show_clock = v !== "off";
+    if (v !== "off") cfg.theme.time_format = v;
+  }, "change");
   bind("utcOffset", () => cfg.theme.utc_offset, (v) => (cfg.theme.utc_offset = v.trim() || null));
   // Shown in minutes, stored in seconds
-  bind("refresh", () => updateMinutes(), (v) => (cfg.home_assistant.update_interval_secs = 60 * Math.min(60, Math.max(1, parseInt(v) || 5))), "change");
+  bind("refresh", () => updateMinutes(), (v) => (cfg.home_assistant.update_interval_secs = 60 * Math.min(60, Math.max(1, parseInt(v) || 1))), "change");
   bind("lightTimeout", () => String(cfg.device.frontlight_timeout_secs || 0), (v) => (cfg.device.frontlight_timeout_secs = parseInt(v) || 0), "change");
   bind("sleepAfter", () => String(cfg.device.sleep_after_secs || 0), (v) => (cfg.device.sleep_after_secs = parseInt(v) || 0), "change");
   bind("sleepWake", () => String(cfg.device.sleep_wake_secs || 900), (v) => (cfg.device.sleep_wake_secs = parseInt(v) || 900), "change");
@@ -2630,9 +2634,15 @@ function lightTimeoutValue() {
   return v;
 }
 
-/// The update interval in whole minutes (5 when not set)
+/// The update interval in whole minutes (1 when not set)
 function updateMinutes() {
-  return Math.max(1, Math.round((cfg.home_assistant.update_interval_secs || 300) / 60));
+  const secs = cfg.home_assistant.update_interval_secs || cfg.home_assistant.refresh_interval_secs || 60;
+  return Math.min(60, Math.max(1, Math.round(secs / 60)));
+}
+
+/// The clock menu: "off" when hidden, otherwise the time format
+function clockValue() {
+  return cfg.theme.show_clock === false ? "off" : cfg.theme.time_format;
 }
 
 function showBatteryOpts() {
@@ -2642,7 +2652,7 @@ function showBatteryOpts() {
 
 function bindAllFields() {
   for (const [id, v] of [["haUrl", cfg.home_assistant.url], ["haToken", cfg.home_assistant.token], ["orientation", cfg.device.orientation],
-    ["themeMode", cfg.theme.mode], ["accent", cfg.theme.accent_color], ["timeFormat", cfg.theme.time_format],
+    ["themeMode", cfg.theme.mode], ["accent", cfg.theme.accent_color], ["timeFormat", clockValue()],
     ["utcOffset", cfg.theme.utc_offset || ""], ["refresh", updateMinutes()], ["language", cfg.theme.language],
     ["model", cfg.device.model || "auto"], ["lightTimeout", lightTimeoutValue()],
     ["sleepAfter", selectValue("sleepAfter", cfg.device.sleep_after_secs || 0)],

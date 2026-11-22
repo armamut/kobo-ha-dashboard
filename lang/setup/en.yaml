@@ -85,6 +85,7 @@ connect:
   clock: "Clock"
   clock_24: "24-hour"
   clock_12: "12-hour"
+  clock_off: "Hidden (saves battery)"
   timezone: "Time zone (UTC offset)"
   use_mine: "Use mine"
   refresh: "Update the screen every (minutes)"

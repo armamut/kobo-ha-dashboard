@@ -234,13 +234,15 @@ pub struct HomeAssistantConfig {
 
     /// How often (seconds) the dashboard updates: the screen is redrawn with
     /// the latest states, and states are fetched when live updates are down.
-    /// Between updates nothing is drawn, which saves battery. Default 5 minutes.
-    #[serde(default = "default_update_secs")]
-    pub update_interval_secs: u64,
+    /// Between updates nothing is drawn, so a longer interval saves battery.
+    /// Read it with [`HomeAssistantConfig::update_interval`].
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub update_interval_secs: Option<u64>,
 
-    /// Former polling interval, replaced by `update_interval_secs`. Still read
-    /// so older config files load, but no longer used or written.
-    #[serde(default, skip_serializing)]
+    /// Former polling interval, replaced by `update_interval_secs`. Used when
+    /// that is not set (but never below a minute, the old screen update), and
+    /// kept so older config files round-trip through the setup tool.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub refresh_interval_secs: Option<u64>,
 
     /// Request timeout in seconds
@@ -263,11 +265,22 @@ pub struct HomeAssistantConfig {
 fn default_ha_url() -> String {
     "http://homeassistant.local:8123".to_string()
 }
-pub fn default_update_secs() -> u64 {
-    300
-}
+/// Update interval when none is set: the screen changes once a minute, as before
+/// the setting existed
+pub const DEFAULT_UPDATE_SECS: u64 = 60;
 /// Shortest update interval taken from the config
 pub const MIN_UPDATE_SECS: u64 = 30;
+
+impl HomeAssistantConfig {
+    /// The update interval in seconds: `update_interval_secs`, else the older
+    /// `refresh_interval_secs` (at least a minute), else a minute.
+    pub fn update_interval(&self) -> u64 {
+        self.update_interval_secs
+            .or(self.refresh_interval_secs.map(|r| r.max(DEFAULT_UPDATE_SECS)))
+            .unwrap_or(DEFAULT_UPDATE_SECS)
+            .max(MIN_UPDATE_SECS)
+    }
+}
 fn default_timeout_secs() -> u64 {
     8
 }
@@ -283,7 +296,7 @@ impl Default for HomeAssistantConfig {
         Self {
             url: default_ha_url(),
             token: String::new(),
-            update_interval_secs: default_update_secs(),
+            update_interval_secs: None,
             refresh_interval_secs: None,
             timeout_secs: default_timeout_secs(),
             demo_mode_fallback: default_demo_mode(),
@@ -315,9 +328,9 @@ pub struct ThemeConfig {
     #[serde(default = "default_language")]
     pub language: String,
 
-    /// Show the clock in the top bar. Off by default: a clock means a screen
-    /// update every minute, which costs battery on e-ink.
-    #[serde(default)]
+    /// Show the clock in the top bar. Hiding it saves battery: the clock
+    /// needs a screen update every minute.
+    #[serde(default = "default_true")]
     pub show_clock: bool,
 
     /// Fixed UTC offset for the clock, e.g. "+03:00". Kobo keeps its system
@@ -350,7 +363,7 @@ impl Default for ThemeConfig {
             card_corner_radius: default_card_corner_radius(),
             time_format: default_time_format(),
             language: default_language(),
-            show_clock: false,
+            show_clock: true,
             utc_offset: None,
         }
     }
@@ -910,6 +923,18 @@ impl AppConfig {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn update_interval_defaults_to_a_minute_and_honours_the_old_setting() {
+        let ha = |yaml: &str| serde_yaml::from_str::<HomeAssistantConfig>(yaml).unwrap().update_interval();
+        assert_eq!(ha("url: x"), 60);
+        assert_eq!(ha("refresh_interval_secs: 20"), 60);
+        assert_eq!(ha("refresh_interval_secs: 300"), 300);
+        assert_eq!(ha("{refresh_interval_secs: 300, update_interval_secs: 120}"), 120);
+        assert_eq!(ha("update_interval_secs: 5"), MIN_UPDATE_SECS);
+        assert!(ThemeConfig::default().show_clock);
+        assert!(serde_yaml::from_str::<ThemeConfig>("time_format: 24h").unwrap().show_clock);
+    }
 
     #[test]
     fn a_card_of_an_unknown_type_is_left_out_not_the_config() {
