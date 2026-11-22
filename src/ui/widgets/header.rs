@@ -220,7 +220,7 @@ fn choose_fit(canvas: &Canvas, w: f32, n_buttons: f32, t: &HeaderTexts) -> (Head
     for fit in HEADER_FITS {
         let leftmost = w - SIDE_PAD - n_buttons * fit.btn - (n_buttons - 1.0) * fit.gap;
         let right = leftmost - fit.pad;
-        let dx = SIDE_PAD + canvas.measure_text(t.time, fit.time_size, true).0 + fit.pad;
+        let dx = SIDE_PAD + clock_width(canvas, t.time, fit.time_size, fit.pad);
         let mut row1 = if t.wifi { 48.0 } else { 0.0 };
         if let Some(label) = t.battery {
             row1 += 46.0 + if fit.show_pct { canvas.measure_text(label, 24.0, true).0 + 10.0 } else { 0.0 };
@@ -236,6 +236,16 @@ fn choose_fit(canvas: &Canvas, w: f32, n_buttons: f32, t: &HeaderTexts) -> (Head
     (HEADER_FITS[HEADER_FITS.len() - 1], false)
 }
 
+/// Room the clock takes before the date, with the space after it; nothing
+/// without a clock (the date starts at the edge).
+fn clock_width(canvas: &Canvas, time: &str, time_size: f32, pad: f32) -> f32 {
+    if time.is_empty() {
+        0.0
+    } else {
+        canvas.measure_text(time, time_size, true).0 + pad
+    }
+}
+
 pub fn render_header(
     canvas: &mut Canvas,
     theme: &Theme,
@@ -246,7 +256,8 @@ pub fn render_header(
     targets: &mut Vec<InteractiveTarget>,
 ) -> f32 {
     let now = now_local(theme_cfg);
-    let time_str = format_time(&now, theme_cfg);
+    // No clock by default: it would redraw the e-ink screen every minute.
+    let time_str = if theme_cfg.show_clock { format_time(&now, theme_cfg) } else { String::new() };
     let weekday = i18n::nth("date.weekdays", now.weekday().num_days_from_monday() as usize);
     let date = i18n::tf(
         "date.long",
@@ -293,18 +304,19 @@ pub fn render_header(
         _,
     ) = choose_fit(canvas, w, n_buttons, &texts);
 
-    // Clock + date
-    canvas.draw_text(
-        &time_str,
-        SIDE_PAD,
-        top - 4.0 + (row_h - time_size) / 2.0,
-        time_size,
-        true,
-        theme.text,
-        TextAlign::Left,
-    );
-    let time_w = canvas.measure_text(&time_str, time_size, true).0;
-    let dx = SIDE_PAD + time_w + pad;
+    // Clock (optional) + date
+    if !time_str.is_empty() {
+        canvas.draw_text(
+            &time_str,
+            SIDE_PAD,
+            top - 4.0 + (row_h - time_size) / 2.0,
+            time_size,
+            true,
+            theme.text,
+            TextAlign::Left,
+        );
+    }
+    let dx = SIDE_PAD + clock_width(canvas, &time_str, time_size, pad);
 
     // Exit + refresh buttons (big touch targets), centred in the row
     let by = top + (row_h - btn) / 2.0;
