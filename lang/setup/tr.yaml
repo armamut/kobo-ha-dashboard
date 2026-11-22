@@ -83,7 +83,7 @@ connect:
   clock_12: "12 saat"
   timezone: "Saat dilimi (UTC farkı)"
   use_mine: "Benimkini kullan"
-  refresh: "Yenileme aralığı (saniye)"
+  refresh: "Ekran güncelleme aralığı (dakika)"
   light_off_after: "Işığı şu süre sonra kapat"
   light_never: "Hiçbir zaman"
   light_30s: "30 saniye"

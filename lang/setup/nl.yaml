@@ -83,7 +83,7 @@ connect:
   clock_12: "12-uurs"
   timezone: "Tijdzone (UTC-verschil)"
   use_mine: "Mijn tijdzone"
-  refresh: "Vernieuwen elke (seconden)"
+  refresh: "Scherm bijwerken elke (minuten)"
   light_off_after: "Licht uitschakelen na"
   light_never: "Nooit"
   light_30s: "30 seconden"

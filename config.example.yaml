@@ -67,7 +67,12 @@ home_assistant:
   # Leave empty to run with built-in demo data.
   token: ""
 
-  refresh_interval_secs: 60
+  # How often the dashboard updates, in seconds (default 300 = 5 minutes).
+  # The screen is redrawn this often with the latest states (pushed changes
+  # wait for it, except right after a tap); nothing is drawn in between,
+  # which saves battery. Also how often states are polled if live updates
+  # are down. Minimum 30.
+  update_interval_secs: 300
   timeout_secs: 8
 
   # Send the Kobo's battery level to Home Assistant as a sensor, for example
@@ -87,6 +92,9 @@ theme:
   card_corner_radius: 22.0
   # "24h" or "12h"
   time_format: "24h"
+  # Show a clock in the top bar. Off by default: a clock makes the e-ink
+  # screen redraw every minute, which costs battery.
+  show_clock: false
   # en, tr, de, fr, es, it, nl, pt, pl, ja, zh
   # (ja/zh need an extra font, which the setup tool copies to the Kobo)
   language: "en"

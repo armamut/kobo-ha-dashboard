@@ -87,7 +87,7 @@ connect:
   clock_12: "12-hour"
   timezone: "Time zone (UTC offset)"
   use_mine: "Use mine"
-  refresh: "Refresh every (seconds)"
+  refresh: "Update the screen every (minutes)"
   light_off_after: "Turn the light off after"
   light_never: "Never"
   light_30s: "30 seconds"

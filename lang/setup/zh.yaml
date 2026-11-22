@@ -83,7 +83,7 @@ connect:
   clock_12: "12 小时制"
   timezone: "时区（UTC 偏移）"
   use_mine: "使用我的时区"
-  refresh: "刷新间隔（秒）"
+  refresh: "屏幕更新间隔（分钟）"
   light_off_after: "多久后关闭灯光"
   light_never: "从不"
   light_30s: "30 秒"

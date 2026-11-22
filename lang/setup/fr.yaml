@@ -83,7 +83,7 @@ connect:
   clock_12: "12 heures"
   timezone: "Fuseau horaire (décalage UTC)"
   use_mine: "Utiliser le mien"
-  refresh: "Actualiser toutes les (secondes)"
+  refresh: "Mettre à jour l'écran toutes les (minutes)"
   light_off_after: "Éteindre l'éclairage après"
   light_never: "Jamais"
   light_30s: "30 secondes"

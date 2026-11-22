@@ -492,7 +492,7 @@ a.btn.primary { color: var(--accent-ink); }
           </div>
         </label>
         <label class="field"><span data-i18n="connect.refresh"></span>
-          <input id="refresh" type="number" min="5" max="3600">
+          <input id="refresh" type="number" min="1" max="60" step="1">
         </label>
         <label class="field"><span data-i18n="connect.light_off_after"></span>
           <select id="lightTimeout">
@@ -1147,7 +1147,8 @@ function bindConnect() {
   bind("accent", () => cfg.theme.accent_color, (v) => (cfg.theme.accent_color = v), "change");
   bind("timeFormat", () => cfg.theme.time_format, (v) => (cfg.theme.time_format = v), "change");
   bind("utcOffset", () => cfg.theme.utc_offset, (v) => (cfg.theme.utc_offset = v.trim() || null));
-  bind("refresh", () => cfg.home_assistant.refresh_interval_secs, (v) => (cfg.home_assistant.refresh_interval_secs = Math.max(5, parseInt(v) || 20)));
+  // Shown in minutes, stored in seconds
+  bind("refresh", () => updateMinutes(), (v) => (cfg.home_assistant.update_interval_secs = 60 * Math.min(60, Math.max(1, parseInt(v) || 5))), "change");
   bind("lightTimeout", () => String(cfg.device.frontlight_timeout_secs || 0), (v) => (cfg.device.frontlight_timeout_secs = parseInt(v) || 0), "change");
   bind("sleepAfter", () => String(cfg.device.sleep_after_secs || 0), (v) => (cfg.device.sleep_after_secs = parseInt(v) || 0), "change");
   bind("sleepWake", () => String(cfg.device.sleep_wake_secs || 900), (v) => (cfg.device.sleep_wake_secs = parseInt(v) || 900), "change");
@@ -2629,6 +2630,11 @@ function lightTimeoutValue() {
   return v;
 }
 
+/// The update interval in whole minutes (5 when not set)
+function updateMinutes() {
+  return Math.max(1, Math.round((cfg.home_assistant.update_interval_secs || 300) / 60));
+}
+
 function showBatteryOpts() {
   $("reportBattery").checked = !!cfg.home_assistant.report_battery;
   $("batteryOpts").classList.toggle("hidden", !cfg.home_assistant.report_battery);
@@ -2637,7 +2643,7 @@ function showBatteryOpts() {
 function bindAllFields() {
   for (const [id, v] of [["haUrl", cfg.home_assistant.url], ["haToken", cfg.home_assistant.token], ["orientation", cfg.device.orientation],
     ["themeMode", cfg.theme.mode], ["accent", cfg.theme.accent_color], ["timeFormat", cfg.theme.time_format],
-    ["utcOffset", cfg.theme.utc_offset || ""], ["refresh", cfg.home_assistant.refresh_interval_secs], ["language", cfg.theme.language],
+    ["utcOffset", cfg.theme.utc_offset || ""], ["refresh", updateMinutes()], ["language", cfg.theme.language],
     ["model", cfg.device.model || "auto"], ["lightTimeout", lightTimeoutValue()],
     ["sleepAfter", selectValue("sleepAfter", cfg.device.sleep_after_secs || 0)],
     ["sleepWake", selectValue("sleepWake", cfg.device.sleep_wake_secs || 900)],

@@ -83,7 +83,7 @@ connect:
   clock_12: "12 時間表示"
   timezone: "タイムゾーン（UTC との時差）"
   use_mine: "現在地を使う"
-  refresh: "更新間隔（秒）"
+  refresh: "画面の更新間隔（分）"
   light_off_after: "ライトを消すまでの時間"
   light_never: "消さない"
   light_30s: "30 秒"

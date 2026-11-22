@@ -83,7 +83,7 @@ connect:
   clock_12: "12-godzinny"
   timezone: "Strefa czasowa (przesunięcie UTC)"
   use_mine: "Użyj mojej"
-  refresh: "Odświeżaj co (sekundy)"
+  refresh: "Odświeżaj ekran co (minuty)"
   light_off_after: "Wyłącz światło po"
   light_never: "Nigdy"
   light_30s: "30 sekundach"

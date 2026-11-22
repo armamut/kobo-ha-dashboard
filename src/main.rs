@@ -88,7 +88,7 @@ enum Command {
 
 /// For this long after a tap, pushed updates are drawn right away (so a
 /// toggled light shows its new state). Otherwise they wait for the next
-/// minute tick: a busy sensor can push every few seconds, and redrawing for
+/// update tick (`update_interval_secs`): a busy sensor can push every few seconds, and redrawing for
 /// each one keeps the CPU and the panel busy all the time.
 const LIVE_REDRAW_WINDOW: Duration = Duration::from_secs(30);
 /// With an empty battery, wake this often to see if a charger was connected.
@@ -240,7 +240,7 @@ async fn run_device(config: AppConfig, ha_client: HaClient, once: bool) -> Resul
         },
     );
 
-    // Wakeups: periodic refresh, finished service calls, clock ticks.
+    // Wakeups: periodic refresh, finished service calls, update ticks.
     let (wake_tx, mut wake_rx) = tokio::sync::mpsc::channel::<()>(8);
 
     // Live updates over WebSocket; the loop below only polls when that is
@@ -259,10 +259,15 @@ async fn run_device(config: AppConfig, ha_client: HaClient, once: bool) -> Resul
         });
     }
     ha_client.spawn_live_updates(wake_tx.clone());
+    // One interval for everything that happens on its own: the screen is
+    // redrawn this often (pushed states wait for it), and states are polled
+    // this often when live updates are down. Nothing is drawn in between.
+    let update_interval = Duration::from_secs(config.home_assistant.update_interval_secs.max(config::MIN_UPDATE_SECS));
+    tracing::info!("Updates every {:?}", update_interval);
     {
         let ha = ha_client.clone();
         let tx = wake_tx.clone();
-        let interval = Duration::from_secs(config.home_assistant.refresh_interval_secs.max(5));
+        let interval = update_interval;
         tokio::spawn(async move {
             loop {
                 if ha.is_live_push() {
@@ -371,7 +376,15 @@ async fn run_device(config: AppConfig, ha_client: HaClient, once: bool) -> Resul
         wifi_on_in_background(wifi_script.clone(), ha_client.clone(), wake_tx.clone());
     }
 
-    let mut clock = tokio::time::interval(Duration::from_secs(60));
+    // With the clock shown it has to change every minute; otherwise the
+    // screen only needs drawing at each update.
+    let tick_every = if config.theme.show_clock {
+        update_interval.min(Duration::from_secs(60))
+    } else {
+        update_interval
+    };
+    let mut clock = tokio::time::interval(tick_every);
+    clock.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
     clock.tick().await;
 
     loop {
@@ -827,7 +840,7 @@ async fn run_device(config: AppConfig, ha_client: HaClient, once: bool) -> Resul
                 // Several entities often change together: draw once for the batch.
                 tokio::time::sleep(Duration::from_millis(400)).await;
                 while wake_rx.try_recv().is_ok() {}
-                // When idle, the minute tick below draws the new states.
+                // When idle, the update tick below draws the new states.
                 if last_activity.elapsed() < LIVE_REDRAW_WINDOW {
                     redraw(&mut renderer, &mut canvas, &config, active_page, &ha_client).await;
                     flush(&mut fb, &canvas, false);

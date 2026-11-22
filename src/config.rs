@@ -232,9 +232,16 @@ pub struct HomeAssistantConfig {
     #[serde(default)]
     pub token: String,
 
-    /// State polling interval in seconds
-    #[serde(default = "default_refresh_secs")]
-    pub refresh_interval_secs: u64,
+    /// How often (seconds) the dashboard updates: the screen is redrawn with
+    /// the latest states, and states are fetched when live updates are down.
+    /// Between updates nothing is drawn, which saves battery. Default 5 minutes.
+    #[serde(default = "default_update_secs")]
+    pub update_interval_secs: u64,
+
+    /// Former polling interval, replaced by `update_interval_secs`. Still read
+    /// so older config files load, but no longer used or written.
+    #[serde(default, skip_serializing)]
+    pub refresh_interval_secs: Option<u64>,
 
     /// Request timeout in seconds
     #[serde(default = "default_timeout_secs")]
@@ -256,9 +263,11 @@ pub struct HomeAssistantConfig {
 fn default_ha_url() -> String {
     "http://homeassistant.local:8123".to_string()
 }
-fn default_refresh_secs() -> u64 {
-    60
+pub fn default_update_secs() -> u64 {
+    300
 }
+/// Shortest update interval taken from the config
+pub const MIN_UPDATE_SECS: u64 = 30;
 fn default_timeout_secs() -> u64 {
     8
 }
@@ -274,7 +283,8 @@ impl Default for HomeAssistantConfig {
         Self {
             url: default_ha_url(),
             token: String::new(),
-            refresh_interval_secs: default_refresh_secs(),
+            update_interval_secs: default_update_secs(),
+            refresh_interval_secs: None,
             timeout_secs: default_timeout_secs(),
             demo_mode_fallback: default_demo_mode(),
             report_battery: false,
@@ -304,6 +314,11 @@ pub struct ThemeConfig {
     /// Language for date header: "tr" or "en"
     #[serde(default = "default_language")]
     pub language: String,
+
+    /// Show the clock in the top bar. Off by default: a clock means a screen
+    /// update every minute, which costs battery on e-ink.
+    #[serde(default)]
+    pub show_clock: bool,
 
     /// Fixed UTC offset for the clock, e.g. "+03:00". Kobo keeps its system
     /// clock in UTC (Nickel applies the timezone itself), so set this on device.
@@ -335,6 +350,7 @@ impl Default for ThemeConfig {
             card_corner_radius: default_card_corner_radius(),
             time_format: default_time_format(),
             language: default_language(),
+            show_clock: false,
             utc_offset: None,
         }
     }
