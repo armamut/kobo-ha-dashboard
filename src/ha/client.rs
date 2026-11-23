@@ -922,47 +922,47 @@ impl HaClient {
         let _ = self.call_service(&domain, &service, payload).await;
     }
 
-    async fn apply_mock_service_call(&self, _domain: &str, service: &str, data: &Value) {
+    async fn apply_mock_service_call(&self, domain: &str, service: &str, data: &Value) {
         let mut states = self.states.write().await;
         let entity_id = data.get("entity_id").and_then(|v| v.as_str()).unwrap_or("");
         if let Some(state) = states.get_mut(entity_id) {
-            match service {
-                "toggle" => {
+            match (domain, service) {
+                (_, "toggle") => {
                     state.state = if state.is_on() { "off" } else { "on" }.to_string();
                 }
-                "turn_on" => {
+                (_, "turn_on") => {
                     state.state = "on".to_string();
                 }
-                "turn_off" => {
+                (_, "turn_off") => {
                     state.state = "off".to_string();
                 }
-                "set_temperature" => {
+                (_, "set_temperature") => {
                     if let Some(target) = data.get("temperature").and_then(|v| v.as_f64()) {
                         state.attributes.insert("temperature".to_string(), serde_json::json!(target));
                     }
                 }
-                "media_play_pause" => {
+                (_, "media_play_pause") => {
                     state.state = if state.state == "playing" { "paused" } else { "playing" }.to_string();
                 }
-                "lock" => {
+                ("lock", "lock") => {
                     state.state = "locked".to_string();
                 }
-                "unlock" => {
+                ("lock", "unlock") => {
                     state.state = "unlocked".to_string();
                 }
-                "start_pause" => {
+                ("vacuum", "start_pause") => {
                     state.state = if state.state == "cleaning" { "paused" } else { "cleaning" }.to_string();
                 }
-                "start" => {
+                ("vacuum", "start") => {
                     state.state = "cleaning".to_string();
                 }
-                "pause" => {
+                ("vacuum", "pause") => {
                     state.state = "paused".to_string();
                 }
-                "stop" => {
+                ("vacuum", "stop") => {
                     state.state = "idle".to_string();
                 }
-                "return_to_base" => {
+                ("vacuum", "return_to_base") => {
                     state.state = "returning".to_string();
                 }
                 _ => {}

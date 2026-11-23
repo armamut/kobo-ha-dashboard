@@ -401,7 +401,7 @@ fn entity_card(entity: &str, name: Option<&str>, icon: Option<&Value>, graph: bo
             icon,
             show_brightness: true,
         }),
-        "switch" | "input_boolean" | "automation" | "humidifier" | "siren" | "lock" => Some(CardConfig::Switch {
+        "switch" | "input_boolean" | "automation" | "humidifier" | "siren" => Some(CardConfig::Switch {
             entity_id,
             title,
             subtitle: None,
@@ -449,6 +449,16 @@ fn entity_card(entity: &str, name: Option<&str>, icon: Option<&Value>, graph: bo
             icon: icon.or_else(|| Some("zap".to_string())),
             service: None,
             data: None,
+        }),
+        "lock" => Some(CardConfig::Sensor {
+            entity_id,
+            title,
+            unit: None,
+            icon: icon.or_else(|| Some("lock".to_string())),
+            show_graph: false,
+            large_value: false,
+            state_on: None,
+            state_off: None,
         }),
         "sensor" | "binary_sensor" | "number" | "input_number" | "counter" | "input_text" | "input_select" | "select" | "text" => Some(CardConfig::Sensor {
             entity_id,
@@ -921,17 +931,17 @@ views:
     #[test]
     fn imports_vacuum_lock_and_perform_action_buttons() {
         let config = serde_json::json!({ "views": [{ "title": "Home", "cards": [
-            { "type": "tile", "entity": "vacuum.gostinaia_v", "name": "Roborock V" },
-            { "type": "tile", "entity": "lock.linus_l2", "name": "Door" },
+            { "type": "tile", "entity": "vacuum.living_room", "name": "Vacuum" },
+            { "type": "tile", "entity": "lock.front_door", "name": "Door" },
             {
                 "type": "button",
-                "name": "5A Power",
+                "name": "Amp Power",
                 "icon": "mdi:power",
                 "tap_action": {
                     "action": "perform-action",
                     "perform_action": "remote.send_command",
-                    "target": { "entity_id": "remote.gostinaia_rm4_mini" },
-                    "data": { "device": "magnat_reference_5a", "command": "power" }
+                    "target": { "entity_id": "remote.living_room_ir" },
+                    "data": { "device": "stereo_amp", "command": "power" }
                 }
             }
         ]}]});
@@ -939,14 +949,14 @@ views:
         let cards: Vec<&CardConfig> = result.pages.iter().flat_map(|p| p.cards.iter().map(|c| &c.kind)).collect();
         assert!(cards
             .iter()
-            .any(|c| matches!(c, CardConfig::Vacuum { entity_id, .. } if entity_id == "vacuum.gostinaia_v")));
+            .any(|c| matches!(c, CardConfig::Vacuum { entity_id, .. } if entity_id == "vacuum.living_room")));
         assert!(cards
             .iter()
-            .any(|c| matches!(c, CardConfig::Switch { entity_id, .. } if entity_id == "lock.linus_l2")));
+            .any(|c| matches!(c, CardConfig::Sensor { entity_id, icon: Some(ic), .. } if entity_id == "lock.front_door" && ic == "lock")));
         assert!(cards.iter().any(|c| matches!(
             c,
             CardConfig::Scene { entity_id, service: Some(s), data: Some(d), .. }
-            if entity_id == "remote.gostinaia_rm4_mini" && s == "remote.send_command" && d["command"] == "power"
+            if entity_id == "remote.living_room_ir" && s == "remote.send_command" && d["command"] == "power"
         )));
     }
 

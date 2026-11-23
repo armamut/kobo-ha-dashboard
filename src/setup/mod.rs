@@ -720,19 +720,19 @@ async fn preview_tap(State(s): State<Shared>, Json(t): Json<TapRequest>) -> Json
             e.state = if e.state == "playing" { "paused" } else { "playing" }.into();
             e
         }),
-        crate::ui::layout::UiAction::CallService(_, service, data) => {
+        crate::ui::layout::UiAction::CallService(domain, service, data) => {
             let id = data.get("entity_id").and_then(|v| v.as_str()).unwrap_or("");
             current(id).map(|mut e| {
-                let (state, pos) = match service.as_str() {
-                    "open_cover" => ("open", Some(100)),
-                    "close_cover" => ("closed", Some(0)),
-                    "lock" => ("locked", None),
-                    "unlock" => ("unlocked", None),
-                    "start_pause" => (if e.state == "cleaning" { "paused" } else { "cleaning" }, None),
-                    "start" => ("cleaning", None),
-                    "pause" => ("paused", None),
-                    "stop" => ("idle", None),
-                    "return_to_base" => ("returning", None),
+                let (state, pos) = match (domain.as_str(), service.as_str()) {
+                    ("cover", "open_cover") => ("open", Some(100)),
+                    ("cover", "close_cover") => ("closed", Some(0)),
+                    ("lock", "lock") => ("locked", None),
+                    ("lock", "unlock") => ("unlocked", None),
+                    ("vacuum", "start_pause") => (if e.state == "cleaning" { "paused" } else { "cleaning" }, None),
+                    ("vacuum", "start") => ("cleaning", None),
+                    ("vacuum", "pause") => ("paused", None),
+                    ("vacuum", "stop") => ("idle", None),
+                    ("vacuum", "return_to_base") => ("returning", None),
                     _ => (e.state.as_str(), None),
                 };
                 e.state = state.to_string();
