@@ -132,12 +132,11 @@ async fn handle_touch(State(state): State<SimulatorState>, Json(payload): Json<T
                 let _ = state.ha_client.call_service("media_player", "media_previous_track", p).await;
             }
             UiAction::ActivateScene(entity_id) => {
-                let (domain, service, data) = state.ha_client.activate_request(&entity_id);
+                let (domain, service, data) = state.ha_client.activate_request(&entity_id).await;
                 let _ = state.ha_client.call_service(&domain, &service, data).await;
             }
-            UiAction::CallService(domain, service, entity_id) => {
-                let p = serde_json::json!({ "entity_id": entity_id });
-                let _ = state.ha_client.call_service(&domain, &service, p).await;
+            UiAction::CallService(domain, service, data) => {
+                let _ = state.ha_client.call_service(&domain, &service, data).await;
             }
             UiAction::ShowUpdate => state.renderer.write().await.show_update = true,
             UiAction::CloseUpdate => state.renderer.write().await.show_update = false,

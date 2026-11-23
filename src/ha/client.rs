@@ -200,6 +200,7 @@ impl HaClient {
                 | CardConfig::Image { entity_id, .. }
                 | CardConfig::MediaPlayer { entity_id, .. }
                 | CardConfig::Cover { entity_id, .. }
+                | CardConfig::Vacuum { entity_id, .. }
                 | CardConfig::Scene { entity_id, .. } => all.push(entity_id.clone()),
                 CardConfig::Progress {
                     entity_id, secondary_entity, ..
@@ -865,8 +866,16 @@ impl HaClient {
         }
     }
 
-    pub fn toggle_request(&self, entity_id: &str) -> (String, String, Value) {
+    pub async fn toggle_request(&self, entity_id: &str) -> (String, String, Value) {
         let domain = entity_id.split('.').next().unwrap_or("homeassistant");
+        if domain == "lock" {
+            let locked = {
+                let states = self.states.read().await;
+                states.get(entity_id).is_some_and(|s| s.state == "locked")
+            };
+            let service = if locked { "unlock" } else { "lock" };
+            return ("lock".to_string(), service.to_string(), serde_json::json!({ "entity_id": entity_id }));
+        }
         let domain = match domain {
             "light" | "switch" | "fan" | "input_boolean" | "automation" | "media_player" | "climate" | "cover" => domain,
             _ => "homeassistant",
@@ -875,13 +884,13 @@ impl HaClient {
     }
 
     /// Service for a "scene" button: run scenes/scripts, press buttons, toggle the rest.
-    pub fn activate_request(&self, entity_id: &str) -> (String, String, Value) {
+    pub async fn activate_request(&self, entity_id: &str) -> (String, String, Value) {
         let domain = entity_id.split('.').next().unwrap_or("");
         let data = serde_json::json!({ "entity_id": entity_id });
         match domain {
             "scene" | "script" => (domain.to_string(), "turn_on".to_string(), data),
             "button" | "input_button" => (domain.to_string(), "press".to_string(), data),
-            _ => self.toggle_request(entity_id),
+            _ => self.toggle_request(entity_id).await,
         }
     }
 
@@ -904,7 +913,7 @@ impl HaClient {
     }
 
     pub async fn toggle_entity(&self, entity_id: &str) {
-        let (domain, service, payload) = self.toggle_request(entity_id);
+        let (domain, service, payload) = self.toggle_request(entity_id).await;
         let _ = self.call_service(&domain, &service, payload).await;
     }
 
@@ -913,27 +922,48 @@ impl HaClient {
         let _ = self.call_service(&domain, &service, payload).await;
     }
 
-    async fn apply_mock_service_call(&self, _domain: &str, service: &str, data: &Value) {
+    async fn apply_mock_service_call(&self, domain: &str, service: &str, data: &Value) {
         let mut states = self.states.write().await;
         let entity_id = data.get("entity_id").and_then(|v| v.as_str()).unwrap_or("");
         if let Some(state) = states.get_mut(entity_id) {
-            match service {
-                "toggle" => {
+            match (domain, service) {
+                (_, "toggle") => {
                     state.state = if state.is_on() { "off" } else { "on" }.to_string();
                 }
-                "turn_on" => {
+                (_, "turn_on") => {
                     state.state = "on".to_string();
                 }
-                "turn_off" => {
+                (_, "turn_off") => {
                     state.state = "off".to_string();
                 }
-                "set_temperature" => {
+                (_, "set_temperature") => {
                     if let Some(target) = data.get("temperature").and_then(|v| v.as_f64()) {
                         state.attributes.insert("temperature".to_string(), serde_json::json!(target));
                     }
                 }
-                "media_play_pause" => {
+                (_, "media_play_pause") => {
                     state.state = if state.state == "playing" { "paused" } else { "playing" }.to_string();
+                }
+                ("lock", "lock") => {
+                    state.state = "locked".to_string();
+                }
+                ("lock", "unlock") => {
+                    state.state = "unlocked".to_string();
+                }
+                ("vacuum", "start_pause") => {
+                    state.state = if state.state == "cleaning" { "paused" } else { "cleaning" }.to_string();
+                }
+                ("vacuum", "start") => {
+                    state.state = "cleaning".to_string();
+                }
+                ("vacuum", "pause") => {
+                    state.state = "paused".to_string();
+                }
+                ("vacuum", "stop") => {
+                    state.state = "idle".to_string();
+                }
+                ("vacuum", "return_to_base") => {
+                    state.state = "returning".to_string();
                 }
                 _ => {}
             }

@@ -511,6 +511,10 @@ pub enum CardConfig {
         subtitle: Option<String>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         icon: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        state_on: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        state_off: Option<String>,
     },
     #[serde(rename = "climate")]
     Climate {
@@ -540,6 +544,10 @@ pub enum CardConfig {
         /// Bigger value with a smaller icon, for reading from a distance
         #[serde(default, skip_serializing_if = "std::ops::Not::not")]
         large_value: bool,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        state_on: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        state_off: Option<String>,
     },
     #[serde(rename = "sensor_grid")]
     SensorGrid {
@@ -557,10 +565,17 @@ pub enum CardConfig {
     },
     #[serde(rename = "scene")]
     Scene {
+        #[serde(default, skip_serializing_if = "String::is_empty")]
         entity_id: String,
         title: String,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         icon: Option<String>,
+        /// Optional service ("domain.service", e.g. "remote.send_command") instead of activate_request
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        service: Option<String>,
+        /// Optional JSON data payload for `service`
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        data: Option<serde_json::Value>,
     },
     #[serde(rename = "scenes_row")]
     ScenesRow {
@@ -626,6 +641,18 @@ pub enum CardConfig {
         title: Option<String>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         icon: Option<String>,
+    },
+    /// Robot vacuum: state, battery, and action buttons (start/pause, dock, stop)
+    #[serde(rename = "vacuum")]
+    Vacuum {
+        entity_id: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        title: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        icon: Option<String>,
+        /// Commands to show as buttons; defaults to ["start_pause", "return_home"]
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        commands: Vec<String>,
     },
     /// A row of entities, each with its icon, name and state, as a Lovelace
     /// `glance` card
@@ -728,14 +755,23 @@ pub struct SensorItemConfig {
     pub icon: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub unit: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub state_on: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub state_off: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SceneItemConfig {
+    #[serde(default, skip_serializing_if = "String::is_empty")]
     pub entity_id: String,
     pub title: String,
     #[serde(default = "default_scene_icon")]
     pub icon: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub service: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub data: Option<serde_json::Value>,
 }
 
 fn default_scene_icon() -> String {
@@ -782,21 +818,29 @@ pub fn default_demo_pages() -> Vec<PageConfig> {
                             entity_id: "scene.good_night".to_string(),
                             title: "Good night".to_string(),
                             icon: "moon".to_string(),
+                            service: None,
+                            data: None,
                         },
                         SceneItemConfig {
                             entity_id: "scene.movie".to_string(),
                             title: "Movie".to_string(),
                             icon: "tv".to_string(),
+                            service: None,
+                            data: None,
                         },
                         SceneItemConfig {
                             entity_id: "scene.relax".to_string(),
                             title: "Relax".to_string(),
                             icon: "coffee".to_string(),
+                            service: None,
+                            data: None,
                         },
                         SceneItemConfig {
                             entity_id: "scene.all_off".to_string(),
                             title: "All off".to_string(),
                             icon: "power".to_string(),
+                            service: None,
+                            data: None,
                         },
                     ],
                 },
@@ -829,24 +873,32 @@ pub fn default_demo_pages() -> Vec<PageConfig> {
                             title: "Temperature".to_string(),
                             icon: Some("thermometer".to_string()),
                             unit: Some("°C".to_string()),
+                            state_on: None,
+                            state_off: None,
                         },
                         SensorItemConfig {
                             entity_id: "sensor.humidity".to_string(),
                             title: "Humidity".to_string(),
                             icon: Some("droplet".to_string()),
                             unit: Some("%".to_string()),
+                            state_on: None,
+                            state_off: None,
                         },
                         SensorItemConfig {
                             entity_id: "sensor.co2".to_string(),
                             title: "CO₂".to_string(),
                             icon: Some("wind".to_string()),
                             unit: Some("ppm".to_string()),
+                            state_on: None,
+                            state_off: None,
                         },
                         SensorItemConfig {
                             entity_id: "sensor.power".to_string(),
                             title: "Power".to_string(),
                             icon: Some("zap".to_string()),
                             unit: Some("W".to_string()),
+                            state_on: None,
+                            state_off: None,
                         },
                     ],
                     large_value: false,
@@ -885,12 +937,16 @@ pub fn default_demo_pages() -> Vec<PageConfig> {
                     icon: Some("zap".to_string()),
                     show_graph: true,
                     large_value: false,
+                    state_on: None,
+                    state_off: None,
                 },
                 CardConfig::Switch {
                     entity_id: "switch.air_purifier".to_string(),
                     title: Some("Air Purifier".to_string()),
                     subtitle: Some("Auto mode".to_string()),
                     icon: Some("wind".to_string()),
+                    state_on: None,
+                    state_off: None,
                 },
             ]),
         },

@@ -214,6 +214,17 @@ pages:
       #   secondary_entity: "sensor.printer_end_time"   # time left or end time
       # - type: "cover"        # open / stop / close and the position
       #   entity_id: "cover.living_room"
+      # - type: "vacuum"       # start/pause, return to base, and battery
+      #   entity_id: "vacuum.roborock"
+      #   commands: ["start_pause", "return_home"]   # optional; also supports start, pause, stop, locate
+      # - type: "scenes_row"   # buttons can also call any HA service with custom data
+      #   title: "Audio"
+      #   scenes:
+      #     - { entity_id: "remote.rm4_mini", title: "Power", icon: "power", service: "remote.send_command", data: { device: "amp", command: "power" } }
+      # - type: "sensor"       # binary_sensor / switch can override on/off state labels
+      #   entity_id: "binary_sensor.eco_mode"
+      #   state_on: "Active"
+      #   state_off: "Off"
       # - type: "glance"       # many entities in a row
       #   entities:
       #     - { entity_id: "binary_sensor.front_door", title: "Door" }

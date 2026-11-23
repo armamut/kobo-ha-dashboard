@@ -5,7 +5,7 @@ use crate::display::{Canvas, TextAlign};
 use crate::ha::models::EntityState;
 use crate::ui::layout::{InteractiveTarget, Rect, UiAction};
 use crate::ui::theme::Theme;
-use crate::ui::widgets::{draw_card, format_entity_state, type_scale, PAD};
+use crate::ui::widgets::{draw_card, format_entity_state_with_overrides, type_scale, PAD};
 use std::collections::HashMap;
 
 pub const GLANCE_TITLE_H: f32 = 40.0;
@@ -87,7 +87,9 @@ pub fn render_glance_card(
             let raw = state.map(|s| s.state.as_str()).unwrap_or("unavailable");
             let icon = item.icon.as_deref().unwrap_or_else(|| default_icon(state, &item.entity_id));
             let color = if active(raw) { theme.accent.solid } else { theme.text_muted };
-            let value = state.map(format_entity_state).unwrap_or_else(|| "--".into());
+            let value = state
+                .map(|s| format_entity_state_with_overrides(s, item.state_on.as_deref(), item.state_off.as_deref()))
+                .unwrap_or_else(|| "--".into());
             let unit = item.unit.clone().or_else(|| state.and_then(|s| s.unit_of_measurement())).unwrap_or_default();
             // A unit only after a number, not after "Open" or "Home"
             let numeric = state.is_some_and(|s| s.state.parse::<f64>().is_ok());

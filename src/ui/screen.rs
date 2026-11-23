@@ -108,6 +108,13 @@ fn heights(card: &CardConfig, w: f32) -> (f32, f32) {
                 (220.0, 160.0)
             }
         }
+        CardConfig::Vacuum { .. } => {
+            if w >= vacuum_card::VACUUM_WIDE {
+                (150.0, 110.0)
+            } else {
+                (220.0, 160.0)
+            }
+        }
         CardConfig::Glance { title, entities } => (
             glance_height(w, entities.len(), title.is_some(), glance_card::CELL_H),
             glance_height(w, entities.len(), title.is_some(), glance_card::CELL_MIN_H),
@@ -312,7 +319,7 @@ fn grid_min(card: &CardConfig, w: f32) -> (f32, f32) {
         CardConfig::Statistics { .. } => (240.0, 170.0),
         CardConfig::Progress { .. } => (180.0, 72.0),
         CardConfig::Breakdown { title, entities } => (200.0, breakdown_card::breakdown_heights(w, entities.len(), title.is_some()).1),
-        CardConfig::Cover { .. } => (200.0, 80.0),
+        CardConfig::Cover { .. } | CardConfig::Vacuum { .. } => (200.0, 80.0),
         CardConfig::Glance { title, entities } => (150.0, glance_height(w, entities.len(), title.is_some(), glance_card::CELL_MIN_H)),
         CardConfig::Image { title, .. } => {
             let t = if title.is_some() { image_card::TITLE_H } else { 0.0 };
@@ -513,6 +520,8 @@ fn new_cards() -> Vec<CardConfig> {
             title: None,
             subtitle: None,
             icon: None,
+            state_on: None,
+            state_off: None,
         },
         CardConfig::Climate {
             entity_id: e.into(),
@@ -528,6 +537,8 @@ fn new_cards() -> Vec<CardConfig> {
             icon: None,
             show_graph: false,
             large_value: false,
+            state_on: None,
+            state_off: None,
         },
         CardConfig::SensorGrid {
             title: None,
@@ -546,6 +557,8 @@ fn new_cards() -> Vec<CardConfig> {
             entity_id: e.into(),
             title: String::new(),
             icon: None,
+            service: None,
+            data: None,
         },
         CardConfig::Image {
             entity_id: e.into(),
@@ -565,6 +578,12 @@ fn new_cards() -> Vec<CardConfig> {
             entity_id: e.into(),
             title: None,
             icon: None,
+        },
+        CardConfig::Vacuum {
+            entity_id: e.into(),
+            title: None,
+            icon: None,
+            commands: Vec::new(),
         },
         CardConfig::Glance {
             title: None,
@@ -1210,6 +1229,8 @@ impl ScreenRenderer {
                 title,
                 subtitle,
                 icon,
+                state_on,
+                state_off,
             } => render_switch_card(
                 canvas,
                 theme,
@@ -1219,6 +1240,8 @@ impl ScreenRenderer {
                 title.as_deref(),
                 subtitle.as_deref(),
                 icon.as_deref(),
+                state_on.as_deref(),
+                state_off.as_deref(),
                 targets,
             ),
             CardConfig::Sensor {
@@ -1228,6 +1251,8 @@ impl ScreenRenderer {
                 icon,
                 show_graph,
                 large_value,
+                state_on,
+                state_off,
             } => render_sensor_card(
                 canvas,
                 theme,
@@ -1239,13 +1264,23 @@ impl ScreenRenderer {
                 icon.as_deref(),
                 *show_graph,
                 *large_value,
+                state_on.as_deref(),
+                state_off.as_deref(),
                 targets,
             ),
-            CardConfig::Scene { entity_id, title, icon } => {
+            CardConfig::Scene {
+                entity_id,
+                title,
+                icon,
+                service,
+                data,
+            } => {
                 let item = [SceneItemConfig {
                     entity_id: entity_id.clone(),
                     title: title.clone(),
                     icon: icon.clone().unwrap_or_else(|| "play".to_string()),
+                    service: service.clone(),
+                    data: data.clone(),
                 }];
                 render_scenes_row(canvas, theme, rect, None, &item, targets)
             }
@@ -1299,6 +1334,22 @@ impl ScreenRenderer {
                 states.get(entity_id),
                 title.as_deref(),
                 icon.as_deref(),
+                targets,
+            ),
+            CardConfig::Vacuum {
+                entity_id,
+                title,
+                icon,
+                commands,
+            } => render_vacuum_card(
+                canvas,
+                theme,
+                rect,
+                entity_id,
+                states.get(entity_id),
+                title.as_deref(),
+                icon.as_deref(),
+                commands,
                 targets,
             ),
             CardConfig::Glance { title, entities } => render_glance_card(canvas, theme, rect, title.as_deref(), entities, states, targets),
@@ -1395,6 +1446,8 @@ mod tests {
             icon: None,
             show_graph: true,
             large_value: false,
+            state_on: None,
+            state_off: None,
         };
         let cards = [sensor("sensor.a"), sensor("sensor.b"), heading.clone(), sensor("sensor.c")];
         let refs: Vec<&CardConfig> = cards.iter().collect();
@@ -1588,6 +1641,8 @@ mod tests {
                 title: None,
                 subtitle: None,
                 icon: None,
+                state_on: None,
+                state_off: None,
             },
             pos,
             parked: false,
@@ -1813,7 +1868,7 @@ mod tests {
         let mut config = AppConfig::default();
         grid_pages(&mut config.pages, 1072, 1448, true);
         let layout = grid_layout(&config.pages[0], 1072, 1448, true).unwrap();
-        assert_eq!(layout.new_sizes.len(), 16, "{:?}", layout.new_sizes);
+        assert_eq!(layout.new_sizes.len(), 17, "{:?}", layout.new_sizes);
         for (kind, (w, h, mw, mh)) in &layout.new_sizes {
             assert!(*w >= 1 && *h >= 1 && *w <= layout.grid.columns && *h <= layout.grid.rows, "{kind}: {w}x{h}");
             assert!(mw <= w && mh <= h && *mw >= 1 && *mh >= 1, "{kind}: smallest {mw}x{mh} of {w}x{h}");
@@ -1881,6 +1936,8 @@ mod tests {
             icon: None,
             show_graph: true,
             large_value: false,
+            state_on: None,
+            state_off: None,
         };
         assert_eq!(min_cells(&sensor, grid, area, 1), (1, 1));
         assert_eq!(min_cells(&switch("switch.a", None).kind, grid, area, 1), (1, 1));

@@ -248,6 +248,33 @@ fn flatten(cards: &[Value], out: &mut Vec<CardConfig>, skipped: &mut BTreeMap<St
                 }
             }
             "button" => {
+                if let Some(tap) = card
+                    .get("tap_action")
+                    .filter(|t| matches!(t.get("action").and_then(Value::as_str), Some("perform-action" | "call-service")))
+                {
+                    let svc = tap.get("perform_action").or_else(|| tap.get("service")).and_then(Value::as_str);
+                    if let Some(svc) = svc {
+                        let entity_id = tap
+                            .get("target")
+                            .and_then(|t| t.get("entity_id"))
+                            .and_then(Value::as_str)
+                            .or_else(|| card.get("entity").and_then(Value::as_str))
+                            .unwrap_or_default()
+                            .to_string();
+                        let title =
+                            name_of(card)
+                                .map(str::to_string)
+                                .unwrap_or_else(|| if entity_id.is_empty() { svc.to_string() } else { entity_label(&entity_id) });
+                        out.push(CardConfig::Scene {
+                            entity_id,
+                            title,
+                            icon: icon_name(card.get("icon")).or_else(|| Some("zap".to_string())),
+                            service: Some(svc.to_string()),
+                            data: tap.get("data").cloned(),
+                        });
+                        continue;
+                    }
+                }
                 let Some(entity) = card.get("entity").and_then(Value::as_str) else {
                     skip(skipped, kind);
                     continue;
@@ -257,6 +284,8 @@ fn flatten(cards: &[Value], out: &mut Vec<CardConfig>, skipped: &mut BTreeMap<St
                     entity_id: entity.to_string(),
                     title,
                     icon: icon_name(card.get("icon")).or_else(|| Some("play".to_string())),
+                    service: None,
+                    data: None,
                 });
             }
             "light" => {
@@ -377,12 +406,22 @@ fn entity_card(entity: &str, name: Option<&str>, icon: Option<&Value>, graph: bo
             title,
             subtitle: None,
             icon,
+            state_on: None,
+            state_off: None,
         }),
         "fan" => Some(CardConfig::Switch {
             entity_id,
             title,
             subtitle: None,
             icon: icon.or_else(|| Some("fan".to_string())),
+            state_on: None,
+            state_off: None,
+        }),
+        "vacuum" => Some(CardConfig::Vacuum {
+            entity_id,
+            title,
+            icon,
+            commands: Vec::new(),
         }),
         "climate" => Some(CardConfig::Climate {
             entity_id,
@@ -401,11 +440,25 @@ fn entity_card(entity: &str, name: Option<&str>, icon: Option<&Value>, graph: bo
             entity_id,
             title: title.unwrap_or_else(|| "Scene".to_string()),
             icon: icon.or_else(|| Some("play".to_string())),
+            service: None,
+            data: None,
         }),
         "script" | "button" | "input_button" => Some(CardConfig::Scene {
             entity_id,
             title: title.unwrap_or_else(|| "Run".to_string()),
             icon: icon.or_else(|| Some("zap".to_string())),
+            service: None,
+            data: None,
+        }),
+        "lock" => Some(CardConfig::Sensor {
+            entity_id,
+            title,
+            unit: None,
+            icon: icon.or_else(|| Some("lock".to_string())),
+            show_graph: false,
+            large_value: false,
+            state_on: None,
+            state_off: None,
         }),
         "sensor" | "binary_sensor" | "number" | "input_number" | "counter" | "input_text" | "input_select" | "select" | "text" => Some(CardConfig::Sensor {
             entity_id,
@@ -414,6 +467,8 @@ fn entity_card(entity: &str, name: Option<&str>, icon: Option<&Value>, graph: bo
             icon,
             show_graph: graph,
             large_value: false,
+            state_on: None,
+            state_off: None,
         }),
         "image" => Some(CardConfig::Image {
             entity_id,
@@ -852,7 +907,7 @@ views:
             ]},
             { "type": "gauge", "entity": "sensor.power" },
             { "type": "gauge", "entity": "sensor.power2" },
-            { "type": "entities", "entities": ["switch.kettle", { "entity": "lock.front_door" }] }
+            { "type": "entities", "entities": ["switch.kettle", { "entity": "alarm_control_panel.home" }] }
         ]}]});
         let result = import(&config, (1072, 1448), false).expect("imports");
         let cards: Vec<&CardConfig> = result.pages.iter().flat_map(|p| p.cards.iter().map(|c| &c.kind)).collect();
@@ -870,7 +925,39 @@ views:
             }
         );
         assert!(result.skipped.iter().any(|s| s.card == "custom:mushroom-template-card"));
-        assert!(result.skipped.iter().any(|s| s.card == "lock"));
+        assert!(result.skipped.iter().any(|s| s.card == "alarm_control_panel"));
+    }
+
+    #[test]
+    fn imports_vacuum_lock_and_perform_action_buttons() {
+        let config = serde_json::json!({ "views": [{ "title": "Home", "cards": [
+            { "type": "tile", "entity": "vacuum.living_room", "name": "Vacuum" },
+            { "type": "tile", "entity": "lock.front_door", "name": "Door" },
+            {
+                "type": "button",
+                "name": "Amp Power",
+                "icon": "mdi:power",
+                "tap_action": {
+                    "action": "perform-action",
+                    "perform_action": "remote.send_command",
+                    "target": { "entity_id": "remote.living_room_ir" },
+                    "data": { "device": "stereo_amp", "command": "power" }
+                }
+            }
+        ]}]});
+        let result = import(&config, (1072, 1448), false).expect("imports");
+        let cards: Vec<&CardConfig> = result.pages.iter().flat_map(|p| p.cards.iter().map(|c| &c.kind)).collect();
+        assert!(cards
+            .iter()
+            .any(|c| matches!(c, CardConfig::Vacuum { entity_id, .. } if entity_id == "vacuum.living_room")));
+        assert!(cards
+            .iter()
+            .any(|c| matches!(c, CardConfig::Sensor { entity_id, icon: Some(ic), .. } if entity_id == "lock.front_door" && ic == "lock")));
+        assert!(cards.iter().any(|c| matches!(
+            c,
+            CardConfig::Scene { entity_id, service: Some(s), data: Some(d), .. }
+            if entity_id == "remote.living_room_ir" && s == "remote.send_command" && d["command"] == "power"
+        )));
     }
 
     #[test]
